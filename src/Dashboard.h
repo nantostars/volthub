@@ -72,11 +72,12 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .ringlabel .big{font-family:var(--mono);font-weight:600;line-height:1}
 .ringlabel .sub{font-family:var(--mono);font-size:15px;color:var(--muted);margin-top:4px}
 
-/* ── overview ── */
-.ov-hero{display:flex;align-items:center;gap:18px}
-.ov-hero .meta{flex:1}
-.ov-nodes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
-.node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+/* ── overview: sources top · battery centre · loads bottom ── */
+.ov-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:none}
+.ov-mid{flex:1;display:flex;align-items:center;justify-content:center;gap:28px}
+.ov-bmeta{text-align:left}
+.ov-bot{flex:none}
+.node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
 .node .nh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .node .nv{font-family:var(--mono);font-size:34px;font-weight:600;margin-top:4px}
 .node .nv small{font-size:16px;color:var(--muted)}
@@ -175,38 +176,40 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 
     <!-- ═════ OVERVIEW ═════ -->
     <div class="view active" id="v-overview">
-      <div class="card">
-        <div class="ov-hero">
-          <div class="ringwrap">
-            <svg width="128" height="128" viewBox="0 0 128 128">
-              <circle cx="64" cy="64" r="54" fill="none" stroke="var(--inset)" stroke-width="12"/>
-              <circle id="ov-ring" class="rc" cx="64" cy="64" r="54" fill="none" stroke="var(--green)"
-                stroke-width="12" stroke-linecap="round" transform="rotate(-90 64 64)"/>
-            </svg>
-            <div class="ringlabel">
-              <div class="big" id="ov-soc" style="font-size:46px">--<span style="font-size:20px;color:var(--muted)">%</span></div>
-              <div class="sub" id="ov-bvi">--</div>
-            </div>
-          </div>
-          <div class="meta">
-            <div class="card-s">Battery</div>
-            <div id="ov-bstate" style="font-size:17px;font-weight:600;margin:2px 0">--</div>
-            <div class="card-s num" id="ov-btime">--</div>
+      <!-- sources -->
+      <div class="ov-top">
+        <div class="node">
+          <div class="nh"><span class="dot" id="ov-d-sol"></span>Solar</div>
+          <div class="nv c-orange"><span id="ov-solw">--</span><small> W</small></div>
+        </div>
+        <div class="node">
+          <div class="nh"><span class="dot" id="ov-d-dc"></span>DC-DC</div>
+          <div class="nv c-blue"><span id="ov-dcw">--</span><small> W</small></div>
+        </div>
+      </div>
+      <!-- battery -->
+      <div class="ov-mid">
+        <div class="ringwrap">
+          <svg width="150" height="150" viewBox="0 0 150 150">
+            <circle cx="75" cy="75" r="64" fill="none" stroke="var(--inset)" stroke-width="13"/>
+            <circle id="ov-ring" class="rc" cx="75" cy="75" r="64" fill="none" stroke="var(--green)"
+              stroke-width="13" stroke-linecap="round" transform="rotate(-90 75 75)"/>
+          </svg>
+          <div class="ringlabel">
+            <div class="big" id="ov-soc" style="font-size:52px">--<span style="font-size:22px;color:var(--muted)">%</span></div>
           </div>
         </div>
-        <div class="ov-nodes">
-          <div class="node">
-            <div class="nh"><span class="dot" id="ov-d-sol"></span>Solar</div>
-            <div class="nv c-orange"><span id="ov-solw">--</span><small> W</small></div>
-          </div>
-          <div class="node">
-            <div class="nh"><span class="dot" id="ov-d-dc"></span>DC-DC</div>
-            <div class="nv c-blue"><span id="ov-dcw">--</span><small> W</small></div>
-          </div>
-          <div class="node">
-            <div class="nh"><span class="dot" id="ov-d-ld"></span>Loads</div>
-            <div class="nv c-pale"><span id="ov-ldw">--</span><small> W</small></div>
-          </div>
+        <div class="ov-bmeta">
+          <div class="card-s">Battery</div>
+          <div id="ov-bstate" style="font-size:20px;font-weight:600;margin:3px 0">--</div>
+          <div class="num c-muted" id="ov-bvi" style="font-size:15px">--</div>
+        </div>
+      </div>
+      <!-- loads -->
+      <div class="ov-bot">
+        <div class="node">
+          <div class="nh"><span class="dot" id="ov-d-ld"></span>Loads</div>
+          <div class="nv c-pale"><span id="ov-ldw">--</span><small> W</small></div>
         </div>
       </div>
     </div>
@@ -456,7 +459,7 @@ function updateOverview(d){
   setRing($('ov-ring'), on?soc/100:1, col);   // offline: full grey ring (visible footprint)
   $('ov-soc').innerHTML= on ? (Math.round(soc)+'<span style="font-size:20px;color:var(--muted)">%</span>') : '--';
   $('ov-soc').style.color=col;
-  $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'offline';
+  $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
   $('ov-bstate').textContent=on?st:'offline';
   $('ov-bstate').style.color=on?(p>8?'var(--green)':p<-8?'var(--amber)':'var(--muted)'):'var(--muted)';
@@ -472,7 +475,6 @@ function updateOverview(d){
   if(on){ var bp=b.power||0; ldW=Math.max(0,(isNaN(solW)?0:solW)+(isNaN(dcW)?0:dcW)-bp); }
   $('ov-ldw').textContent=fmt(ldW,0);
   $('ov-d-ld').style.background=(ldW>0.5)?'var(--pale)':'var(--muted)';
-  $('ov-btime').textContent='';
 }
 
 // ── battery ──
