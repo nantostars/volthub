@@ -213,6 +213,10 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <!-- ═════ BATTERY ═════ -->
     <div class="view" id="v-battery">
       <div class="card">
+        <div class="card-h">
+          <div><div class="card-t">LiTime 12V 230Ah · 2P bank</div><div class="card-s">LiFePO4 · BMS · Bluetooth</div></div>
+          <span class="pill" id="bt-bms">--</span>
+        </div>
         <div style="display:flex;gap:16px;align-items:center">
           <div class="ringwrap">
             <svg width="104" height="104" viewBox="0 0 104 104">
@@ -231,17 +235,14 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         </div>
       </div>
       <div class="card">
-        <div class="card-h">
-          <div><div class="card-t">LiTime · LiFePO4</div><div class="card-s">BMS · Bluetooth</div></div>
-          <span class="pill" id="bt-bms">--</span>
-        </div>
         <div class="grid4" style="margin-bottom:14px">
           <div class="stat"><div class="l">SOH</div><div class="v" id="bt-soh">--</div></div>
           <div class="stat"><div class="l">Cycles</div><div class="v" id="bt-cyc">--</div></div>
           <div class="stat"><div class="l">Temp</div><div class="v" id="bt-temp">--</div></div>
           <div class="stat"><div class="l">Delta</div><div class="v" id="bt-delta">--</div></div>
         </div>
-        <div id="bt-cells"></div>
+        <div class="card-s" style="margin-bottom:9px">Cell voltages <span style="opacity:.7">· recommended 3.00–3.55 V</span></div>
+        <div id="bt-cells" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
       </div>
     </div>
 
@@ -498,10 +499,14 @@ function updateBattery(d){
        on?(delta<=30?'rgba(70,207,130,.15)':'rgba(255,162,77,.16)'):'var(--inset)');
   var html='';
   cells.forEach(function(v,i){
-    var pct=Math.max(0,Math.min(1,(v-2.9)/(3.65-2.9)))*100;
-    html+='<div class="cell"><div class="cl">C'+(i+1)+'</div>'
-        +'<div class="track"><div class="fill" style="width:'+pct.toFixed(0)+'%"></div></div>'
-        +'<div class="cv">'+v.toFixed(2)+' V</div></div>';
+    var bad=(v<3.00||v>3.55);
+    var col=bad?'var(--red)':'var(--text)';
+    var bg=bad?'rgba(255,90,77,0.12)':'var(--inset)';
+    var bd=bad?'rgba(255,90,77,0.5)':'var(--border)';
+    html+='<div style="background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:10px 8px;text-align:center">'
+        +'<div style="font-size:11px;color:var(--muted)">Cell '+(i+1)+'</div>'
+        +'<div class="num" style="font-size:20px;font-weight:600;margin-top:3px;color:'+col+'">'+v.toFixed(2)+'</div>'
+        +'<div style="font-size:10px;color:'+col+'">V</div></div>';
   });
   $('bt-cells').innerHTML=html||'<div class="card-s">Nessun dato cella</div>';
 }

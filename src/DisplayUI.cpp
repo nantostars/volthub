@@ -529,18 +529,26 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
 
 // ─── Battery ──────────────────────────────────────────────────────────────────
 void DisplayUI::drawBattery() {
-    drawCard(12, CT_Y + 8, 456, 84, C_CARD, true);
-    drawCard(12, CT_Y + 100, 456, 122, C_CARD, true);
-    // header of card B
-    fillText(26, CT_Y + 110, 300, 16, "LiTime 12V bank · LiFePO4", 2, C_TEXT, C_CARD);
+    drawCard(12, CT_Y + 6, 456, 104, C_CARD, true);    // card A: header + ring + grid
+    fillText(26, CT_Y + 12, 300, 16, "LiTime 12V 230Ah 2P", 2, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 32, 260, 12, "LiFePO4 - BMS - Bluetooth", 1, C_MUTED, C_CARD);
+    drawCard(12, CT_Y + 114, 456, 104, C_CARD, true);  // card B: stats + cells
+    fillText(26, CT_Y + 158, 430, 12, "Cell voltages   recommended 3.00 - 3.55 V", 1, C_MUTED, C_CARD);
     updateBattery();
 }
 
 void DisplayUI::updateBattery() {
     char buf[16], vb[8], ab[8];
     bool on = _bd.valid;
-    // ring in card A
-    int cx = 58, cy = CT_Y + 50, r = 30, th = 8;
+    // cell delta / balance
+    float mn = 9, mx = 0; for (int i = 0; i < _bd.cellCount; i++) { if (_bd.cellVoltages[i] < mn) mn = _bd.cellVoltages[i]; if (_bd.cellVoltages[i] > mx) mx = _bd.cellVoltages[i]; }
+    int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
+    const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
+    uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
+    pillCached(0, 372, CT_Y + 12, 84, 20, bmsTxt, bmsFg, C_INSET);
+
+    // ring (card A)
+    int cx = 60, cy = CT_Y + 80, r = 24, th = 6;
     int bucket = on ? (int)_bd.soc : -1;
     if (bucket != _lastSocBucket) {
         _lastSocBucket = bucket;
@@ -548,58 +556,52 @@ void DisplayUI::updateBattery() {
         uint16_t rc = on ? socColor(_bd.soc) : C_MUTED;
         drawRing(cx, cy, r, th, on ? _bd.soc / 100.0f : 0, rc, C_INSET);
         if (on) snprintf(buf, sizeof(buf), "%d%%", (int)_bd.soc); else strcpy(buf, "--");
-        centerText(cx, cy - 10, buf, 2, on ? rc : C_MUTED);
+        centerText(cx, cy - 8, buf, 2, on ? rc : C_MUTED);
     }
-    // 2x2 grid in card A
+    // 2x2 grid (card A)
     fmtF(vb, on ? _bd.voltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", vb);
-    drawStat(120, CT_Y + 16, 120, "Voltage", on ? buf : "--", C_TEXT);
+    drawStat(120, CT_Y + 62, 120, "Voltage", on ? buf : "--", C_TEXT);
     fmtF(ab, on ? _bd.current : NAN, 1); snprintf(buf, sizeof(buf), "%s A", ab);
-    drawStat(250, CT_Y + 16, 120, "Current", on ? buf : "--", on ? signColor(_bd.current) : C_MUTED);
+    drawStat(250, CT_Y + 62, 120, "Current", on ? buf : "--", on ? signColor(_bd.current) : C_MUTED);
     fmtF(vb, on ? _bd.remainingAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", vb);
-    drawStat(120, CT_Y + 50, 120, "Charge", on ? buf : "--", C_TEXT);
+    drawStat(120, CT_Y + 90, 120, "Charge", on ? buf : "--", C_TEXT);
     fmtF(ab, on ? _bd.fullCapacityAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", ab);
-    drawStat(250, CT_Y + 50, 120, "Capacity", on ? buf : "--", C_MUTED);
+    drawStat(250, CT_Y + 90, 120, "Capacity", on ? buf : "--", C_MUTED);
 
-    // card B: BMS pill + 4 stats + cell bars
-    // cell delta
-    float mn = 9, mx = 0; for (int i = 0; i < _bd.cellCount; i++) { if (_bd.cellVoltages[i] < mn) mn = _bd.cellVoltages[i]; if (_bd.cellVoltages[i] > mx) mx = _bd.cellVoltages[i]; }
-    int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
-    const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
-    uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
-    pillCached(0, 392, CT_Y + 108, 64, 20, bmsTxt, bmsFg, C_INSET);
-
+    // 4 stats (card B)
     snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);
-    drawStat(26, CT_Y + 132, 100, "SOH", on ? buf : "--", C_TEXT);
+    drawStat(26, CT_Y + 122, 100, "SOH", on ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%lu", (unsigned long)_bd.dischargesCount);
-    drawStat(140, CT_Y + 132, 100, "Cycles", on ? buf : "--", C_TEXT);
+    drawStat(140, CT_Y + 122, 100, "Cycles", on ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%d C", on ? _bd.cellTemp : 0);
-    drawStat(254, CT_Y + 132, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
+    drawStat(254, CT_Y + 122, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
     snprintf(buf, sizeof(buf), "%d mV", delta);
-    drawStat(368, CT_Y + 132, 90, "Delta", on ? buf : "--", C_TEXT);
+    drawStat(368, CT_Y + 122, 90, "Delta", on ? buf : "--", C_TEXT);
 
-    // cell bars — redraw only when the cell data actually changes (BMS polls ~2s)
+    // cell voltage boxes — 4-col grid, red when out of range; redraw only on change
     int cells = _bd.cellCount; if (cells > 4) cells = 4;
     long sig = on ? cells : -1;
     for (int i = 0; i < cells; i++) sig = sig * 4099 + (long)lroundf(_bd.cellVoltages[i] * 1000);
     if (sig != _cellSig) {
         _cellSig = sig;
-        int barY = CT_Y + 170;
+        const int bw = 101, bh = 40, boxY = CT_Y + 172;
         for (int i = 0; i < 4; i++) {
-            int y = barY + i * 13;
+            int bx = 26 + i * (bw + 8);
             if (i < cells) {
-                char lbl[10]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
-                fillText(26, y, 26, 11, lbl, 1, C_MUTED, C_CARD);
-                int bx = 56, bw = 300, bh = 9;
-                float pct = (_bd.cellVoltages[i] - 2.9f) / (3.65f - 2.9f);
-                if (pct < 0) pct = 0; if (pct > 1) pct = 1;
-                int fw = (int)(bw * pct);
-                // fill + remainder tile the track exactly (no full-row blank frame)
-                if (fw > 0) _D.fillRoundRect(bx, y + 1, fw, bh, 3, C_BLUE);
-                if (fw < bw) _D.fillRect(bx + fw, y + 1, bw - fw, bh, C_INSET);
-                char cvb[10]; fmtF(cvb, _bd.cellVoltages[i], 2); strcat(cvb, "V");
-                fillText(bx + bw + 8, y, 60, 11, cvb, 1, C_TEXT, C_CARD);
+                float v = _bd.cellVoltages[i];
+                bool bad = (v < 3.00f || v > 3.55f);
+                uint16_t bgc = bad ? 0x38A2 /* dark red tint */ : C_INSET;
+                uint16_t bdc = bad ? C_RED : C_BORDER;
+                uint16_t vc  = bad ? C_RED : C_TEXT;
+                _D.fillRoundRect(bx, boxY, bw, bh, 8, bgc);
+                _D.drawRoundRect(bx, boxY, bw, bh, 8, bdc);
+                char lbl[8]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
+                centerFill(bx + bw / 2, boxY + 5, bw - 8, 10, lbl, 1, C_MUTED, bgc);
+                char cvb[8]; fmtF(cvb, v, 2);
+                centerFill(bx + bw / 2, boxY + 16, bw - 8, 18, cvb, 2, vc, bgc);
+                centerFill(bx + bw / 2, boxY + 30, bw - 8, 9, "V", 1, vc, bgc);
             } else {
-                _D.fillRect(26, y, 432, 12, C_CARD);  // clear unused rows once
+                _D.fillRect(bx, boxY, bw, bh, C_CARD);  // clear unused box
             }
         }
     }
