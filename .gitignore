@@ -1,0 +1,15 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# macOS
+.DS_Store
+
+# Claude local settings (per-machine)
+.claude/settings.local.json
+
+# Build / temp
+*.bin
+*.elf
+*.map
