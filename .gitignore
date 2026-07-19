@@ -13,3 +13,6 @@
 *.bin
 *.elf
 *.map
+
+# Demo/reference del vendor (materiale di riferimento, non serve al build)
+JC3248W535EN/
