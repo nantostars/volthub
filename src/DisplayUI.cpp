@@ -496,7 +496,7 @@ void DisplayUI::updateOverview() {
     drawNodeVal(334, CT_Y + 105, loadsW, loadsW > 0.5f ? C_PALE : C_MUTED);
 
     // Battery ring (center) — redraw only when SOC bucket changes
-    int cx = 240, cy = CT_Y + 92, r = 50, th = 10;
+    int cx = 240, cy = CT_Y + 115, r = 50, th = 10;
     float soc = _bd.valid ? _bd.soc : NAN;
     int bucket = _bd.valid ? (int)soc : -1;
     if (bucket != _lastSocBucket) {
@@ -544,9 +544,9 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
             }
         }
     };
-    dash(158, CT_Y + 48, 190, CT_Y + 78,  solar, C_ORANGE);   // solar → battery
-    dash(158, CT_Y + 182, 190, CT_Y + 106, dcdc,  C_BLUE);    // dc-dc → battery
-    dash(290, CT_Y + 92, 322, CT_Y + 115,  loads, C_PALE);    // battery → loads
+    dash(158, CT_Y + 48, 192, CT_Y + 97,  solar, C_ORANGE);   // solar → battery
+    dash(158, CT_Y + 182, 192, CT_Y + 133, dcdc,  C_BLUE);    // dc-dc → battery
+    dash(290, CT_Y + 115, 322, CT_Y + 115, loads, C_PALE);    // battery → loads
 }
 
 // ─── Battery ──────────────────────────────────────────────────────────────────
