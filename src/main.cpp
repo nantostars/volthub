@@ -102,6 +102,13 @@ static void handleApiData() {
         jb["cellTemp"]=b.cellTemp; jb["mosfetTemp"]=b.mosfetTemp;
         JsonArray cells = jb["cells"].to<JsonArray>();
         for (int i=0;i<b.cellCount;i++) cells.add(b.cellVoltages[i]);
+        if (b.cellCount > 0) {
+            int nomV = b.cellCount <= 4 ? 12 : b.cellCount <= 8 ? 24 : 48;
+            char bmodel[32];
+            if (b.fullCapacityAh > 0) snprintf(bmodel, sizeof(bmodel), "%dV %.0fAh %dS", nomV, b.fullCapacityAh, b.cellCount);
+            else                      snprintf(bmodel, sizeof(bmodel), "%dV %dS", nomV, b.cellCount);
+            jb["model"] = bmodel;
+        }
     }
     JsonObject js = doc["solar"].to<JsonObject>();
     js["online"] = s.valid && (now - s.lastSeen < DEVICE_STALE_MS);
@@ -110,6 +117,7 @@ static void handleApiData() {
         addFloat(js,"battVoltage",s.battVoltage); addFloat(js,"chargeCurrent",s.chargeCurrent);
         addFloat(js,"solarPower",s.solarPower);   addFloat(js,"yieldToday",s.yieldToday);
         addFloat(js,"loadCurrent",s.loadCurrent);
+        js["model"]=victronModelName(s.productId,false); js["pid"]=s.productId;
     }
     JsonObject jo = doc["orion"].to<JsonObject>();
     jo["online"] = o.valid && (now - o.lastSeen < DEVICE_STALE_MS);
@@ -117,6 +125,7 @@ static void handleApiData() {
         jo["stateCode"]=o.deviceState; jo["state"]=victronStateName(o.deviceState);
         addFloat(jo,"outVoltage",o.outVoltage); addFloat(jo,"outCurrent",o.outCurrent);
         addFloat(jo,"inVoltage",o.inVoltage);   addFloat(jo,"inCurrent",o.inCurrent);
+        jo["model"]=victronModelName(o.productId,true); jo["pid"]=o.productId;
     }
     JsonObject jim = doc["imu"].to<JsonObject>();
     jim["online"] = imOnline;

@@ -31,6 +31,7 @@ struct SolarData {
     float   yieldToday;    // Wh
     float   solarPower;    // W
     float   loadCurrent;   // A
+    uint16_t productId;    // Victron product ID (advert [4..5]) → model lookup
     uint32_t lastSeen;     // millis()
     bool    valid;
 };
@@ -43,9 +44,21 @@ struct OrionData {
     float    inVoltage;    // V
     float    inCurrent;    // A
     uint32_t offReason;
+    uint16_t productId;    // Victron product ID (advert [4..5]) → model lookup
     uint32_t lastSeen;
     bool     valid;
 };
+
+// Victron product ID → model name. Family fallback is reliable (category known
+// from the key that decrypts). Add specific product IDs here as they are observed
+// (the raw productId is exposed in /api/data to help identify them).
+static inline const char* victronModelName(uint16_t pid, bool isOrion) {
+    switch (pid) {
+        // case 0xA0XX: return "SmartSolar MPPT 100/50";
+        // case 0xA0YY: return "Orion-XS 12/12-50";
+        default: return isOrion ? "Orion-XS" : "SmartSolar MPPT";
+    }
+}
 
 // ─── VictronBLE scanner class ─────────────────────────────────────────────────
 
@@ -80,8 +93,8 @@ private:
     bool tryDecrypt(const uint8_t* mfrData, size_t mfrLen,
                     const uint8_t* key, uint8_t* out);
 
-    void parseSolar(const uint8_t* dec);
-    void parseOrion(const uint8_t* dec);
+    void parseSolar(const uint8_t* dec, uint16_t pid);
+    void parseOrion(const uint8_t* dec, uint16_t pid);
 
     uint8_t  _solarKey[16];
     uint8_t  _orionKey[16];

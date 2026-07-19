@@ -223,7 +223,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <div class="view" id="v-battery">
       <div class="card">
         <div class="card-h">
-          <div><div class="card-t">LiTime 12V 230Ah · 2P bank</div><div class="card-s">LiFePO4 · BMS · Bluetooth</div></div>
+          <div><div class="card-t" id="bt-title">Battery</div><div class="card-s">LiFePO4 · BMS · Bluetooth</div></div>
           <span class="pill" id="bt-bms">--</span>
         </div>
         <div style="display:flex;gap:16px;align-items:center">
@@ -259,7 +259,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <div class="view" id="v-solar">
       <div class="card">
         <div class="card-h">
-          <div><div class="card-t">Victron SmartSolar MPPT</div><div class="card-s">Bluetooth</div></div>
+          <div><div class="card-t" id="so-title">Solar</div><div class="card-s">Bluetooth</div></div>
           <span class="pill" id="so-state">--</span>
         </div>
         <div class="bigw"><div class="n c-orange" id="so-w">--</div><div class="u">W</div></div>
@@ -280,7 +280,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <div class="view" id="v-dcdc">
       <div class="card">
         <div class="card-h">
-          <div><div class="card-t">Victron Orion-XS DC-DC</div><div class="card-s">Alternator · Bluetooth</div></div>
+          <div><div class="card-t" id="dc-title">DC-DC</div><div class="card-s">Alternator · Bluetooth</div></div>
           <span class="pill" id="dc-state">--</span>
         </div>
         <div class="bigw"><div class="n c-blue" id="dc-w">--</div><div class="u">W</div></div>
@@ -492,6 +492,7 @@ function updateOverview(d){
 // ── battery ──
 function updateBattery(d){
   var b=d.battery||{}, on=b.online;
+  $('bt-title').textContent=on?(b.model||'Battery'):'Battery';
   var col=on?socColor(b.soc):'var(--muted)';
   setRing($('bt-ring'), on?b.soc/100:1, col);   // offline: full grey ring
   $('bt-soc').innerHTML= on ? (Math.round(b.soc)+'<span style="font-size:18px;color:var(--muted)">%</span>') : '--';
@@ -529,6 +530,7 @@ function updateBattery(d){
 // ── solar ──
 function updateSolar(d){
   var s=d.solar||{}, on=s.online;
+  $('so-title').textContent=on?(s.model||'Solar'):'Solar';
   pill($('so-state'), on?(s.state||'--'):'offline', on?'var(--orange)':'var(--muted)', on?'rgba(255,105,0,.16)':'var(--inset)');
   $('so-w').textContent=on?fmt(s.solarPower,0):'--';
   $('so-bv').textContent=on?fmt(s.battVoltage,2)+' V':'--';
@@ -540,6 +542,7 @@ function updateSolar(d){
 // ── dc-dc ──
 function updateDcdc(d){
   var o=d.orion||{}, on=o.online;
+  $('dc-title').textContent=on?(o.model||'DC-DC'):'DC-DC';
   var w=(on&&o.outVoltage!==undefined&&o.outCurrent!==undefined)?o.outVoltage*o.outCurrent:NaN;
   var st=!on?'offline':(o.outCurrent>0.1?'Charging':'Standby');
   pill($('dc-state'), st, on?'var(--blue)':'var(--muted)', on?'rgba(90,165,245,.16)':'var(--inset)');
@@ -582,10 +585,10 @@ function updateLevel(d){
 // ── system ──
 function updateSystem(d){
   var devs=[
-    {n:'SmartSolar MPPT', on:d.solar&&d.solar.online},
-    {n:'Orion-XS DC-DC', on:d.orion&&d.orion.online},
-    {n:'LiTime BMS', on:d.battery&&d.battery.online},
-    {n:'WitMotion IMU', on:d.imu&&d.imu.online}
+    {n:'Solar', on:d.solar&&d.solar.online},
+    {n:'DC-DC', on:d.orion&&d.orion.online},
+    {n:'Battery', on:d.battery&&d.battery.online},
+    {n:'Tilt sensor', on:d.imu&&d.imu.online}
   ];
   var html='';
   devs.forEach(function(x){

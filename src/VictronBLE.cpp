@@ -174,15 +174,16 @@ void VictronBLE::onResult(NimBLEAdvertisedDevice* dev) {
 
 bool VictronBLE::processVictron(const uint8_t* mfr, size_t len) {
     uint8_t dec[16] = {};
+    uint16_t pid = readU16LE(&mfr[4]);   // product ID (advert header [4..5])
 
     // Attempt solar key first
     if (tryDecrypt(mfr, len, _solarKey, dec)) {
-        parseSolar(dec);
+        parseSolar(dec, pid);
         return true;
     }
     // Then orion key
     if (tryDecrypt(mfr, len, _orionKey, dec)) {
-        parseOrion(dec);
+        parseOrion(dec, pid);
         return true;
     }
     return false;
@@ -201,7 +202,7 @@ bool VictronBLE::tryDecrypt(const uint8_t* mfr, size_t mfrLen,
     return aes128ctrDecrypt(key, iv, enc, encLen, out);
 }
 
-void VictronBLE::parseSolar(const uint8_t* dec) {
+void VictronBLE::parseSolar(const uint8_t* dec, uint16_t pid) {
     int16_t  rawVolt  = readS16LE(&dec[2]);
     int16_t  rawCurr  = readS16LE(&dec[4]);
     uint16_t rawYield = readU16LE(&dec[6]);
@@ -216,6 +217,7 @@ void VictronBLE::parseSolar(const uint8_t* dec) {
     s.yieldToday    = (rawYield != 0xFFFF)           ? rawYield * 10.0f  : NAN;
     s.solarPower    = (rawPower != 0xFFFF)           ? (float)rawPower   : NAN;
     s.loadCurrent   = (rawLoad  != 0x01FF)           ? rawLoad  / 10.0f  : NAN;
+    s.productId     = pid;
     s.lastSeen      = millis();
     s.valid         = true;
 
@@ -231,7 +233,7 @@ void VictronBLE::onScanEnd(NimBLEScanResults /*results*/) {
     // intentionally empty — watchdog in main.cpp handles restart
 }
 
-void VictronBLE::parseOrion(const uint8_t* dec) {
+void VictronBLE::parseOrion(const uint8_t* dec, uint16_t pid) {
     uint16_t rawOutV = readU16LE(&dec[2]);
     uint16_t rawOutC = readU16LE(&dec[4]);
     uint16_t rawInV  = readU16LE(&dec[6]);
@@ -245,6 +247,7 @@ void VictronBLE::parseOrion(const uint8_t* dec) {
     o.inVoltage   = (rawInV  != 0xFFFF) ? rawInV  / 100.0f : NAN;
     o.inCurrent   = (rawInC  != 0xFFFF) ? rawInC  / 10.0f  : NAN;
     o.offReason   = readU32LE(&dec[10]);
+    o.productId   = pid;
     o.lastSeen    = millis();
     o.valid       = true;
 

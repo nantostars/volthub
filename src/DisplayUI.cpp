@@ -550,7 +550,6 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
 // ─── Battery ──────────────────────────────────────────────────────────────────
 void DisplayUI::drawBattery() {
     drawCard(12, CT_Y + 6, 456, 110, C_CARD, true);     // card A: header + ring + grid
-    fillText(26, CT_Y + 12, 300, 16, "LiTime 12V 230Ah 2P", 2, C_TEXT, C_CARD);
     fillText(26, CT_Y + 30, 260, 12, "LiFePO4 - BMS - Bluetooth", 1, C_MUTED, C_CARD);
     drawCard(12, CT_Y + 126, 456, 98, C_CARD, true);    // card B: stats + cells
     fillText(26, CT_Y + 168, 430, 12, "Cell voltages   recommended 3.00 - 3.55 V", 1, C_MUTED, C_CARD);
@@ -560,6 +559,14 @@ void DisplayUI::drawBattery() {
 void DisplayUI::updateBattery() {
     char buf[16], vb[8], ab[8];
     bool on = _bd.valid;
+    // dynamic model title from BLE data (generic when offline)
+    char btit[24];
+    if (on && _bd.cellCount > 0) {
+        int nomV = _bd.cellCount <= 4 ? 12 : _bd.cellCount <= 8 ? 24 : 48;
+        if (_bd.fullCapacityAh > 0) snprintf(btit, sizeof(btit), "%dV %.0fAh %dS", nomV, _bd.fullCapacityAh, _bd.cellCount);
+        else                        snprintf(btit, sizeof(btit), "%dV %dS", nomV, _bd.cellCount);
+    } else strcpy(btit, "Battery");
+    fillText(26, CT_Y + 12, 300, 16, btit, 2, C_TEXT, C_CARD);
     // cell delta / balance
     float mn = 9, mx = 0; for (int i = 0; i < _bd.cellCount; i++) { if (_bd.cellVoltages[i] < mn) mn = _bd.cellVoltages[i]; if (_bd.cellVoltages[i] > mx) mx = _bd.cellVoltages[i]; }
     int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
@@ -630,7 +637,6 @@ void DisplayUI::updateBattery() {
 // ─── Solar (degraded: no PV V/A, no hourly history) ───────────────────────────
 void DisplayUI::drawSolar() {
     drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
-    fillText(26, CT_Y + 18, 300, 16, "Victron SmartSolar MPPT", 2, C_TEXT, C_CARD);
     fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
     // inset backgrounds + static labels (drawn once)
     int iy = CT_Y + 82, iw = 142;
@@ -649,6 +655,7 @@ void DisplayUI::drawSolar() {
 void DisplayUI::updateSolar() {
     char buf[16], t[8];
     bool on = _sd.valid;
+    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_sd.productId, false) : "Solar", 2, C_TEXT, C_CARD);
     const char* state = on ? victronStateName(_sd.chargeState) : "offline";
     pillCached(1, 360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
     // big W (opaque, single pass)
@@ -670,7 +677,6 @@ void DisplayUI::updateSolar() {
 // ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
 void DisplayUI::drawDcdc() {
     drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
-    fillText(26, CT_Y + 18, 300, 16, "Victron Orion-XS DC-DC", 2, C_TEXT, C_CARD);
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
     fillText(26, CT_Y + 144, 300, 14, "Charge profile", 1, C_MUTED, C_CARD);
     // static charge profile
@@ -693,6 +699,7 @@ void DisplayUI::drawDcdc() {
 void DisplayUI::updateDcdc() {
     char buf[16], t[8];
     bool on = _od.valid;
+    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : "DC-DC", 2, C_TEXT, C_CARD);
     float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
     const char* state = !on ? "offline" : (_od.outCurrent > 0.1f ? "Charging" : "Standby");
     pillCached(2, 360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
@@ -792,10 +799,10 @@ void DisplayUI::drawSystem() {
 
 void DisplayUI::updateSystem() {
     struct { const char* name; bool on; } devs[4] = {
-        { "SmartSolar MPPT", _sd.valid },
-        { "Orion-XS DC-DC",  _od.valid },
-        { "LiTime BMS",      _bd.valid },
-        { "WitMotion IMU",   _imu.valid },
+        { "Solar",       _sd.valid },
+        { "DC-DC",       _od.valid },
+        { "Battery",     _bd.valid },
+        { "Tilt sensor", _imu.valid },
     };
     for (int i = 0; i < 4; i++) {
         int y = CT_Y + 40 + i * 44;
