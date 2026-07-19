@@ -529,11 +529,10 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
 
 // ─── Battery ──────────────────────────────────────────────────────────────────
 void DisplayUI::drawBattery() {
-    drawCard(12, CT_Y + 6, 456, 104, C_CARD, true);    // card A: header + ring + grid
-    fillText(26, CT_Y + 12, 300, 16, "LiTime 12V 230Ah 2P", 2, C_TEXT, C_CARD);
-    fillText(26, CT_Y + 32, 260, 12, "LiFePO4 - BMS - Bluetooth", 1, C_MUTED, C_CARD);
-    drawCard(12, CT_Y + 114, 456, 104, C_CARD, true);  // card B: stats + cells
-    fillText(26, CT_Y + 158, 430, 12, "Cell voltages   recommended 3.00 - 3.55 V", 1, C_MUTED, C_CARD);
+    drawCard(12, CT_Y + 6, 456, 84, C_CARD, true);      // card A: ring + 2x2 grid
+    drawCard(12, CT_Y + 100, 456, 120, C_CARD, true);   // card B: header + stats + cells
+    fillText(26, CT_Y + 106, 300, 16, "LiTime 12V 230Ah 2P", 2, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 164, 430, 12, "Cell voltages   recommended 3.00 - 3.55 V", 1, C_MUTED, C_CARD);
     updateBattery();
 }
 
@@ -545,10 +544,10 @@ void DisplayUI::updateBattery() {
     int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
     const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
     uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
-    pillCached(0, 372, CT_Y + 12, 84, 20, bmsTxt, bmsFg, C_INSET);
+    pillCached(0, 372, CT_Y + 104, 84, 20, bmsTxt, bmsFg, C_INSET);   // card B header row
 
     // ring (card A)
-    int cx = 60, cy = CT_Y + 80, r = 24, th = 6;
+    int cx = 58, cy = CT_Y + 48, r = 30, th = 8;
     int bucket = on ? (int)_bd.soc : -1;
     if (bucket != _lastSocBucket) {
         _lastSocBucket = bucket;
@@ -560,23 +559,23 @@ void DisplayUI::updateBattery() {
     }
     // 2x2 grid (card A)
     fmtF(vb, on ? _bd.voltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", vb);
-    drawStat(120, CT_Y + 62, 120, "Voltage", on ? buf : "--", C_TEXT);
+    drawStat(120, CT_Y + 16, 120, "Voltage", on ? buf : "--", C_TEXT);
     fmtF(ab, on ? _bd.current : NAN, 1); snprintf(buf, sizeof(buf), "%s A", ab);
-    drawStat(250, CT_Y + 62, 120, "Current", on ? buf : "--", on ? signColor(_bd.current) : C_MUTED);
+    drawStat(250, CT_Y + 16, 120, "Current", on ? buf : "--", on ? signColor(_bd.current) : C_MUTED);
     fmtF(vb, on ? _bd.remainingAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", vb);
-    drawStat(120, CT_Y + 90, 120, "Charge", on ? buf : "--", C_TEXT);
+    drawStat(120, CT_Y + 50, 120, "Charge", on ? buf : "--", C_TEXT);
     fmtF(ab, on ? _bd.fullCapacityAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", ab);
-    drawStat(250, CT_Y + 90, 120, "Capacity", on ? buf : "--", C_MUTED);
+    drawStat(250, CT_Y + 50, 120, "Capacity", on ? buf : "--", C_MUTED);
 
     // 4 stats (card B)
     snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);
-    drawStat(26, CT_Y + 122, 100, "SOH", on ? buf : "--", C_TEXT);
+    drawStat(26, CT_Y + 128, 100, "SOH", on ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%lu", (unsigned long)_bd.dischargesCount);
-    drawStat(140, CT_Y + 122, 100, "Cycles", on ? buf : "--", C_TEXT);
+    drawStat(140, CT_Y + 128, 100, "Cycles", on ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%d C", on ? _bd.cellTemp : 0);
-    drawStat(254, CT_Y + 122, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
+    drawStat(254, CT_Y + 128, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
     snprintf(buf, sizeof(buf), "%d mV", delta);
-    drawStat(368, CT_Y + 122, 90, "Delta", on ? buf : "--", C_TEXT);
+    drawStat(368, CT_Y + 128, 90, "Delta", on ? buf : "--", C_TEXT);
 
     // cell voltage boxes — 4-col grid, red when out of range; redraw only on change
     int cells = _bd.cellCount; if (cells > 4) cells = 4;
@@ -584,7 +583,7 @@ void DisplayUI::updateBattery() {
     for (int i = 0; i < cells; i++) sig = sig * 4099 + (long)lroundf(_bd.cellVoltages[i] * 1000);
     if (sig != _cellSig) {
         _cellSig = sig;
-        const int bw = 101, bh = 40, boxY = CT_Y + 172;
+        const int bw = 101, bh = 38, boxY = CT_Y + 178;
         for (int i = 0; i < 4; i++) {
             int bx = 26 + i * (bw + 8);
             if (i < cells) {
