@@ -135,6 +135,7 @@ private:
     int      _lastDevs = -1;           // status-bar BLE count
     char     _pill[5][14] = {{0}};     // last drawn pill text (0=bms 1=solar 2=dcdc 3=level 4=sys)
     long     _cellSig = -1;            // battery cell-bars change signature
+    int      _lvBx = -999, _lvBy = -999;  // last level-bubble center (erase-in-place)
 
     // Screen timeout
     bool     _screenOn    = true;

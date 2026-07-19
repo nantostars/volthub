@@ -701,6 +701,7 @@ void DisplayUI::drawLevel() {
     fillText(346, CT_Y + 16, 110, 12, "ROLL L-R", 1, C_MUTED, C_CARD);
     drawCard(200, CT_Y + 82, 268, 140, C_CARD, true);
     fillText(210, CT_Y + 90, 240, 14, "Ramp / chock guidance", 1, C_MUTED, C_CARD);
+    _lvBx = -999;   // fresh screen — no old bubble to erase
     updateLevel();
 }
 
@@ -715,15 +716,19 @@ void DisplayUI::updateLevel() {
     auto axCol = [&](float v){ return fabsf(v) <= tol ? C_GREEN : (fabsf(v) <= 2 ? C_AMBER : C_RED); };
     char buf[16];
 
-    // bubble
+    // bubble — erase ONLY the previous bubble spot, then restore the thin guides
+    // it covered, then draw the new bubble. No full-disc fill (that was the flicker).
     int cx = 100, cy = CT_Y + 116, R = 72;
-    _D.fillCircle(cx, cy, R - 2, C_INSET);         // clear interior
+    int bx = cx + (int)constrain(roll * 6.0f, -54.0f, 54.0f);
+    int by = cy + (int)constrain(-pitch * 6.0f, -54.0f, 54.0f);
+    if (_lvBx > -900 && (_lvBx != bx || _lvBy != by))
+        _D.fillCircle(_lvBx, _lvBy, 13, C_INSET);      // wipe old bubble
+    // restore guides (thin — redraw in place, no visible flicker)
     _D.drawCircle(cx, cy, 30, C_BORDER);
     _D.drawFastHLine(cx - R + 8, cy, 2 * (R - 8), C_BORDER);
     _D.drawFastVLine(cx, cy - R + 8, 2 * (R - 8), C_BORDER);
-    int bx = cx + (int)constrain(roll * 6.0f, -54.0f, 54.0f);
-    int by = cy + (int)constrain(-pitch * 6.0f, -54.0f, 54.0f);
     _D.fillCircle(bx, by, 12, on ? (level ? C_GREEN : C_AMBER) : C_MUTED);
+    _lvBx = bx; _lvBy = by;
 
     // status pill
     pillCached(3, 52, CT_Y + 196, 96, 20, on ? (level ? "Levelled" : "Adjust") : "no sensor", on ? (level ? C_GREEN : C_AMBER) : C_MUTED, C_INSET);
