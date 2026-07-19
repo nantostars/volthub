@@ -474,7 +474,7 @@ void DisplayUI::drawOverview() {
 void DisplayUI::drawNodeVal(int x, int y, float w, uint16_t col) {
     char num[10]; fmtF(num, w, 0);
     fillText(x, y, 96, 48, num, 6, col, C_INSET);          // number, opaque, left
-    fillText(x + 98, y + 24, 20, 16, "W", 2, C_MUTED, C_INSET); // unit, fixed
+    fillText(x + 96, y + 18, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), fixed
 }
 
 void DisplayUI::updateOverview() {
@@ -503,7 +503,8 @@ void DisplayUI::updateOverview() {
         _lastSocBucket = bucket;
         _D.fillRect(cx - r - th, cy - r - th, (r + th) * 2, (r + th) * 2, C_BG);
         uint16_t rc = _bd.valid ? socColor(soc) : C_MUTED;
-        drawRing(cx, cy, r, th, _bd.valid ? soc / 100.0f : 0.0f, rc, C_INSET);
+        // offline: full grey ring so the footprint is visible (state colour = grey)
+        drawRing(cx, cy, r, th, _bd.valid ? soc / 100.0f : 1.0f, rc, C_INSET);
         if (_bd.valid) {
             char num[6]; snprintf(num, sizeof(num), "%d", (int)soc);
             _setFont(6); int nw = _textWidth(num);
