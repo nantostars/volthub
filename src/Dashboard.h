@@ -453,8 +453,8 @@ function updateTop(d){
 function updateOverview(d){
   var b=d.battery||{}, on=b.online;
   var soc=on?b.soc:NaN, col=on?socColor(soc):'var(--muted)';
-  setRing($('ov-ring'), on?soc/100:0, col);
-  $('ov-soc').innerHTML=(on?Math.round(soc):'--')+'<span style="font-size:20px;color:var(--muted)">%</span>';
+  setRing($('ov-ring'), on?soc/100:1, col);   // offline: full grey ring (visible footprint)
+  $('ov-soc').innerHTML= on ? (Math.round(soc)+'<span style="font-size:20px;color:var(--muted)">%</span>') : '--';
   $('ov-soc').style.color=col;
   $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'offline';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
@@ -479,8 +479,8 @@ function updateOverview(d){
 function updateBattery(d){
   var b=d.battery||{}, on=b.online;
   var col=on?socColor(b.soc):'var(--muted)';
-  setRing($('bt-ring'), on?b.soc/100:0, col);
-  $('bt-soc').innerHTML=(on?Math.round(b.soc):'--')+'<span style="font-size:18px;color:var(--muted)">%</span>';
+  setRing($('bt-ring'), on?b.soc/100:1, col);   // offline: full grey ring
+  $('bt-soc').innerHTML= on ? (Math.round(b.soc)+'<span style="font-size:18px;color:var(--muted)">%</span>') : '--';
   $('bt-soc').style.color=col;
   $('bt-v').textContent=on?fmt(b.voltage,2)+' V':'--';
   $('bt-a').textContent=on?fmt(b.current,1)+' A':'--';
