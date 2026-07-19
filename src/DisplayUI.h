@@ -73,6 +73,7 @@ private:
 
     // ── Per-screen full draw + periodic value refresh ─────────────────────────
     void drawOverview();   void updateOverview();
+    void drawNodeVal(int x, int y, float w, uint16_t col);
     void drawBattery();    void updateBattery();
     void drawSolar();      void updateSolar();
     void drawDcdc();       void updateDcdc();
@@ -91,6 +92,7 @@ private:
     void drawStat(int x, int y, int w, const char* label, const char* val, uint16_t valCol);
     void fillText(int x, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
     void centerText(int cx, int y, const char* txt, uint8_t font, uint16_t col);
+    void drawTextL(int x, int y, const char* txt, uint8_t font, uint16_t col);  // left, transparent
     // opaque centered text — single-pass, flicker-free (clears its own w×h via bg)
     void centerFill(int cx, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
 

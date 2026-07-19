@@ -305,6 +305,17 @@ void DisplayUI::centerText(int cx, int y, const char* txt, uint8_t font, uint16_
 #endif
 }
 
+// Left-aligned transparent text (caller ensures a clean background).
+void DisplayUI::drawTextL(int x, int y, const char* txt, uint8_t font, uint16_t col) {
+    _setFont(font);
+#ifdef BOARD_GUITION
+    _gfx->setTextColor(col); _gfx->setCursor(x, y); _gfx->print(txt);
+#else
+    _tft.setTextColor(col); _tft.setTextPadding(0); _tft.setTextDatum(TL_DATUM);
+    _tft.drawString(txt, x, y);
+#endif
+}
+
 // Opaque centered text — single drawString pass clears its own w×h region (no flicker).
 void DisplayUI::centerFill(int cx, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg) {
 #ifdef BOARD_GUITION
@@ -449,26 +460,31 @@ void DisplayUI::drawTabBar() {
 
 // ─── Overview: radial flow ────────────────────────────────────────────────────
 void DisplayUI::drawOverview() {
-    // side nodes
-    drawCard(12, CT_Y + 16, 120, 60, C_INSET, true);
-    fillText(22, CT_Y + 22, 100, 12, "Solar", 1, C_MUTED, C_INSET);
-    drawCard(12, CT_Y + 150, 120, 60, C_INSET, true);
-    fillText(22, CT_Y + 156, 100, 12, "DC-DC", 1, C_MUTED, C_INSET);
-    drawCard(348, CT_Y + 84, 120, 60, C_INSET, true);
-    fillText(358, CT_Y + 90, 100, 12, "Loads", 1, C_MUTED, C_INSET);
+    // side nodes (enlarged) — labels font2
+    drawCard(8, CT_Y + 12, 128, 74, C_INSET, true);
+    fillText(18, CT_Y + 18, 110, 16, "Solar", 2, C_MUTED, C_INSET);
+    drawCard(8, CT_Y + 144, 128, 74, C_INSET, true);
+    fillText(18, CT_Y + 150, 110, 16, "DC-DC", 2, C_MUTED, C_INSET);
+    drawCard(344, CT_Y + 79, 128, 74, C_INSET, true);
+    fillText(354, CT_Y + 85, 110, 16, "Loads", 2, C_MUTED, C_INSET);
     updateOverview();
+}
+
+// Big node value: number in font6 (digits only) + fixed "W" unit in font2.
+void DisplayUI::drawNodeVal(int x, int y, float w, uint16_t col) {
+    char num[10]; fmtF(num, w, 0);
+    fillText(x, y, 96, 48, num, 6, col, C_INSET);          // number, opaque, left
+    fillText(x + 98, y + 24, 20, 16, "W", 2, C_MUTED, C_INSET); // unit, fixed
 }
 
 void DisplayUI::updateOverview() {
     char buf[16];
     // Solar W
     float sw = (!isnan(_sd.solarPower) && _sd.valid) ? _sd.solarPower : NAN;
-    fmtF(buf, sw, 0); strcat(buf, " W");
-    fillText(22, CT_Y + 40, 100, 22, buf, 4, sw > 0.5f ? C_ORANGE : C_MUTED, C_INSET);
+    drawNodeVal(14, CT_Y + 36, sw, sw > 0.5f ? C_ORANGE : C_MUTED);
     // DC-DC W
     float ow = (_od.valid && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
-    fmtF(buf, ow, 0); strcat(buf, " W");
-    fillText(22, CT_Y + 174, 100, 22, buf, 4, ow > 0.5f ? C_BLUE : C_MUTED, C_INSET);
+    drawNodeVal(14, CT_Y + 168, ow, ow > 0.5f ? C_BLUE : C_MUTED);
     // Loads W (aggregate only — degraded)
     float loadsW = NAN;
     if (_bd.valid) {
@@ -477,11 +493,10 @@ void DisplayUI::updateOverview() {
         float batW = isnan(_bd.power) ? 0 : _bd.power;
         loadsW = fmaxf(0.0f, solW + dcW - batW);
     }
-    fmtF(buf, loadsW, 0); strcat(buf, " W");
-    fillText(358, CT_Y + 108, 100, 22, buf, 4, loadsW > 0.5f ? C_PALE : C_MUTED, C_INSET);
+    drawNodeVal(350, CT_Y + 103, loadsW, loadsW > 0.5f ? C_PALE : C_MUTED);
 
     // Battery ring (center) — redraw only when SOC bucket changes
-    int cx = 240, cy = CT_Y + 96, r = 52, th = 11;
+    int cx = 240, cy = CT_Y + 92, r = 50, th = 10;
     float soc = _bd.valid ? _bd.soc : NAN;
     int bucket = _bd.valid ? (int)soc : -1;
     if (bucket != _lastSocBucket) {
@@ -489,17 +504,23 @@ void DisplayUI::updateOverview() {
         _D.fillRect(cx - r - th, cy - r - th, (r + th) * 2, (r + th) * 2, C_BG);
         uint16_t rc = _bd.valid ? socColor(soc) : C_MUTED;
         drawRing(cx, cy, r, th, _bd.valid ? soc / 100.0f : 0.0f, rc, C_INSET);
-        // center text
-        if (_bd.valid) { snprintf(buf, sizeof(buf), "%d%%", (int)soc); }
-        else strcpy(buf, "--");
-        centerText(cx, cy - 14, buf, 4, _bd.valid ? rc : C_MUTED);
+        if (_bd.valid) {
+            char num[6]; snprintf(num, sizeof(num), "%d", (int)soc);
+            _setFont(6); int nw = _textWidth(num);
+            _setFont(2); int uw = _textWidth("%");
+            int sx = cx - (nw + 3 + uw) / 2;
+            drawTextL(sx, cy - 24, num, 6, rc);            // big number
+            drawTextL(sx + nw + 3, cy - 4, "%", 2, C_MUTED);
+        } else {
+            centerText(cx, cy - 14, "--", 4, C_MUTED);
+        }
     }
-    // sub line V·A (always refresh)
+    // sub line V·A below the ring (font2)
     if (_bd.valid) {
         char vb[8], ab[8]; fmtF(vb, _bd.voltage, 1); fmtF(ab, _bd.current, 1);
-        snprintf(buf, sizeof(buf), "%sV %sA", vb, ab);
+        snprintf(buf, sizeof(buf), "%sV  %sA", vb, ab);
     } else strcpy(buf, "offline");
-    centerFill(cx, cy + 15, 110, 14, buf, 1, C_MUTED, C_BG);
+    centerFill(cx, cy + r + 8, 160, 16, buf, 2, C_MUTED, C_BG);
 }
 
 void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
@@ -522,9 +543,9 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
             }
         }
     };
-    dash(132, CT_Y + 46, 186, CT_Y + 84,  solar, C_ORANGE);   // solar → battery
-    dash(132, CT_Y + 180, 186, CT_Y + 108, dcdc,  C_BLUE);    // dc-dc → battery
-    dash(294, CT_Y + 96, 348, CT_Y + 114,  loads, C_PALE);    // battery → loads
+    dash(136, CT_Y + 49, 190, CT_Y + 78,  solar, C_ORANGE);   // solar → battery
+    dash(136, CT_Y + 181, 190, CT_Y + 106, dcdc,  C_BLUE);    // dc-dc → battery
+    dash(290, CT_Y + 92, 344, CT_Y + 116,  loads, C_PALE);    // battery → loads
 }
 
 // ─── Battery ──────────────────────────────────────────────────────────────────
