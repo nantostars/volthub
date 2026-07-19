@@ -42,13 +42,14 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .tb-clock{font-family:var(--mono);font-weight:500}
 
 /* ── content ── */
-.content{flex:1;padding:14px 14px 78px;overflow-y:auto}
+.content{flex:1;display:flex;flex-direction:column;padding:12px 12px 76px;overflow-y:auto}
 .view{display:none}
-.view.active{display:block}
+.view.active{display:flex;flex-direction:column;flex:1;gap:12px}
 
 /* ── cards ── */
+/* flex:1 0 auto → cards grow to share vertical space, never shrink below content */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;
-  padding:16px;margin-bottom:14px}
+  padding:16px;flex:1 0 auto;display:flex;flex-direction:column;justify-content:center}
 .card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .card-t{font-size:15px;font-weight:600}
 .card-s{font-size:12px;color:var(--muted)}
@@ -58,8 +59,8 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.stat .l{font-size:11px;color:var(--muted)}
-.stat .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:2px}
+.stat .l{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:3px}
 .inset{background:var(--inset);border-radius:10px;padding:9px 11px}
 
 /* ── ring ── */
@@ -69,7 +70,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .ringlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   text-align:center}
 .ringlabel .big{font-family:var(--mono);font-weight:600;line-height:1}
-.ringlabel .sub{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px}
+.ringlabel .sub{font-family:var(--mono);font-size:15px;color:var(--muted);margin-top:4px}
 
 /* ── overview ── */
 .ov-hero{display:flex;align-items:center;gap:18px}
@@ -77,8 +78,8 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .ov-nodes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
 .node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
 .node .nh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.node .nv{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:4px}
-.node .nv small{font-size:13px;color:var(--muted)}
+.node .nv{font-family:var(--mono);font-size:34px;font-weight:600;margin-top:4px}
+.node .nv small{font-size:16px;color:var(--muted)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
 
 /* ── big value ── */
@@ -94,7 +95,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .cell .cv{width:56px;text-align:right;font-family:var(--mono);font-size:14px}
 
 /* ── level bubble ── */
-.lv-wrap{display:flex;gap:14px;flex-wrap:wrap}
+.lv-wrap{display:flex;gap:14px;flex-wrap:wrap;flex:1}
 .lv-left{flex:1;min-width:180px;display:flex;flex-direction:column;align-items:center;
   background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
 .lv-right{flex:1;min-width:220px;display:flex;flex-direction:column;gap:14px}
@@ -183,7 +184,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
                 stroke-width="12" stroke-linecap="round" transform="rotate(-90 64 64)"/>
             </svg>
             <div class="ringlabel">
-              <div class="big" id="ov-soc" style="font-size:30px">--<span style="font-size:14px;color:var(--muted)">%</span></div>
+              <div class="big" id="ov-soc" style="font-size:46px">--<span style="font-size:20px;color:var(--muted)">%</span></div>
               <div class="sub" id="ov-bvi">--</div>
             </div>
           </div>
@@ -224,7 +225,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
               <circle id="bt-ring" class="rc" cx="52" cy="52" r="44" fill="none" stroke="var(--green)"
                 stroke-width="10" stroke-linecap="round" transform="rotate(-90 52 52)"/>
             </svg>
-            <div class="ringlabel"><div class="big" id="bt-soc" style="font-size:28px">--<span style="font-size:13px;color:var(--muted)">%</span></div></div>
+            <div class="ringlabel"><div class="big" id="bt-soc" style="font-size:40px">--<span style="font-size:18px;color:var(--muted)">%</span></div></div>
           </div>
           <div class="grid2" style="flex:1">
             <div class="stat"><div class="l">Voltage</div><div class="v" id="bt-v">--</div></div>
@@ -255,9 +256,9 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         </div>
         <div class="bigw"><div class="n c-orange" id="so-w">--</div><div class="u">W</div></div>
         <div class="grid3" style="margin-top:14px">
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Battery</div><div class="v num" id="so-bv" style="font-size:18px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="so-a" style="font-size:18px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Yield today</div><div class="v num c-orange" id="so-y" style="font-size:18px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">Battery</div><div class="v num" id="so-bv" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="so-a" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">Yield today</div><div class="v num c-orange" id="so-y" style="font-size:23px;font-weight:600">--</div></div>
         </div>
       </div>
       <div class="card">
@@ -276,9 +277,9 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         </div>
         <div class="bigw"><div class="n c-blue" id="dc-w">--</div><div class="u">W</div></div>
         <div class="grid3" style="margin-top:14px">
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Alternator in</div><div class="v num" id="dc-iv" style="font-size:18px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="dc-a" style="font-size:18px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Output</div><div class="v num" id="dc-ov" style="font-size:18px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">Alternator in</div><div class="v num" id="dc-iv" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="dc-a" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px">Output</div><div class="v num" id="dc-ov" style="font-size:23px;font-weight:600">--</div></div>
         </div>
       </div>
       <div class="card">
@@ -453,7 +454,7 @@ function updateOverview(d){
   var b=d.battery||{}, on=b.online;
   var soc=on?b.soc:NaN, col=on?socColor(soc):'var(--muted)';
   setRing($('ov-ring'), on?soc/100:0, col);
-  $('ov-soc').innerHTML=(on?Math.round(soc):'--')+'<span style="font-size:14px;color:var(--muted)">%</span>';
+  $('ov-soc').innerHTML=(on?Math.round(soc):'--')+'<span style="font-size:20px;color:var(--muted)">%</span>';
   $('ov-soc').style.color=col;
   $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'offline';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
@@ -479,7 +480,7 @@ function updateBattery(d){
   var b=d.battery||{}, on=b.online;
   var col=on?socColor(b.soc):'var(--muted)';
   setRing($('bt-ring'), on?b.soc/100:0, col);
-  $('bt-soc').innerHTML=(on?Math.round(b.soc):'--')+'<span style="font-size:13px;color:var(--muted)">%</span>';
+  $('bt-soc').innerHTML=(on?Math.round(b.soc):'--')+'<span style="font-size:18px;color:var(--muted)">%</span>';
   $('bt-soc').style.color=col;
   $('bt-v').textContent=on?fmt(b.voltage,2)+' V':'--';
   $('bt-a').textContent=on?fmt(b.current,1)+' A':'--';
