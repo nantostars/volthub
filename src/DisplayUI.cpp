@@ -362,9 +362,11 @@ void DisplayUI::drawStatusBar(bool full) {
 
     // Right cluster: charge state · BLE count · clock — each redrawn only on change
 
-    // clock
+    // clock — _syNtpTime is "YYYY-MM-DD HH:MM:SS" (HH:MM at offset 11), or "--" when unsynced
     char hhmm[6] = "--:--";
-    if (strlen(_syNtpTime) >= 5) { hhmm[0]=_syNtpTime[0]; hhmm[1]=_syNtpTime[1]; hhmm[2]=':'; hhmm[3]=_syNtpTime[3]; hhmm[4]=_syNtpTime[4]; hhmm[5]=0; }
+    int nlen = strlen(_syNtpTime);
+    if (nlen >= 16 && _syNtpTime[13] == ':') { memcpy(hhmm, _syNtpTime + 11, 5); hhmm[5] = 0; }
+    else if (nlen >= 5 && _syNtpTime[2] == ':') { memcpy(hhmm, _syNtpTime, 5); hhmm[5] = 0; }
     if (full || strcmp(_lastClock, hhmm) != 0) {
         strcpy(_lastClock, hhmm);
         fillText(420, 10, 52, 16, hhmm, 2, C_TEXT, C_BG);
