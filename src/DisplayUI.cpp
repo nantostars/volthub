@@ -209,6 +209,8 @@ void DisplayUI::selectScreen(Screen s) {
     _screen = s;
     // reset anti-flicker caches so the new screen fully repaints its values
     _lastSocBucket = -1; _lastPitch = 99.0f; _lastRoll = 99.0f; _lastImuValid = false;
+    _cellSig = -1;
+    for (int i = 0; i < 5; i++) _pill[i][0] = 0;
     clearContent();
     drawTabBar();
     switch (_screen) {
@@ -303,6 +305,34 @@ void DisplayUI::centerText(int cx, int y, const char* txt, uint8_t font, uint16_
 #endif
 }
 
+// Opaque centered text — single drawString pass clears its own w×h region (no flicker).
+void DisplayUI::centerFill(int cx, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg) {
+#ifdef BOARD_GUITION
+    _D.fillRect(cx - w / 2, y, w, h, bg);
+    _setFont(font);
+    _gfx->setTextColor(col);
+    int tw = _textWidth(txt);
+    _gfx->setCursor(cx - tw / 2, y + 1);
+    _gfx->print(txt);
+#else
+    _setFont(font);
+    _tft.setTextColor(col, bg);
+    _tft.setTextPadding(w);
+    _tft.setTextDatum(TC_DATUM);
+    _tft.drawString(txt, cx, y);
+    _tft.setTextDatum(TL_DATUM);
+#endif
+}
+
+// Pill drawn only when its text changes (rounded bg repaint each cycle would flicker).
+void DisplayUI::pillCached(int slot, int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg) {
+    if (slot >= 0 && slot < 5) {
+        if (strcmp(_pill[slot], txt) == 0) return;
+        strncpy(_pill[slot], txt, 13); _pill[slot][13] = 0;
+    }
+    drawPill(x, y, w, h, txt, fg, bg);
+}
+
 // ─── Chrome: status bar + tab bar ─────────────────────────────────────────────
 void DisplayUI::drawChrome() {
     drawStatusBar(true);
@@ -330,32 +360,34 @@ void DisplayUI::drawStatusBar(bool full) {
 #endif
     }
 
-    // Right cluster: charge state · BLE count · clock
+    // Right cluster: charge state · BLE count · clock — each redrawn only on change
+
     // clock
     char hhmm[6] = "--:--";
     if (strlen(_syNtpTime) >= 5) { hhmm[0]=_syNtpTime[0]; hhmm[1]=_syNtpTime[1]; hhmm[2]=':'; hhmm[3]=_syNtpTime[3]; hhmm[4]=_syNtpTime[4]; hhmm[5]=0; }
-    fillText(420, 10, 52, 16, hhmm, 2, C_TEXT, C_BG);
+    if (full || strcmp(_lastClock, hhmm) != 0) {
+        strcpy(_lastClock, hhmm);
+        fillText(420, 10, 52, 16, hhmm, 2, C_TEXT, C_BG);
+    }
 
     // BLE device count
-    int devs = 0;
-    uint32_t now = millis();
-    if (_bd.valid) devs++;
-    if (_sd.valid) devs++;
-    if (_od.valid) devs++;
-    if (_imu.valid) devs++;
-    char cbuf[8]; snprintf(cbuf, sizeof(cbuf), "BLE %d", devs);
-    fillText(360, 11, 56, 14, cbuf, 1, C_BLUE, C_BG);
+    int devs = (_bd.valid?1:0) + (_sd.valid?1:0) + (_od.valid?1:0) + (_imu.valid?1:0);
+    if (full || devs != _lastDevs) {
+        _lastDevs = devs;
+        char cbuf[8]; snprintf(cbuf, sizeof(cbuf), "BLE %d", devs);
+        fillText(360, 11, 56, 14, cbuf, 1, C_BLUE, C_BG);
+    }
 
     // charge state dot + label
     float p = isnan(_bd.power) ? 0 : _bd.power;
     int st = p > 8 ? 1 : (p < -8 ? -1 : 0);
-    const char* lbl = st == 1 ? "Charging" : st == -1 ? "Discharging" : "Idle";
-    uint16_t sc = st == 1 ? C_GREEN : st == -1 ? C_AMBER : C_MUTED;
-    _D.fillRect(232, 8, 120, 18, C_BG);
-    _D.fillCircle(240, 17, 4, sc);
-    fillText(248, 11, 104, 14, lbl, 1, sc, C_BG);
-    _lastChargeState = st;
-    (void)now;
+    if (full || st != _lastChargeState) {
+        _lastChargeState = st;
+        const char* lbl = st == 1 ? "Charging" : st == -1 ? "Discharging" : "Idle";
+        uint16_t sc = st == 1 ? C_GREEN : st == -1 ? C_AMBER : C_MUTED;
+        _D.fillCircle(240, 17, 4, sc);
+        fillText(248, 11, 104, 14, lbl, 1, sc, C_BG);
+    }
 }
 
 void DisplayUI::drawTabIcon(int idx, int cx, int cy, uint16_t col) {
@@ -465,8 +497,7 @@ void DisplayUI::updateOverview() {
         char vb[8], ab[8]; fmtF(vb, _bd.voltage, 1); fmtF(ab, _bd.current, 1);
         snprintf(buf, sizeof(buf), "%sV %sA", vb, ab);
     } else strcpy(buf, "offline");
-    _D.fillRect(cx - 55, cy + 14, 110, 14, C_BG);
-    centerText(cx, cy + 15, buf, 1, C_MUTED);
+    centerFill(cx, cy + 15, 110, 14, buf, 1, C_MUTED, C_BG);
 }
 
 void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
@@ -533,7 +564,7 @@ void DisplayUI::updateBattery() {
     int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
     const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
     uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
-    drawPill(392, CT_Y + 108, 64, 20, bmsTxt, bmsFg, C_INSET);
+    pillCached(0, 392, CT_Y + 108, 64, 20, bmsTxt, bmsFg, C_INSET);
 
     snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);
     drawStat(26, CT_Y + 132, 100, "SOH", on ? buf : "--", C_TEXT);
@@ -544,22 +575,30 @@ void DisplayUI::updateBattery() {
     snprintf(buf, sizeof(buf), "%d mV", delta);
     drawStat(368, CT_Y + 132, 90, "Delta", on ? buf : "--", C_TEXT);
 
-    // cell bars (up to 4 visible)
+    // cell bars — redraw only when the cell data actually changes (BMS polls ~2s)
     int cells = _bd.cellCount; if (cells > 4) cells = 4;
-    int barY = CT_Y + 170;
-    for (int i = 0; i < 4; i++) {
-        int y = barY + i * 13;
-        _D.fillRect(26, y, 432, 12, C_CARD);  // clear row
-        if (i < cells) {
-            char lbl[10]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
-            fillText(26, y, 26, 11, lbl, 1, C_MUTED, C_CARD);
-            int bx = 56, bw = 300, bh = 9;
-            _D.fillRoundRect(bx, y + 1, bw, bh, 3, C_INSET);
-            float pct = (_bd.cellVoltages[i] - 2.9f) / (3.65f - 2.9f);
-            if (pct < 0) pct = 0; if (pct > 1) pct = 1;
-            _D.fillRoundRect(bx, y + 1, (int)(bw * pct), bh, 3, C_BLUE);
-            char cvb[10]; fmtF(cvb, _bd.cellVoltages[i], 2); strcat(cvb, "V");
-            fillText(bx + bw + 8, y, 60, 11, cvb, 1, C_TEXT, C_CARD);
+    long sig = on ? cells : -1;
+    for (int i = 0; i < cells; i++) sig = sig * 4099 + (long)lroundf(_bd.cellVoltages[i] * 1000);
+    if (sig != _cellSig) {
+        _cellSig = sig;
+        int barY = CT_Y + 170;
+        for (int i = 0; i < 4; i++) {
+            int y = barY + i * 13;
+            if (i < cells) {
+                char lbl[10]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
+                fillText(26, y, 26, 11, lbl, 1, C_MUTED, C_CARD);
+                int bx = 56, bw = 300, bh = 9;
+                float pct = (_bd.cellVoltages[i] - 2.9f) / (3.65f - 2.9f);
+                if (pct < 0) pct = 0; if (pct > 1) pct = 1;
+                int fw = (int)(bw * pct);
+                // fill + remainder tile the track exactly (no full-row blank frame)
+                if (fw > 0) _D.fillRoundRect(bx, y + 1, fw, bh, 3, C_BLUE);
+                if (fw < bw) _D.fillRect(bx + fw, y + 1, bw - fw, bh, C_INSET);
+                char cvb[10]; fmtF(cvb, _bd.cellVoltages[i], 2); strcat(cvb, "V");
+                fillText(bx + bw + 8, y, 60, 11, cvb, 1, C_TEXT, C_CARD);
+            } else {
+                _D.fillRect(26, y, 432, 12, C_CARD);  // clear unused rows once
+            }
         }
     }
 }
@@ -568,8 +607,18 @@ void DisplayUI::updateBattery() {
 void DisplayUI::drawSolar() {
     drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
     fillText(26, CT_Y + 18, 300, 16, "Victron SmartSolar MPPT", 2, C_TEXT, C_CARD);
+    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+    // inset backgrounds + static labels (drawn once)
+    int iy = CT_Y + 82, iw = 142;
+    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
+    _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET);
+    _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
+    fillText(34, iy + 3, iw - 12, 11, "Battery", 1, C_MUTED, C_INSET);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Yield today", 1, C_MUTED, C_INSET);
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
     fillText(26, CT_Y + 144, 300, 14, "Production today", 1, C_MUTED, C_CARD);
+    fillText(300, CT_Y + 170, 160, 14, "energia oggi", 1, C_MUTED, C_CARD);
     updateSolar();
 }
 
@@ -577,27 +626,21 @@ void DisplayUI::updateSolar() {
     char buf[16], t[8];
     bool on = _sd.valid;
     const char* state = on ? victronStateName(_sd.chargeState) : "offline";
-    drawPill(360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
-    // big W
+    pillCached(1, 360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
+    // big W (opaque, single pass)
     fmtF(buf, on ? _sd.solarPower : NAN, 0);
-    _D.fillRect(26, CT_Y + 40, 200, 32, C_CARD);
-    centerText(26 + 60, CT_Y + 44, buf, 4, on ? C_ORANGE : C_MUTED);
-    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
-    // 3 insets: Batt V, Charge A, Yield today
-    int iy = CT_Y + 82; int iw = 142;
-    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
+    centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_ORANGE : C_MUTED, C_CARD);
+    // inset values (backgrounds/labels already drawn in drawSolar)
+    int iy = CT_Y + 82, iw = 142;
     fmtF(t, on ? _sd.battVoltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", t);
-    fillText(34, iy + 3, iw - 12, 11, "Battery", 1, C_MUTED, C_INSET); fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(t, on ? _sd.chargeCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
-    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET); fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
-    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Yield today", 1, C_MUTED, C_INSET); fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_ORANGE, C_INSET);
-
-    // card B: yield today big (no history available)
+    fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_ORANGE, C_INSET);
+    // card B: yield today big
     fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
-    _D.fillRect(26, CT_Y + 160, 300, 32, C_CARD);
-    centerText(120, CT_Y + 164, buf, 4, on ? C_TEXT : C_MUTED);
-    fillText(300, CT_Y + 170, 160, 14, "energia oggi", 1, C_MUTED, C_CARD);
+    centerFill(120, CT_Y + 162, 200, 28, buf, 4, on ? C_TEXT : C_MUTED, C_CARD);
 }
 
 // ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
@@ -611,6 +654,15 @@ void DisplayUI::drawDcdc() {
     fillText(26, CT_Y + 182, 210, 14, "Input range", 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
     fillText(250, CT_Y + 164, 150, 14, "Mode", 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, "Adaptive", 1, C_TEXT, C_CARD);
     fillText(250, CT_Y + 182, 150, 14, "Engine detect", 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, "Auto", 1, C_TEXT, C_CARD);
+    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+    // inset backgrounds + static labels (drawn once)
+    int iy = CT_Y + 82, iw = 142;
+    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
+    _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET);
+    _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
+    fillText(34, iy + 3, iw - 12, 11, "Alternator in", 1, C_MUTED, C_INSET);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Output", 1, C_MUTED, C_INSET);
     updateDcdc();
 }
 
@@ -619,19 +671,16 @@ void DisplayUI::updateDcdc() {
     bool on = _od.valid;
     float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
     const char* state = !on ? "offline" : (_od.outCurrent > 0.1f ? "Charging" : "Standby");
-    drawPill(360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
+    pillCached(2, 360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
     fmtF(buf, w, 0);
-    _D.fillRect(26, CT_Y + 40, 200, 32, C_CARD);
-    centerText(26 + 60, CT_Y + 44, buf, 4, on ? C_BLUE : C_MUTED);
-    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+    centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_BLUE : C_MUTED, C_CARD);
     int iy = CT_Y + 82, iw = 142;
-    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
     fmtF(t, on ? _od.inVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
-    fillText(34, iy + 3, iw - 12, 11, "Alternator in", 1, C_MUTED, C_INSET); fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(t, on ? _od.outCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
-    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET); fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(t, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
-    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Output", 1, C_MUTED, C_INSET); fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
 }
 
 // ─── Level ────────────────────────────────────────────────────────────────────
@@ -677,7 +726,7 @@ void DisplayUI::updateLevel() {
     _D.fillCircle(bx, by, 12, on ? (level ? C_GREEN : C_AMBER) : C_MUTED);
 
     // status pill
-    drawPill(52, CT_Y + 196, 96, 20, on ? (level ? "Levelled" : "Adjust") : "no sensor", on ? (level ? C_GREEN : C_AMBER) : C_MUTED, C_INSET);
+    pillCached(3, 52, CT_Y + 196, 96, 20, on ? (level ? "Levelled" : "Adjust") : "no sensor", on ? (level ? C_GREEN : C_AMBER) : C_MUTED, C_INSET);
 
     // pitch / roll values
     snprintf(buf, sizeof(buf), "%+.1f", pitch);
@@ -685,9 +734,8 @@ void DisplayUI::updateLevel() {
     snprintf(buf, sizeof(buf), "%+.1f", roll);
     fillText(346, CT_Y + 32, 110, 26, on ? buf : "--", 4, on ? axCol(roll) : C_MUTED, C_CARD);
 
-    // ramp guidance (2 rows)
+    // ramp guidance (2 rows) — opaque in-place, no block clear
     const int mmPerDeg = 42;
-    _D.fillRect(210, CT_Y + 110, 248, 80, C_CARD);
     // roll row
     const char* rw = roll > tol ? "Left wheels" : (roll < -tol ? "Right wheels" : "Side axle");
     _D.fillCircle(218, CT_Y + 120, 4, okR ? C_GREEN : C_AMBER);
@@ -707,6 +755,7 @@ void DisplayUI::drawSystem() {
     drawCard(12, CT_Y + 8, 280, 214, C_CARD, true);
     fillText(24, CT_Y + 16, 200, 14, "Connected devices", 1, C_MUTED, C_CARD);
     drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // screen-timeout toggle pill area
+    fillText(312, CT_Y + 14, 90, 14, "Screen", 1, C_MUTED, C_INSET);
     drawCard(300, CT_Y + 56, 168, 166, C_CARD, true);
     fillText(312, CT_Y + 64, 150, 14, "Network", 1, C_MUTED, C_CARD);
     updateSystem();
@@ -721,16 +770,13 @@ void DisplayUI::updateSystem() {
     };
     for (int i = 0; i < 4; i++) {
         int y = CT_Y + 40 + i * 44;
-        _D.fillRect(24, y, 256, 40, C_CARD);
         _D.fillCircle(32, y + 12, 4, devs[i].on ? C_GREEN : C_MUTED);
         fillText(44, y + 4, 236, 16, devs[i].name, 2, C_TEXT, C_CARD);
         fillText(44, y + 22, 236, 12, devs[i].on ? "online" : "offline", 1, devs[i].on ? C_GREEN : C_MUTED, C_CARD);
     }
 
-    // screen-timeout toggle
-    _D.fillRoundRect(300, CT_Y + 8, 168, 40, 10, C_INSET);
-    fillText(312, CT_Y + 14, 90, 14, "Screen", 1, C_MUTED, C_INSET);
-    drawPill(400, CT_Y + 16, 60, 22, _alwaysOn ? "ALWAYS" : "AUTO", _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+    // screen-timeout toggle (label drawn once in drawSystem)
+    pillCached(4, 400, CT_Y + 16, 60, 22, _alwaysOn ? "ALWAYS" : "AUTO", _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
 
     // network info
     int ny = CT_Y + 82;

@@ -87,9 +87,12 @@ private:
     void drawArc(int cx, int cy, int r, int thick, int a0, int a1, uint16_t col);
     void drawRing(int cx, int cy, int r, int thick, float pct, uint16_t col, uint16_t track);
     void drawPill(int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg);
+    void pillCached(int slot, int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg);
     void drawStat(int x, int y, int w, const char* label, const char* val, uint16_t valCol);
     void fillText(int x, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
     void centerText(int cx, int y, const char* txt, uint8_t font, uint16_t col);
+    // opaque centered text — single-pass, flicker-free (clears its own w×h via bg)
+    void centerFill(int cx, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
 
     // ── Board-agnostic font/text helpers ─────────────────────────────────────
     void _setFont(uint8_t f);
@@ -129,6 +132,9 @@ private:
     bool     _lastImuValid = false;
     char     _lastClock[8] = "";
     int      _lastChargeState = -2;    // -1 discharge, 0 idle, 1 charge
+    int      _lastDevs = -1;           // status-bar BLE count
+    char     _pill[5][14] = {{0}};     // last drawn pill text (0=bms 1=solar 2=dcdc 3=level 4=sys)
+    long     _cellSig = -1;            // battery cell-bars change signature
 
     // Screen timeout
     bool     _screenOn    = true;
