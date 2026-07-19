@@ -10,45 +10,39 @@
 #include "VictronBLE.h"
 #include "WitmotionIMU.h"
 
-// ─── RGB565 palette (matches web dashboard dark theme) ───────────────────────
-// Conversion: ((R>>3)<<11) | ((G>>2)<<5) | (B>>3)
-#define UI_BG       0x0882   // #0f1117  background
-#define UI_SURFACE  0x18E4   // #1a1d27  card surface
-#define UI_BORDER   0x2967   // #2a2d3e  border
-#define UI_TEXT     0xEF5E   // #e8eaf0  primary text
-#define UI_MUTED    0x6B90   // #6b7280  secondary text
-#define UI_GREEN    0x262B   // #22c55e  positive / online
-#define UI_YELLOW   0xF4E1   // #f59e0b  warning
-#define UI_RED      0xEA48   // #ef4444  negative / offline
-#define UI_BLUE     0x3BDE   // #3b82f6  accent / flow line
-#define UI_ORANGE   0xFB82   // #f97316  discharge
-#define UI_BLUE_DIM 0x198C   // #183060 dark navy — battery SOC fill
+// ─── volt·hub palette (RGB565) — from Claude design "Camper Power Monitor 3.5in" ─
+// Conversion: ((R>>3)<<11) | ((G>>2)<<5) | (B>>3). Tunable on hardware.
+#define C_BG       0x08C4   // #0e1826  screen background
+#define C_BODY     0x0041   // #05080d  frame / deepest
+#define C_CARD     0x1107   // #17233a  card surface
+#define C_INSET    0x08C5   // #0f1a2b  nested inset / track
+#define C_BORDER   0x2188   // ~#263143 hairline border
+#define C_TEXT     0xEF9F   // #eaf0f8  primary text
+#define C_MUTED    0x8CB4   // ~#8a94a6 muted / secondary
+#define C_GREEN    0x4670   // #46cf82  ok / charging
+#define C_AMBER    0xFD09   // #ffa24d  warning / discharging
+#define C_RED      0xFAC9   // #ff5a4d  fault / low
+#define C_BLUE     0x5D3E   // #5aa5f5  DC-DC / BLE
+#define C_PALE     0xB69E   // #b4d2f0  loads / pale accent
+#define C_ORANGE   0xFB40   // #ff6900  brand accent (logo, active tab, solar)
+#define C_TABBG    0x0883   // #0b131f  tab bar background
+#define C_TABACT   0x28A1   // active-tab tint (dark orange)
 
-// ─── Layout constants — landscape 480×320 ────────────────────────────────────
-//
-//   8            146    171          309    334          472
-//   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐  y=8
-//   │     SOLAR       │ │    BATTERY      │ │    ORION XS     │
-//   │                 │ │                 │ │                 │
-//   └─────────────────┘ └────────┬────────┘ └─────────────────┘  y=208
-//                       ┌────────▼────────┐ ┌─────────────────┐  y=216
-//                       │     LOADS       │ │     LEVEL       │
-//                       └─────────────────┘ └─────────────────┘  y=312
-
-#define BOX_Y      8
-#define BOX_H      200
-#define BOX_W      138
-
-#define SOLAR_X    8
-#define BATT_X     171
-#define ORION_X    334
-#define LOADS_X    171
-#define LOADS_Y    216
-#define LOADS_H    96
-
-// Connection line endpoints
-#define CONN_MID_Y  (BOX_Y + BOX_H / 2)          // vertical midpoint of top boxes
-#define BATT_CX     (BATT_X + BOX_W / 2)          // battery horizontal center
+// ─── Layout — landscape 480×320 ──────────────────────────────────────────────
+//   ┌──────────────────────────────────────────────┐ 0
+//   │ status bar (logo · state · BLE · clock)       │ 34
+//   ├──────────────────────────────────────────────┤
+//   │ content (per-screen)                          │
+//   ├──────────────────────────────────────────────┤ 264
+//   │ tab bar: Overview Battery Solar DC-DC Level.. │ 320
+//   └──────────────────────────────────────────────┘
+#define SB_H       34                 // status bar height
+#define TAB_H      56                 // bottom tab bar height
+#define TAB_Y      (320 - TAB_H)      // = 264
+#define CT_Y       SB_H               // content top
+#define CT_H       (TAB_Y - SB_H)     // content height = 230
+#define TAB_N      6
+#define TAB_W      (480 / TAB_N)       // = 80
 
 class DisplayUI {
 public:
@@ -61,42 +55,41 @@ public:
     // Call from main loop — polls touch and handles taps
     void handleTouch();
 
-    // Update system info shown on Settings screen (call periodically from main)
+    // Update system info shown on the System screen (call periodically from main)
     void updateSysInfo(const char* apSsid, const char* apIp,
                        const char* staSsid, const char* staIp,
                        const char* ntpTime);
 
 private:
-    // ── Screens ──────────────────────────────────────────────────────────────
-    enum Screen { SCR_OVERVIEW, SCR_DETAIL_BATT, SCR_DETAIL_SOLAR, SCR_DETAIL_ORION, SCR_LEVEL, SCR_SETTINGS };
+    // ── Screens (order == tab order) ──────────────────────────────────────────
+    enum Screen { SCR_OVERVIEW, SCR_BATTERY, SCR_SOLAR, SCR_DCDC, SCR_LEVEL, SCR_SYSTEM };
 
-    void drawOverview();
-    void updateOverviewValues();
-    void drawFlowLines(bool solar, bool orion, bool loads);
+    // ── Chrome ────────────────────────────────────────────────────────────────
+    void drawChrome();                 // full status bar + tab bar (on first draw)
+    void drawStatusBar(bool full);     // full=true redraws logo/divider too
+    void drawTabBar();
+    void drawTabIcon(int idx, int cx, int cy, uint16_t col);
+    void selectScreen(Screen s);       // switch + full-redraw content + tab bar
 
-    void drawDetailBatt();
-    void drawDetailSolar();
-    void drawDetailOrion();
-    void drawDetailHeader(const char* title, bool online);
+    // ── Per-screen full draw + periodic value refresh ─────────────────────────
+    void drawOverview();   void updateOverview();
+    void drawBattery();    void updateBattery();
+    void drawSolar();      void updateSolar();
+    void drawDcdc();       void updateDcdc();
+    void drawLevel();      void updateLevel();
+    void drawSystem();     void updateSystem();
 
-    void drawLevelScreen();
-    void updateLevelValues();
-    void drawLevelPanel(int px, bool isPitch);
-
-    void drawSettingsScreen();
-    void drawSettingsToggle();
-    void drawSettingsInfo();
-    void drawSettingsBox();
+    void drawFlow(bool solar, bool dcdc, bool loads);   // animated overview flow paths
 
     // ── Primitives ────────────────────────────────────────────────────────────
-    void drawBox(int x, int y, int w, int h, const char* title, bool online, bool showDot = true);
-    void drawHFlowLine(int x1, int x2, int y, bool active, bool reverse = false);
-    void drawVFlowLine(int x, int y1, int y2, bool active);
-    void drawMetric(int x, int y, int w, int h,
-                    const char* label, const char* val, const char* unit, uint16_t valCol);
-    void drawStateTag(int x, int y, const char* state);
-    void drawBigNum(int cx, int y, const char* txt, const char* unit, uint16_t col);
+    void clearContent();
+    void drawCard(int x, int y, int w, int h, uint16_t fill, bool border);
+    void drawArc(int cx, int cy, int r, int thick, int a0, int a1, uint16_t col);
+    void drawRing(int cx, int cy, int r, int thick, float pct, uint16_t col, uint16_t track);
+    void drawPill(int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg);
+    void drawStat(int x, int y, int w, const char* label, const char* val, uint16_t valCol);
     void fillText(int x, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
+    void centerText(int cx, int y, const char* txt, uint8_t font, uint16_t col);
 
     // ── Board-agnostic font/text helpers ─────────────────────────────────────
     void _setFont(uint8_t f);
@@ -109,7 +102,6 @@ private:
 #ifdef BOARD_GUITION
     Arduino_ESP32QSPI* _bus = nullptr;
     Arduino_GFX*       _gfx = nullptr;
-    // Touch state (polled, no IRQ)
     uint32_t _touchPollMs = 0;
     bool     _touchDown   = false;
     int      _touchSX = 0, _touchSY = 0;
@@ -119,37 +111,32 @@ private:
 #endif
 
     // ── State ─────────────────────────────────────────────────────────────────
-    Screen   _screen    = SCR_OVERVIEW;
-    uint8_t  _flowPhase = 0;
+    Screen   _screen     = SCR_OVERVIEW;
+    bool     _firstDraw  = true;       // force full draw of current screen
+    uint8_t  _flowPhase  = 0;
     uint32_t _lastFlowMs = 0;
-    bool     _firstDraw  = true;
+    uint32_t _lastValMs  = 0;
 
-    // Cached last-drawn values to skip unnecessary redraws
+    // Latest snapshots
     BmsData   _bd;
     SolarData _sd;
     OrionData _od;
     ImuData   _imu;
 
-    float    _lastPitch  = 99.0f;
-    float    _lastRoll   = 99.0f;
-    bool     _lvFirstDraw = true;
+    // Anti-flicker caches
+    int      _lastSocBucket = -1;      // overview/battery ring
+    float    _lastPitch = 99.0f, _lastRoll = 99.0f;
     bool     _lastImuValid = false;
-    float    _lastSoc    = -1.0f;
-    bool     _prevTouched = false;
-    uint32_t _lastValMs  = 0;
-
-    // Level box arrow colors — 1 = undrawn sentinel, forces first draw
-    uint16_t _lvUpC = 1, _lvDnC = 1, _lvLtC = 1, _lvRtC = 1;
-    // Level screen bubble positions (-999 = undrawn)
-    int _lvPitchBy = -999;
-    int _lvRollBx  = -999;
+    char     _lastClock[8] = "";
+    int      _lastChargeState = -2;    // -1 discharge, 0 idle, 1 charge
 
     // Screen timeout
     bool     _screenOn    = true;
     bool     _alwaysOn    = false;
     uint32_t _lastTouchMs = 0;
+    bool     _prevTouched = false;
 
-    // Sysinfo for Settings screen
+    // Sysinfo for the System screen
     char _syApSsid[33]  = "";
     char _syApIp[16]    = "192.168.4.1";
     char _syStaSsid[33] = "";

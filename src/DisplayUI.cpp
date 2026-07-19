@@ -2,47 +2,33 @@
 #include "Config.h"
 #include <math.h>
 
-// Board-agnostic display alias: _D.fillRect(...) works for both TFT_eSPI and Arduino_GFX
+// Board-agnostic display alias: _D.fillRect(...) works for TFT_eSPI and Arduino_GFX
 #ifdef BOARD_GUITION
 #define _D (*_gfx)
 #else
 #define _D _tft
 #endif
 
-// ─── Float formatting ─────────────────────────────────────────────────────────
+// ─── Formatting / color helpers ───────────────────────────────────────────────
 static void fmtF(char* buf, float v, int dec) {
-    if (isnan(v) || v == 0.0f / 0.0f) { strcpy(buf, "--"); return; }
+    if (isnan(v)) { strcpy(buf, "--"); return; }
     dtostrf(v, 0, dec, buf);
 }
-
-// ─── Color helpers ────────────────────────────────────────────────────────────
-static uint16_t signCol(float v)  { return v >  0.05f ? UI_GREEN : v < -0.05f ? UI_ORANGE : UI_TEXT; }
-static uint16_t socCol(float soc) { return soc > 50 ? UI_GREEN : soc > 20 ? UI_YELLOW : UI_RED; }
-
-static uint16_t stateColor(const char* s) {
-    if (!s) return UI_MUTED;
-    String n = String(s); n.toLowerCase();
-    if (n == "float")       return UI_GREEN;
-    if (n == "bulk")        return UI_YELLOW;
-    if (n == "absorption")  return UI_BLUE;
-    if (n == "fault")       return UI_RED;
-    return UI_MUTED;
-}
+static uint16_t socColor(float soc) { return soc > 45 ? C_GREEN : soc > 18 ? C_AMBER : C_RED; }
+static uint16_t signColor(float v)  { return v > 0.05f ? C_GREEN : v < -0.05f ? C_AMBER : C_TEXT; }
 
 // ─── Constructor ──────────────────────────────────────────────────────────────
-
 DisplayUI::DisplayUI() {}
 
 // ─── Font helpers (board-specific) ───────────────────────────────────────────
-
 void DisplayUI::_setFont(uint8_t f) {
 #ifdef BOARD_GUITION
-    _gfx->setFont(nullptr);   // built-in 5×7 bitmap font
+    _gfx->setFont(nullptr);
     switch (f) {
-        case 1: _gfx->setTextSize(1); break;  // ~7px  — label
-        case 2: _gfx->setTextSize(2); break;  // ~14px — state/header
-        case 4: _gfx->setTextSize(3); break;  // ~21px — values (≈ font4 26px; TODO: swap to GFX font after hw tuning)
-        case 6: _gfx->setTextSize(6); break;  // ~42px — level screen (≈ font6 48px)
+        case 1: _gfx->setTextSize(1); break;  // ~7px
+        case 2: _gfx->setTextSize(2); break;  // ~14px
+        case 4: _gfx->setTextSize(3); break;  // ~21px
+        case 6: _gfx->setTextSize(5); break;  // ~35px
         default: _gfx->setTextSize(1); break;
     }
 #else
@@ -61,54 +47,37 @@ int DisplayUI::_textWidth(const char* s) {
 }
 
 // ─── begin ────────────────────────────────────────────────────────────────────
-
 void DisplayUI::begin() {
     pinMode(PIN_BL, OUTPUT);
     digitalWrite(PIN_BL, HIGH);
 
 #ifdef BOARD_GUITION
-    // Touch I2C — AXS15231B integrated capacitive touch
     Wire.begin(PIN_TOUCH_SDA, PIN_TOUCH_SCL);
     Wire.setClock(400000);
-
-    // Display — AXS15231B QSPI (SPI2_HOST)
-    // Pins confirmed from JC3248W535EN/1-Demo/Demo_Arduino/DEMO_LVGL/esp_bsp.h
     _bus = new Arduino_ESP32QSPI(
         45 /* CS */, 47 /* PCLK */,
         21 /* D0 */, 48 /* D1 */, 40 /* D2 */, 39 /* D3 */);
-    // GFX Library 1.4.9 constructor: (bus, rst, rotation, ips, w, h, col_off1, row_off1, col_off2, row_off2)
-    // The built-in init sequence targets a 360×640 panel, but CASET/RASET handle the 320×480 window.
-    // If colors look wrong on hardware, upgrade to GFX Library ≥1.5 which ships 320×480 init sequences,
-    // or provide a custom sequence from the Guition demo (esp_lcd_axs15231b.c vendor_specific_init_default[]).
     _gfx = new Arduino_AXS15231B(
-        _bus,
-        GFX_NOT_DEFINED,  // RST = not connected
-        0,                // initial rotation (overridden by setRotation below)
-        false,            // IPS
-        320, 480,         // native portrait resolution
-        0, 0, 0, 0);      // no column/row offsets
+        _bus, GFX_NOT_DEFINED, 0, false, 320, 480, 0, 0, 0, 0);
     _gfx->begin();
     _gfx->setRotation(1);   // landscape 480×320
-
 #else
     pinMode(PIN_TOUCH_IRQ, INPUT);
     _tft.init();
     _tft.setRotation(1);
 #endif
 
-    _D.fillScreen(UI_BG);
+    _D.fillScreen(C_BG);
     _firstDraw   = true;
     _lastTouchMs = millis();
 }
 
-// ─── _readTouch (Guition only) — poll AXS15231B I2C, apply landscape transform ─
-
+// ─── _readTouch (Guition only) ────────────────────────────────────────────────
 #ifdef BOARD_GUITION
 bool DisplayUI::_readTouch(int& sx, int& sy) {
     uint32_t now = millis();
     if (now - _touchPollMs >= 20) {
         _touchPollMs = now;
-        // AXS15231B touch read protocol (8-byte command, 8-byte response)
         static const uint8_t cmd[] = {0xb5, 0xab, 0xa5, 0x5a, 0x00, 0x00, 0x00, 0x08};
         Wire.beginTransmission(AXS15231B_ADDR);
         Wire.write(cmd, sizeof(cmd));
@@ -118,10 +87,8 @@ bool DisplayUI::_readTouch(int& sx, int& sy) {
         for (int i = 0; i < 8 && Wire.available(); i++) buf[i] = Wire.read();
         _touchDown = (buf[1] > 0);
         if (_touchDown) {
-            uint16_t tx = ((buf[2] & 0x0F) << 8) | buf[3]; // portrait X [0,319]
-            uint16_t ty = ((buf[4] & 0x0F) << 8) | buf[5]; // portrait Y [0,479]
-            // Landscape transform for setRotation(1): portrait-Y → screen-X, portrait-X (inverted) → screen-Y
-            // TODO: verify axis mapping on hardware; adjust mirror flags if coordinates are inverted
+            uint16_t tx = ((buf[2] & 0x0F) << 8) | buf[3];
+            uint16_t ty = ((buf[4] & 0x0F) << 8) | buf[5];
             _touchSX = constrain((int)ty,       0, 479);
             _touchSY = constrain(319 - (int)tx, 0, 319);
         }
@@ -133,143 +100,104 @@ bool DisplayUI::_readTouch(int& sx, int& sy) {
 #endif
 
 // ─── update ───────────────────────────────────────────────────────────────────
-
 void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o, const ImuData& imu, uint32_t nowMs) {
     _bd = b; _sd = s; _od = o; _imu = imu;
 
-    // Screen timeout: turn off backlight after 1 minute of inactivity
     if (!_alwaysOn && _screenOn && (nowMs - _lastTouchMs > 60000UL)) {
         _screenOn = false;
         digitalWrite(PIN_BL, LOW);
     }
     if (!_screenOn) return;
 
-    if (_screen == SCR_OVERVIEW) {
-        if (_firstDraw) {
-            drawOverview();
-            _firstDraw = false;
-            _lastValMs = nowMs;
-        } else if (nowMs - _lastValMs >= 300) {
-            updateOverviewValues();
-            _lastValMs = nowMs;
+    if (_firstDraw) {
+        drawChrome();
+        switch (_screen) {
+            case SCR_OVERVIEW: drawOverview(); break;
+            case SCR_BATTERY:  drawBattery();  break;
+            case SCR_SOLAR:    drawSolar();    break;
+            case SCR_DCDC:     drawDcdc();     break;
+            case SCR_LEVEL:    drawLevel();    break;
+            case SCR_SYSTEM:   drawSystem();   break;
         }
-        if (nowMs - _lastFlowMs >= 60) {
-            _flowPhase = (_flowPhase + 12) % 14;
-            _lastFlowMs = nowMs;
-            float solarW = (!isnan(_sd.solarPower) && _sd.chargeCurrent > 0.1f) ? _sd.solarPower : 0.0f;
-            float orionW = (!isnan(_od.outCurrent) && _od.outCurrent   > 0.1f) ? _od.outCurrent * (_od.outVoltage > 0 ? _od.outVoltage : 13.0f) : 0.0f;
-            float battW  = isnan(_bd.power) ? 0.0f : _bd.power;
-            drawFlowLines(_sd.chargeCurrent > 0.1f, _od.outCurrent > 0.1f, fmaxf(0.0f, solarW + orionW - battW) > 2.0f);
+        _firstDraw = false;
+        _lastValMs = nowMs;
+        return;
+    }
+
+    // Periodic value refresh (300ms) — status bar + current screen values
+    if (nowMs - _lastValMs >= 300) {
+        _lastValMs = nowMs;
+        drawStatusBar(false);
+        switch (_screen) {
+            case SCR_OVERVIEW: updateOverview(); break;
+            case SCR_BATTERY:  updateBattery();  break;
+            case SCR_SOLAR:    updateSolar();    break;
+            case SCR_DCDC:     updateDcdc();     break;
+            case SCR_LEVEL:    updateLevel();    break;
+            case SCR_SYSTEM:   updateSystem();   break;
         }
-    } else if (_screen == SCR_LEVEL) {
-        if (_lvFirstDraw) {
-            drawLevelScreen();
-            _lvFirstDraw = false;
-        } else if (_imu.valid != _lastImuValid ||
-                   fabsf(imu.pitch - _lastPitch) > 0.3f || fabsf(imu.roll - _lastRoll) > 0.3f) {
-            updateLevelValues();
-        }
-    } else if (_screen == SCR_SETTINGS) {
-        if (_firstDraw) {
-            drawSettingsScreen();
-            _firstDraw = false;
-        }
+    }
+
+    // Overview flow animation (60ms)
+    if (_screen == SCR_OVERVIEW && nowMs - _lastFlowMs >= 60) {
+        _lastFlowMs = nowMs;
+        _flowPhase = (_flowPhase + 2) % 14;
+        float solarW = (!isnan(_sd.solarPower) && _sd.chargeCurrent > 0.1f) ? _sd.solarPower : 0.0f;
+        float orionW = (!isnan(_od.outCurrent) && _od.outCurrent > 0.1f)
+                       ? _od.outCurrent * (_od.outVoltage > 0 ? _od.outVoltage : 13.0f) : 0.0f;
+        float battW  = isnan(_bd.power) ? 0.0f : _bd.power;
+        drawFlow(_sd.chargeCurrent > 0.1f, _od.outCurrent > 0.1f, fmaxf(0.0f, solarW + orionW - battW) > 2.0f);
     }
 }
 
 // ─── handleTouch ──────────────────────────────────────────────────────────────
-
 void DisplayUI::handleTouch() {
     int sx, sy;
 
 #ifdef BOARD_GUITION
-    // Wake from sleep: any touch turns backlight back on without processing the tap
     if (!_screenOn) {
         if (_readTouch(sx, sy)) {
-            _screenOn    = true;
-            _lastTouchMs = millis();
-            digitalWrite(PIN_BL, HIGH);
-            _prevTouched = true;
-        } else {
-            _prevTouched = false;
-        }
+            _screenOn = true; _lastTouchMs = millis();
+            digitalWrite(PIN_BL, HIGH); _prevTouched = true;
+        } else _prevTouched = false;
         return;
     }
-
-    if (!_readTouch(sx, sy)) {
-        _prevTouched = false;
-        return;
-    }
+    if (!_readTouch(sx, sy)) { _prevTouched = false; return; }
     if (_prevTouched) return;
     _prevTouched = true;
     _lastTouchMs = millis();
-    Serial.printf("[TOUCH-G] screen=(%d,%d)\n", sx, sy);
-
 #else
-    // CYD: XPT2046 resistive touch — wake from sleep
     if (!_screenOn) {
         if (digitalRead(PIN_TOUCH_IRQ) == LOW && _tft.getTouchRawZ() >= 400) {
-            _screenOn    = true;
-            _lastTouchMs = millis();
-            digitalWrite(PIN_BL, HIGH);
-            _prevTouched = true;
-        } else {
-            _prevTouched = false;
-        }
+            _screenOn = true; _lastTouchMs = millis();
+            digitalWrite(PIN_BL, HIGH); _prevTouched = true;
+        } else _prevTouched = false;
         return;
     }
-
-    // PENIRQ (GPIO36) goes LOW when screen is touched — cheap pre-filter
-    if (digitalRead(PIN_TOUCH_IRQ) == HIGH) {
-        _prevTouched = false;
-        return;
-    }
+    if (digitalRead(PIN_TOUCH_IRQ) == HIGH) { _prevTouched = false; return; }
     uint16_t z = _tft.getTouchRawZ();
-    if (z < 400) {
-        _prevTouched = false;
-        return;
-    }
+    if (z < 400) { _prevTouched = false; return; }
     if (_prevTouched) return;
     _prevTouched = true;
     _lastTouchMs = millis();
 
     uint16_t rx, ry;
     _tft.getTouchRaw(&rx, &ry);
-    // Map raw ADC → screen pixels (landscape 480×320, rotation=1)
     sx = constrain(479 - (int)map((long)ry, 320, 3860, 0, 479), 0, 479);
     sy = constrain((int)map((long)rx, 480, 3860, 0, 319), 0, 319);
-    Serial.printf("[TOUCH] raw=(%u,%u) z=%u  screen=(%d,%d)\n", rx, ry, z, sx, sy);
 #endif
 
-    // Navigation — identical for both boards
-    if (_screen == SCR_OVERVIEW) {
-        if (hitTest(sx, sy, SOLAR_X, BOX_Y, BOX_W, BOX_H)) {
-            _screen = SCR_DETAIL_SOLAR;  drawDetailSolar();
-        } else if (hitTest(sx, sy, BATT_X, BOX_Y, BOX_W, BOX_H)) {
-            _screen = SCR_DETAIL_BATT;   drawDetailBatt();
-        } else if (hitTest(sx, sy, ORION_X, BOX_Y, BOX_W, BOX_H)) {
-            _screen = SCR_DETAIL_ORION;  drawDetailOrion();
-        } else if (hitTest(sx, sy, ORION_X, LOADS_Y, BOX_W, LOADS_H)) {
-            _screen = SCR_LEVEL;
-            _lvFirstDraw = true;
-        } else if (hitTest(sx, sy, SOLAR_X, LOADS_Y, BOX_W, LOADS_H)) {
-            _screen = SCR_SETTINGS;
-            _firstDraw = true;
-        }
-    } else if (_screen == SCR_SETTINGS) {
-        if (hitTest(sx, sy, 4, 4, 58, 30)) {
-            _screen = SCR_OVERVIEW;
-            _firstDraw = true;
-        } else if (hitTest(sx, sy, 0, 48, 480, 48)) {
-            _alwaysOn = !_alwaysOn;
-            drawSettingsToggle();
-        }
-    } else {
-        // SCR_DETAIL_* and SCR_LEVEL: tap "< BACK" button (x=4,y=4,w=58,h=30)
-        if (hitTest(sx, sy, 4, 4, 58, 30)) {
-            _screen = SCR_OVERVIEW;
-            _firstDraw = true;
-        }
+    // Bottom tab bar — switch screen
+    if (sy >= TAB_Y) {
+        int idx = sx / TAB_W;
+        if (idx >= 0 && idx < TAB_N && idx != (int)_screen) selectScreen((Screen)idx);
+        return;
+    }
+
+    // System screen: tap the "screen timeout" pill toggles always-on
+    if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 168, 40)) {
+        _alwaysOn = !_alwaysOn;
+        drawSystem();
     }
 }
 
@@ -277,679 +205,554 @@ bool DisplayUI::hitTest(int tx, int ty, int bx, int by, int bw, int bh) {
     return tx >= bx && tx < bx + bw && ty >= by && ty < by + bh;
 }
 
-// ─── drawBox ──────────────────────────────────────────────────────────────────
+void DisplayUI::selectScreen(Screen s) {
+    _screen = s;
+    // reset anti-flicker caches so the new screen fully repaints its values
+    _lastSocBucket = -1; _lastPitch = 99.0f; _lastRoll = 99.0f; _lastImuValid = false;
+    clearContent();
+    drawTabBar();
+    switch (_screen) {
+        case SCR_OVERVIEW: drawOverview(); break;
+        case SCR_BATTERY:  drawBattery();  break;
+        case SCR_SOLAR:    drawSolar();    break;
+        case SCR_DCDC:     drawDcdc();     break;
+        case SCR_LEVEL:    drawLevel();    break;
+        case SCR_SYSTEM:   drawSystem();   break;
+    }
+    _lastValMs = millis();
+}
 
-void DisplayUI::drawBox(int x, int y, int w, int h, const char* title, bool online, bool showDot) {
-    _D.fillRoundRect(x, y, w, h, 6, UI_SURFACE);
-    _D.drawRoundRect(x, y, w, h, 6, UI_BORDER);
+// ─── Primitives ───────────────────────────────────────────────────────────────
+void DisplayUI::clearContent() {
+    _D.fillRect(0, CT_Y, 480, CT_H, C_BG);
+}
+
+void DisplayUI::drawCard(int x, int y, int w, int h, uint16_t fill, bool border) {
+    _D.fillRoundRect(x, y, w, h, 10, fill);
+    if (border) _D.drawRoundRect(x, y, w, h, 10, C_BORDER);
+}
+
+// Thick arc drawn as a run of filled dots. a0/a1 in degrees, 0 = top, clockwise.
+void DisplayUI::drawArc(int cx, int cy, int r, int thick, int a0, int a1, uint16_t col) {
+    int rad = thick / 2; if (rad < 1) rad = 1;
+    for (int a = a0; a <= a1; a++) {
+        float t = (a - 90) * 0.01745329f;
+        int x = cx + (int)lroundf(cosf(t) * r);
+        int y = cy + (int)lroundf(sinf(t) * r);
+        _D.fillCircle(x, y, rad, col);
+    }
+}
+
+void DisplayUI::drawRing(int cx, int cy, int r, int thick, float pct, uint16_t col, uint16_t track) {
+    if (pct < 0) pct = 0; if (pct > 1) pct = 1;
+    drawArc(cx, cy, r, thick, 0, 360, track);
+    int sweep = (int)lroundf(pct * 360.0f);
+    if (sweep > 0) drawArc(cx, cy, r, thick, 0, sweep, col);
+}
+
+void DisplayUI::drawPill(int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg) {
+    _D.fillRoundRect(x, y, w, h, h / 2, bg);
     _setFont(1);
-    _D.setTextColor(UI_MUTED, UI_SURFACE);
-    _D.setCursor(x + 5, y + 5);
-    _D.print(title);
-    if (showDot)
-        _D.fillCircle(x + w - 10, y + 10, 5, online ? UI_GREEN : UI_RED);
-}
-
-// ─── Flow lines ───────────────────────────────────────────────────────────────
-
-void DisplayUI::drawHFlowLine(int x1, int x2, int y, bool active, bool reverse) {
-    int len = x2 - x1;
-    if (len <= 0) return;
-    if (!active) {
-        for (int row = -1; row <= 1; row++)
-            _D.drawFastHLine(x1, y + row, len, UI_BORDER);
-        return;
-    }
-    for (int row = -1; row <= 1; row++) {
-        int i = 0;
-        while (i < len) {
-            int p = (i + _flowPhase) % 14;
-            int runMax;
-            uint16_t col;
-            if (p < 6) { runMax = 6 - p; col = UI_BLUE; }
-            else       { runMax = 14 - p; col = UI_BG; }
-            int runLen = min(runMax, len - i);
-            int drawX = reverse ? (x2 - runLen - i) : (x1 + i);
-            _D.drawFastHLine(drawX, y + row, runLen, col);
-            i += runLen;
-        }
-    }
-}
-
-void DisplayUI::drawVFlowLine(int x, int y1, int y2, bool active) {
-    int len = y2 - y1;
-    if (len <= 0) return;
-    if (!active) {
-        for (int c = -1; c <= 1; c++)
-            _D.drawFastVLine(x + c, y1, len, UI_BORDER);
-        return;
-    }
-    for (int col = -1; col <= 1; col++) {
-        int i = 0;
-        while (i < len) {
-            int p = (i + _flowPhase) % 14;
-            int runMax;
-            uint16_t c;
-            if (p < 6) { runMax = 6 - p; c = UI_BLUE; }
-            else       { runMax = 14 - p; c = UI_BG; }
-            int runLen = min(runMax, len - i);
-            _D.drawFastVLine(x + col, y1 + i, runLen, c);
-            i += runLen;
-        }
-    }
-}
-
-void DisplayUI::drawFlowLines(bool solar, bool orion, bool loads) {
-    // Solar → Battery (left to right)
-    drawHFlowLine(SOLAR_X + BOX_W + 1, BATT_X - 1, CONN_MID_Y, solar);
-    // Orion → Battery (right to left: reverse=true so dashes flow toward Battery)
-    drawHFlowLine(BATT_X + BOX_W + 1, ORION_X - 1, CONN_MID_Y, orion, true);
-    // Battery → Loads (top to bottom)
-    drawVFlowLine(BATT_CX, BOX_Y + BOX_H + 1, LOADS_Y - 1, loads);
-}
-
-// ─── fillText ─────────────────────────────────────────────────────────────────
-
-void DisplayUI::fillText(int x, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg) {
+    int tw = _textWidth(txt);
 #ifdef BOARD_GUITION
-    // Anti-flicker: clear area first, then draw — at QSPI speeds the clear is imperceptible
-    _gfx->fillRect(x, y, w, h, bg);
-    _setFont(font);
-    _gfx->setTextColor(col);
-    _gfx->setCursor(x + 2, y + 2);
+    _gfx->setTextColor(fg);
+    _gfx->setCursor(x + (w - tw) / 2, y + (h - 8) / 2);
     _gfx->print(txt);
 #else
-    _tft.setTextFont(font);
-    _tft.setTextColor(col, bg);
-    _tft.setTextPadding(w - 2);
-    _tft.drawString(txt, x + 2, y + 2);
+    _tft.setTextColor(fg, bg);
+    _tft.setTextPadding(0);
+    _tft.drawString(txt, x + (w - tw) / 2, y + (h - 8) / 2);
 #endif
 }
 
-// ─── drawSettingsBox (overview bottom-left entry button) ──────────────────────
+// label (small, muted) above value (font2, colored). Clears value rect for anti-flicker.
+void DisplayUI::drawStat(int x, int y, int w, const char* label, const char* val, uint16_t valCol) {
+    fillText(x, y, w, 12, label, 1, C_MUTED, C_CARD);
+    fillText(x, y + 13, w, 20, val, 2, valCol, C_CARD);
+}
 
-void DisplayUI::drawSettingsBox() {
-    _D.fillRoundRect(SOLAR_X, LOADS_Y, BOX_W, LOADS_H, 6, UI_SURFACE);
-    _D.drawRoundRect(SOLAR_X, LOADS_Y, BOX_W, LOADS_H, 6, UI_BORDER);
-    _setFont(1);
-    _D.setTextColor(UI_MUTED, UI_SURFACE);
-    _D.setCursor(SOLAR_X + 5, LOADS_Y + 5);
-    _D.print("SETTINGS");
-    // Gear icon centered in box below title
-    int cx = SOLAR_X + BOX_W / 2;
-    int cy = LOADS_Y + 57;
-    _D.fillCircle(cx, cy, 18, UI_MUTED);
-    for (int k = 0; k < 8; k++) {
-        float a = k * 3.14159f / 4.0f;
-        _D.fillCircle(cx + (int)(18.f * cosf(a) + 0.5f),
-                      cy + (int)(18.f * sinf(a) + 0.5f), 5, UI_MUTED);
+void DisplayUI::fillText(int x, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg) {
+#ifdef BOARD_GUITION
+    _gfx->fillRect(x, y, w, h, bg);
+    _setFont(font);
+    _gfx->setTextColor(col);
+    _gfx->setCursor(x + 1, y + 1);
+    _gfx->print(txt);
+#else
+    _setFont(font);
+    _tft.setTextColor(col, bg);
+    _tft.setTextPadding(w - 1);
+    _tft.setTextDatum(TL_DATUM);
+    _tft.drawString(txt, x + 1, y + 1);
+#endif
+}
+
+// Centered text, transparent bg (caller must clear the region first).
+void DisplayUI::centerText(int cx, int y, const char* txt, uint8_t font, uint16_t col) {
+    _setFont(font);
+    int w = _textWidth(txt);
+#ifdef BOARD_GUITION
+    _gfx->setTextColor(col);
+    _gfx->setCursor(cx - w / 2, y);
+    _gfx->print(txt);
+#else
+    _tft.setTextColor(col);
+    _tft.setTextPadding(0);
+    _tft.setTextDatum(TL_DATUM);
+    _tft.drawString(txt, cx - w / 2, y);
+#endif
+}
+
+// ─── Chrome: status bar + tab bar ─────────────────────────────────────────────
+void DisplayUI::drawChrome() {
+    drawStatusBar(true);
+    drawTabBar();
+}
+
+void DisplayUI::drawStatusBar(bool full) {
+    if (full) {
+        _D.fillRect(0, 0, 480, SB_H, C_BG);
+        _D.drawFastHLine(0, SB_H - 1, 480, C_BORDER);
+        // wordmark "volt·hub"
+        _setFont(2);
+        int x = 12, yb = 9;
+#ifdef BOARD_GUITION
+        _gfx->setTextColor(C_TEXT); _gfx->setCursor(x, yb); _gfx->print("volt");
+        int wv = _textWidth("volt");
+        _D.fillCircle(x + wv + 4, yb + 7, 2, C_ORANGE);
+        _gfx->setCursor(x + wv + 9, yb); _gfx->print("hub");
+#else
+        _tft.setTextColor(C_TEXT); _tft.setTextDatum(TL_DATUM); _tft.setTextPadding(0);
+        _tft.drawString("volt", x, yb);
+        int wv = _tft.textWidth("volt");
+        _D.fillCircle(x + wv + 4, yb + 7, 2, C_ORANGE);
+        _tft.drawString("hub", x + wv + 9, yb);
+#endif
     }
-    _D.fillCircle(cx, cy, 10, UI_SURFACE);
+
+    // Right cluster: charge state · BLE count · clock
+    // clock
+    char hhmm[6] = "--:--";
+    if (strlen(_syNtpTime) >= 5) { hhmm[0]=_syNtpTime[0]; hhmm[1]=_syNtpTime[1]; hhmm[2]=':'; hhmm[3]=_syNtpTime[3]; hhmm[4]=_syNtpTime[4]; hhmm[5]=0; }
+    fillText(420, 10, 52, 16, hhmm, 2, C_TEXT, C_BG);
+
+    // BLE device count
+    int devs = 0;
+    uint32_t now = millis();
+    if (_bd.valid) devs++;
+    if (_sd.valid) devs++;
+    if (_od.valid) devs++;
+    if (_imu.valid) devs++;
+    char cbuf[8]; snprintf(cbuf, sizeof(cbuf), "BLE %d", devs);
+    fillText(360, 11, 56, 14, cbuf, 1, C_BLUE, C_BG);
+
+    // charge state dot + label
+    float p = isnan(_bd.power) ? 0 : _bd.power;
+    int st = p > 8 ? 1 : (p < -8 ? -1 : 0);
+    const char* lbl = st == 1 ? "Charging" : st == -1 ? "Discharging" : "Idle";
+    uint16_t sc = st == 1 ? C_GREEN : st == -1 ? C_AMBER : C_MUTED;
+    _D.fillRect(232, 8, 120, 18, C_BG);
+    _D.fillCircle(240, 17, 4, sc);
+    fillText(248, 11, 104, 14, lbl, 1, sc, C_BG);
+    _lastChargeState = st;
+    (void)now;
 }
 
-// ─── drawSettingsToggle (toggle row in the Settings screen) ───────────────────
-
-void DisplayUI::drawSettingsToggle() {
-    _D.fillRect(0, 48, 480, 48, UI_BG);
-    _setFont(2);
-    _D.setTextColor(UI_TEXT, UI_BG);
-    _D.setCursor(16, 55);
-    _D.print("SCHERMO");
-    const char* lbl = _alwaysOn ? "SEMPRE ON" : "AUTO OFF";
-    uint16_t lblCol = _alwaysOn ? UI_GREEN : UI_MUTED;
-    fillText(16, 76, 90, 12, lbl, 1, lblCol, UI_BG);
-    // Pill 52×22 right-aligned
-    const int pillX = 362, pillY = 57;
-    uint16_t pillBg = _alwaysOn ? UI_GREEN : UI_BORDER;
-    _D.fillRoundRect(pillX, pillY, 52, 22, 11, pillBg);
-    int circX = _alwaysOn ? pillX + 41 : pillX + 11;
-    _D.fillCircle(circX, pillY + 11, 9, UI_TEXT);
+void DisplayUI::drawTabIcon(int idx, int cx, int cy, uint16_t col) {
+    switch (idx) {
+        case SCR_OVERVIEW: // 2x2 grid
+            _D.drawRoundRect(cx-8, cy-8, 7, 7, 1, col); _D.drawRoundRect(cx+1, cy-8, 7, 7, 1, col);
+            _D.drawRoundRect(cx-8, cy+1, 7, 7, 1, col); _D.drawRoundRect(cx+1, cy+1, 7, 7, 1, col);
+            break;
+        case SCR_BATTERY: // battery body + terminal
+            _D.drawRoundRect(cx-9, cy-5, 15, 10, 2, col); _D.fillRect(cx+6, cy-2, 2, 4, col);
+            break;
+        case SCR_SOLAR: { // sun
+            _D.fillCircle(cx, cy, 3, col);
+            for (int a = 0; a < 360; a += 45) {
+                float t = a * 0.01745329f;
+                _D.drawLine(cx + cosf(t)*6, cy + sinf(t)*6, cx + cosf(t)*8, cy + sinf(t)*8, col);
+            }
+            break; }
+        case SCR_DCDC: // two arrows ⇄
+            _D.drawLine(cx-8, cy-3, cx+8, cy-3, col); _D.drawLine(cx+5, cy-6, cx+8, cy-3, col); _D.drawLine(cx+5, cy, cx+8, cy-3, col);
+            _D.drawLine(cx-8, cy+3, cx+8, cy+3, col); _D.drawLine(cx-8, cy+3, cx-5, cy+6, col); _D.drawLine(cx-8, cy+3, cx-5, cy, col);
+            break;
+        case SCR_LEVEL: // target
+            _D.drawCircle(cx, cy, 8, col); _D.fillCircle(cx, cy, 2, col);
+            _D.drawLine(cx-11, cy, cx-9, cy, col); _D.drawLine(cx+9, cy, cx+11, cy, col);
+            _D.drawLine(cx, cy-11, cx, cy-9, col); _D.drawLine(cx, cy+9, cx, cy+11, col);
+            break;
+        case SCR_SYSTEM: // chip
+            _D.drawRoundRect(cx-8, cy-8, 16, 16, 2, col); _D.drawRect(cx-3, cy-3, 6, 6, col);
+            break;
+    }
 }
 
-// ─── drawSettingsInfo (info rows in the Settings screen) ──────────────────────
+void DisplayUI::drawTabBar() {
+    static const char* labels[TAB_N] = {"Overview","Battery","Solar","DC-DC","Level","System"};
+    _D.fillRect(0, TAB_Y, 480, TAB_H, C_TABBG);
+    _D.drawFastHLine(0, TAB_Y, 480, C_BORDER);
+    for (int i = 0; i < TAB_N; i++) {
+        bool on = (i == (int)_screen);
+        int x = i * TAB_W;
+        uint16_t col = on ? C_ORANGE : C_MUTED;
+        if (on) {
+            _D.fillRect(x, TAB_Y + 1, TAB_W, TAB_H - 1, C_TABACT);
+            _D.fillRect(x, TAB_Y, TAB_W, 2, C_ORANGE);
+        }
+        drawTabIcon(i, x + TAB_W / 2, TAB_Y + 20, col);
+        int tw = _textWidth(labels[i]); _setFont(1);
+        tw = _textWidth(labels[i]);
+#ifdef BOARD_GUITION
+        _gfx->setTextColor(col); _gfx->setCursor(x + (TAB_W - tw) / 2, TAB_Y + 38); _gfx->print(labels[i]);
+#else
+        _tft.setTextColor(col); _tft.setTextPadding(0); _tft.setTextDatum(TL_DATUM);
+        _tft.drawString(labels[i], x + (TAB_W - tw) / 2, TAB_Y + 38);
+#endif
+    }
+}
 
-void DisplayUI::drawSettingsInfo() {
-    // 5 rows at y=106,142,178,214,250 (step 36px).
-    struct InfoRow { const char* label; const char* value; uint16_t col; };
-    bool ntpOk  = strcmp(_syNtpTime, "--") != 0;
-    InfoRow rows[5] = {
-        { "AP SSID",     _syApSsid[0]  ? _syApSsid  : "--",              (uint16_t)UI_TEXT  },
-        { "AP IP",       _syApIp[0]    ? _syApIp    : "--",              (uint16_t)UI_TEXT  },
-        { "CLIENT SSID", _syStaSsid[0] ? _syStaSsid : "non configurato", (uint16_t)(_syStaSsid[0] ? UI_TEXT : UI_MUTED) },
-        { "CLIENT IP",   _syStaIp[0]   ? _syStaIp   : "non connesso",    (uint16_t)(_syStaIp[0]   ? UI_TEXT : UI_MUTED) },
-        { "ORARIO NTP",  ntpOk         ? _syNtpTime : "in attesa...",    (uint16_t)(ntpOk          ? UI_TEXT : UI_MUTED) },
+// ─── Overview: radial flow ────────────────────────────────────────────────────
+void DisplayUI::drawOverview() {
+    // side nodes
+    drawCard(12, CT_Y + 16, 120, 60, C_INSET, true);
+    fillText(22, CT_Y + 22, 100, 12, "Solar", 1, C_MUTED, C_INSET);
+    drawCard(12, CT_Y + 150, 120, 60, C_INSET, true);
+    fillText(22, CT_Y + 156, 100, 12, "DC-DC", 1, C_MUTED, C_INSET);
+    drawCard(348, CT_Y + 84, 120, 60, C_INSET, true);
+    fillText(358, CT_Y + 90, 100, 12, "Loads", 1, C_MUTED, C_INSET);
+    updateOverview();
+}
+
+void DisplayUI::updateOverview() {
+    char buf[16];
+    // Solar W
+    float sw = (!isnan(_sd.solarPower) && _sd.valid) ? _sd.solarPower : NAN;
+    fmtF(buf, sw, 0); strcat(buf, " W");
+    fillText(22, CT_Y + 40, 100, 22, buf, 4, sw > 0.5f ? C_ORANGE : C_MUTED, C_INSET);
+    // DC-DC W
+    float ow = (_od.valid && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
+    fmtF(buf, ow, 0); strcat(buf, " W");
+    fillText(22, CT_Y + 174, 100, 22, buf, 4, ow > 0.5f ? C_BLUE : C_MUTED, C_INSET);
+    // Loads W (aggregate only — degraded)
+    float loadsW = NAN;
+    if (_bd.valid) {
+        float solW = (!isnan(_sd.solarPower)) ? _sd.solarPower : 0;
+        float dcW  = (!isnan(ow)) ? ow : 0;
+        float batW = isnan(_bd.power) ? 0 : _bd.power;
+        loadsW = fmaxf(0.0f, solW + dcW - batW);
+    }
+    fmtF(buf, loadsW, 0); strcat(buf, " W");
+    fillText(358, CT_Y + 108, 100, 22, buf, 4, loadsW > 0.5f ? C_PALE : C_MUTED, C_INSET);
+
+    // Battery ring (center) — redraw only when SOC bucket changes
+    int cx = 240, cy = CT_Y + 96, r = 52, th = 11;
+    float soc = _bd.valid ? _bd.soc : NAN;
+    int bucket = _bd.valid ? (int)soc : -1;
+    if (bucket != _lastSocBucket) {
+        _lastSocBucket = bucket;
+        _D.fillRect(cx - r - th, cy - r - th, (r + th) * 2, (r + th) * 2, C_BG);
+        uint16_t rc = _bd.valid ? socColor(soc) : C_MUTED;
+        drawRing(cx, cy, r, th, _bd.valid ? soc / 100.0f : 0.0f, rc, C_INSET);
+        // center text
+        if (_bd.valid) { snprintf(buf, sizeof(buf), "%d%%", (int)soc); }
+        else strcpy(buf, "--");
+        centerText(cx, cy - 14, buf, 4, _bd.valid ? rc : C_MUTED);
+    }
+    // sub line V·A (always refresh)
+    if (_bd.valid) {
+        char vb[8], ab[8]; fmtF(vb, _bd.voltage, 1); fmtF(ab, _bd.current, 1);
+        snprintf(buf, sizeof(buf), "%sV %sA", vb, ab);
+    } else strcpy(buf, "offline");
+    _D.fillRect(cx - 55, cy + 14, 110, 14, C_BG);
+    centerText(cx, cy + 15, buf, 1, C_MUTED);
+}
+
+void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
+    auto dash = [&](int x0, int y0, int x1, int y1, bool active, uint16_t col) {
+        float dx = x1 - x0, dy = y1 - y0;
+        float len = sqrtf(dx * dx + dy * dy);
+        if (len < 1) return;
+        float ux = dx / len, uy = dy / len;
+        uint16_t c = active ? col : C_BORDER;
+        // clear the corridor lightly by redrawing background dots first would flicker;
+        // instead draw gap dots in bg then segment dots in colour
+        int period = 14;
+        for (int i = -period; i < (int)len + period; i += period) {
+            for (int j = 0; j < period; j++) {
+                int t = i + j - _flowPhase;
+                if (t < 0 || t >= (int)len) continue;
+                int x = x0 + (int)(ux * t), y = y0 + (int)(uy * t);
+                uint16_t dc = (j < 6 && active) ? c : C_BG;
+                _D.fillCircle(x, y, 1, dc);
+            }
+        }
     };
-    const int startY = 106, step = 36, valueX = 160, valueW = 308;
-    for (int i = 0; i < 5; i++) {
-        int y = startY + i * step;
-        _D.drawFastHLine(0, y - 4, 480, UI_BORDER);
-        _setFont(1);
-        _D.setTextColor(UI_MUTED, UI_BG);
-        _D.setCursor(16, y + 3);
-        _D.print(rows[i].label);
-        // fillText handles anti-flicker for the value (variable-length strings)
-        fillText(valueX, y, valueW, 18, rows[i].value, 2, rows[i].col, UI_BG);
+    dash(132, CT_Y + 46, 186, CT_Y + 84,  solar, C_ORANGE);   // solar → battery
+    dash(132, CT_Y + 180, 186, CT_Y + 108, dcdc,  C_BLUE);    // dc-dc → battery
+    dash(294, CT_Y + 96, 348, CT_Y + 114,  loads, C_PALE);    // battery → loads
+}
+
+// ─── Battery ──────────────────────────────────────────────────────────────────
+void DisplayUI::drawBattery() {
+    drawCard(12, CT_Y + 8, 456, 84, C_CARD, true);
+    drawCard(12, CT_Y + 100, 456, 122, C_CARD, true);
+    // header of card B
+    fillText(26, CT_Y + 110, 300, 16, "LiTime 12V bank · LiFePO4", 2, C_TEXT, C_CARD);
+    updateBattery();
+}
+
+void DisplayUI::updateBattery() {
+    char buf[16], vb[8], ab[8];
+    bool on = _bd.valid;
+    // ring in card A
+    int cx = 58, cy = CT_Y + 50, r = 30, th = 8;
+    int bucket = on ? (int)_bd.soc : -1;
+    if (bucket != _lastSocBucket) {
+        _lastSocBucket = bucket;
+        _D.fillRect(cx - r - th, cy - r - th, (r + th) * 2, (r + th) * 2, C_CARD);
+        uint16_t rc = on ? socColor(_bd.soc) : C_MUTED;
+        drawRing(cx, cy, r, th, on ? _bd.soc / 100.0f : 0, rc, C_INSET);
+        if (on) snprintf(buf, sizeof(buf), "%d%%", (int)_bd.soc); else strcpy(buf, "--");
+        centerText(cx, cy - 10, buf, 2, on ? rc : C_MUTED);
+    }
+    // 2x2 grid in card A
+    fmtF(vb, on ? _bd.voltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", vb);
+    drawStat(120, CT_Y + 16, 120, "Voltage", on ? buf : "--", C_TEXT);
+    fmtF(ab, on ? _bd.current : NAN, 1); snprintf(buf, sizeof(buf), "%s A", ab);
+    drawStat(250, CT_Y + 16, 120, "Current", on ? buf : "--", on ? signColor(_bd.current) : C_MUTED);
+    fmtF(vb, on ? _bd.remainingAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", vb);
+    drawStat(120, CT_Y + 50, 120, "Charge", on ? buf : "--", C_TEXT);
+    fmtF(ab, on ? _bd.fullCapacityAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", ab);
+    drawStat(250, CT_Y + 50, 120, "Capacity", on ? buf : "--", C_MUTED);
+
+    // card B: BMS pill + 4 stats + cell bars
+    // cell delta
+    float mn = 9, mx = 0; for (int i = 0; i < _bd.cellCount; i++) { if (_bd.cellVoltages[i] < mn) mn = _bd.cellVoltages[i]; if (_bd.cellVoltages[i] > mx) mx = _bd.cellVoltages[i]; }
+    int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
+    const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
+    uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
+    drawPill(392, CT_Y + 108, 64, 20, bmsTxt, bmsFg, C_INSET);
+
+    snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);
+    drawStat(26, CT_Y + 132, 100, "SOH", on ? buf : "--", C_TEXT);
+    snprintf(buf, sizeof(buf), "%lu", (unsigned long)_bd.dischargesCount);
+    drawStat(140, CT_Y + 132, 100, "Cycles", on ? buf : "--", C_TEXT);
+    snprintf(buf, sizeof(buf), "%d C", on ? _bd.cellTemp : 0);
+    drawStat(254, CT_Y + 132, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
+    snprintf(buf, sizeof(buf), "%d mV", delta);
+    drawStat(368, CT_Y + 132, 90, "Delta", on ? buf : "--", C_TEXT);
+
+    // cell bars (up to 4 visible)
+    int cells = _bd.cellCount; if (cells > 4) cells = 4;
+    int barY = CT_Y + 170;
+    for (int i = 0; i < 4; i++) {
+        int y = barY + i * 13;
+        _D.fillRect(26, y, 432, 12, C_CARD);  // clear row
+        if (i < cells) {
+            char lbl[10]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
+            fillText(26, y, 26, 11, lbl, 1, C_MUTED, C_CARD);
+            int bx = 56, bw = 300, bh = 9;
+            _D.fillRoundRect(bx, y + 1, bw, bh, 3, C_INSET);
+            float pct = (_bd.cellVoltages[i] - 2.9f) / (3.65f - 2.9f);
+            if (pct < 0) pct = 0; if (pct > 1) pct = 1;
+            _D.fillRoundRect(bx, y + 1, (int)(bw * pct), bh, 3, C_BLUE);
+            char cvb[10]; fmtF(cvb, _bd.cellVoltages[i], 2); strcat(cvb, "V");
+            fillText(bx + bw + 8, y, 60, 11, cvb, 1, C_TEXT, C_CARD);
+        }
     }
 }
 
-// ─── drawSettingsScreen ───────────────────────────────────────────────────────
+// ─── Solar (degraded: no PV V/A, no hourly history) ───────────────────────────
+void DisplayUI::drawSolar() {
+    drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
+    fillText(26, CT_Y + 18, 300, 16, "Victron SmartSolar MPPT", 2, C_TEXT, C_CARD);
+    drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
+    fillText(26, CT_Y + 144, 300, 14, "Production today", 1, C_MUTED, C_CARD);
+    updateSolar();
+}
 
-void DisplayUI::drawSettingsScreen() {
-    drawDetailHeader("SETTINGS", true);
-    drawSettingsToggle();
-    drawSettingsInfo();
+void DisplayUI::updateSolar() {
+    char buf[16], t[8];
+    bool on = _sd.valid;
+    const char* state = on ? victronStateName(_sd.chargeState) : "offline";
+    drawPill(360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
+    // big W
+    fmtF(buf, on ? _sd.solarPower : NAN, 0);
+    _D.fillRect(26, CT_Y + 40, 200, 32, C_CARD);
+    centerText(26 + 60, CT_Y + 44, buf, 4, on ? C_ORANGE : C_MUTED);
+    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+    // 3 insets: Batt V, Charge A, Yield today
+    int iy = CT_Y + 82; int iw = 142;
+    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
+    fmtF(t, on ? _sd.battVoltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", t);
+    fillText(34, iy + 3, iw - 12, 11, "Battery", 1, C_MUTED, C_INSET); fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fmtF(t, on ? _sd.chargeCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET); fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Yield today", 1, C_MUTED, C_INSET); fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_ORANGE, C_INSET);
+
+    // card B: yield today big (no history available)
+    fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
+    _D.fillRect(26, CT_Y + 160, 300, 32, C_CARD);
+    centerText(120, CT_Y + 164, buf, 4, on ? C_TEXT : C_MUTED);
+    fillText(300, CT_Y + 170, 160, 14, "energia oggi", 1, C_MUTED, C_CARD);
+}
+
+// ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
+void DisplayUI::drawDcdc() {
+    drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
+    fillText(26, CT_Y + 18, 300, 16, "Victron Orion-XS DC-DC", 2, C_TEXT, C_CARD);
+    drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
+    fillText(26, CT_Y + 144, 300, 14, "Charge profile", 1, C_MUTED, C_CARD);
+    // static charge profile
+    fillText(26, CT_Y + 164, 210, 14, "Current limit", 1, C_MUTED, C_CARD);  fillText(180, CT_Y + 164, 56, 14, "50 A", 1, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 182, 210, 14, "Input range", 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
+    fillText(250, CT_Y + 164, 150, 14, "Mode", 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, "Adaptive", 1, C_TEXT, C_CARD);
+    fillText(250, CT_Y + 182, 150, 14, "Engine detect", 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, "Auto", 1, C_TEXT, C_CARD);
+    updateDcdc();
+}
+
+void DisplayUI::updateDcdc() {
+    char buf[16], t[8];
+    bool on = _od.valid;
+    float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
+    const char* state = !on ? "offline" : (_od.outCurrent > 0.1f ? "Charging" : "Standby");
+    drawPill(360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
+    fmtF(buf, w, 0);
+    _D.fillRect(26, CT_Y + 40, 200, 32, C_CARD);
+    centerText(26 + 60, CT_Y + 44, buf, 4, on ? C_BLUE : C_MUTED);
+    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+    int iy = CT_Y + 82, iw = 142;
+    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET); _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
+    fmtF(t, on ? _od.inVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
+    fillText(34, iy + 3, iw - 12, 11, "Alternator in", 1, C_MUTED, C_INSET); fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fmtF(t, on ? _od.outCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET); fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    fmtF(t, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Output", 1, C_MUTED, C_INSET); fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+}
+
+// ─── Level ────────────────────────────────────────────────────────────────────
+void DisplayUI::drawLevel() {
+    drawCard(12, CT_Y + 8, 176, 214, C_CARD, true);
+    fillText(24, CT_Y + 16, 150, 14, "Bubble level", 1, C_MUTED, C_CARD);
+    // bubble base circle
+    int cx = 100, cy = CT_Y + 116, R = 72;
+    _D.fillCircle(cx, cy, R, C_INSET);
+    _D.drawCircle(cx, cy, R, C_BORDER);
+    _D.drawCircle(cx, cy, 30, C_BORDER);
+    _D.drawFastHLine(cx - R + 8, cy, 2 * (R - 8), C_BORDER);
+    _D.drawFastVLine(cx, cy - R + 8, 2 * (R - 8), C_BORDER);
+
+    drawCard(200, CT_Y + 8, 128, 66, C_CARD, true);
+    fillText(210, CT_Y + 16, 110, 12, "PITCH F-R", 1, C_MUTED, C_CARD);
+    drawCard(336, CT_Y + 8, 132, 66, C_CARD, true);
+    fillText(346, CT_Y + 16, 110, 12, "ROLL L-R", 1, C_MUTED, C_CARD);
+    drawCard(200, CT_Y + 82, 268, 140, C_CARD, true);
+    fillText(210, CT_Y + 90, 240, 14, "Ramp / chock guidance", 1, C_MUTED, C_CARD);
+    updateLevel();
+}
+
+void DisplayUI::updateLevel() {
+    bool on = _imu.valid;
+    float pitch = on ? _imu.pitch : 0, roll = on ? _imu.roll : 0;
+    if (on && fabsf(pitch - _lastPitch) < 0.2f && fabsf(roll - _lastRoll) < 0.2f && on == _lastImuValid) return;
+    _lastPitch = pitch; _lastRoll = roll; _lastImuValid = on;
+
+    const float tol = 0.5f;
+    bool okP = fabsf(pitch) <= tol, okR = fabsf(roll) <= tol, level = okP && okR;
+    auto axCol = [&](float v){ return fabsf(v) <= tol ? C_GREEN : (fabsf(v) <= 2 ? C_AMBER : C_RED); };
+    char buf[16];
+
+    // bubble
+    int cx = 100, cy = CT_Y + 116, R = 72;
+    _D.fillCircle(cx, cy, R - 2, C_INSET);         // clear interior
+    _D.drawCircle(cx, cy, 30, C_BORDER);
+    _D.drawFastHLine(cx - R + 8, cy, 2 * (R - 8), C_BORDER);
+    _D.drawFastVLine(cx, cy - R + 8, 2 * (R - 8), C_BORDER);
+    int bx = cx + (int)constrain(roll * 6.0f, -54.0f, 54.0f);
+    int by = cy + (int)constrain(-pitch * 6.0f, -54.0f, 54.0f);
+    _D.fillCircle(bx, by, 12, on ? (level ? C_GREEN : C_AMBER) : C_MUTED);
+
+    // status pill
+    drawPill(52, CT_Y + 196, 96, 20, on ? (level ? "Levelled" : "Adjust") : "no sensor", on ? (level ? C_GREEN : C_AMBER) : C_MUTED, C_INSET);
+
+    // pitch / roll values
+    snprintf(buf, sizeof(buf), "%+.1f", pitch);
+    fillText(210, CT_Y + 32, 110, 26, on ? buf : "--", 4, on ? axCol(pitch) : C_MUTED, C_CARD);
+    snprintf(buf, sizeof(buf), "%+.1f", roll);
+    fillText(346, CT_Y + 32, 110, 26, on ? buf : "--", 4, on ? axCol(roll) : C_MUTED, C_CARD);
+
+    // ramp guidance (2 rows)
+    const int mmPerDeg = 42;
+    _D.fillRect(210, CT_Y + 110, 248, 80, C_CARD);
+    // roll row
+    const char* rw = roll > tol ? "Left wheels" : (roll < -tol ? "Right wheels" : "Side axle");
+    _D.fillCircle(218, CT_Y + 120, 4, okR ? C_GREEN : C_AMBER);
+    fillText(230, CT_Y + 114, 150, 14, rw, 1, C_TEXT, C_CARD);
+    if (okR) strcpy(buf, "OK"); else snprintf(buf, sizeof(buf), "raise %d mm", (int)(fabsf(roll) * mmPerDeg));
+    fillText(360, CT_Y + 114, 96, 14, on ? buf : "--", 1, okR ? C_GREEN : C_AMBER, C_CARD);
+    // pitch row
+    const char* pw = pitch < -tol ? "Front wheels" : (pitch > tol ? "Rear wheels" : "Front-rear");
+    _D.fillCircle(218, CT_Y + 146, 4, okP ? C_GREEN : C_AMBER);
+    fillText(230, CT_Y + 140, 150, 14, pw, 1, C_TEXT, C_CARD);
+    if (okP) strcpy(buf, "OK"); else snprintf(buf, sizeof(buf), "raise %d mm", (int)(fabsf(pitch) * mmPerDeg));
+    fillText(360, CT_Y + 140, 96, 14, on ? buf : "--", 1, okP ? C_GREEN : C_AMBER, C_CARD);
+}
+
+// ─── System (degraded: no RSSI / no wifi scan) ────────────────────────────────
+void DisplayUI::drawSystem() {
+    drawCard(12, CT_Y + 8, 280, 214, C_CARD, true);
+    fillText(24, CT_Y + 16, 200, 14, "Connected devices", 1, C_MUTED, C_CARD);
+    drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // screen-timeout toggle pill area
+    drawCard(300, CT_Y + 56, 168, 166, C_CARD, true);
+    fillText(312, CT_Y + 64, 150, 14, "Network", 1, C_MUTED, C_CARD);
+    updateSystem();
+}
+
+void DisplayUI::updateSystem() {
+    struct { const char* name; bool on; } devs[4] = {
+        { "SmartSolar MPPT", _sd.valid },
+        { "Orion-XS DC-DC",  _od.valid },
+        { "LiTime BMS",      _bd.valid },
+        { "WitMotion IMU",   _imu.valid },
+    };
+    for (int i = 0; i < 4; i++) {
+        int y = CT_Y + 40 + i * 44;
+        _D.fillRect(24, y, 256, 40, C_CARD);
+        _D.fillCircle(32, y + 12, 4, devs[i].on ? C_GREEN : C_MUTED);
+        fillText(44, y + 4, 236, 16, devs[i].name, 2, C_TEXT, C_CARD);
+        fillText(44, y + 22, 236, 12, devs[i].on ? "online" : "offline", 1, devs[i].on ? C_GREEN : C_MUTED, C_CARD);
+    }
+
+    // screen-timeout toggle
+    _D.fillRoundRect(300, CT_Y + 8, 168, 40, 10, C_INSET);
+    fillText(312, CT_Y + 14, 90, 14, "Screen", 1, C_MUTED, C_INSET);
+    drawPill(400, CT_Y + 16, 60, 22, _alwaysOn ? "ALWAYS" : "AUTO", _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+
+    // network info
+    int ny = CT_Y + 82;
+    auto row = [&](const char* label, const char* val) {
+        fillText(312, ny, 150, 12, label, 1, C_MUTED, C_CARD);
+        fillText(312, ny + 12, 150, 14, (val && val[0]) ? val : "--", 1, C_TEXT, C_CARD);
+        ny += 32;
+    };
+    row("AP SSID", _syApSsid);
+    row("AP IP", _syApIp);
+    row("Client IP", _syStaIp[0] ? _syStaIp : nullptr);
+    row("NTP time", _syNtpTime);
 }
 
 // ─── updateSysInfo ────────────────────────────────────────────────────────────
-
 void DisplayUI::updateSysInfo(const char* apSsid, const char* apIp,
-                               const char* staSsid, const char* staIp,
-                               const char* ntpTime) {
-    strlcpy(_syApSsid,  apSsid  ? apSsid  : "", sizeof(_syApSsid));
-    strlcpy(_syApIp,    apIp    ? apIp    : "", sizeof(_syApIp));
-    strlcpy(_syStaSsid, staSsid ? staSsid : "", sizeof(_syStaSsid));
-    strlcpy(_syStaIp,   staIp   ? staIp   : "", sizeof(_syStaIp));
-    strlcpy(_syNtpTime, ntpTime ? ntpTime : "--", sizeof(_syNtpTime));
-    if (_screen == SCR_SETTINGS && !_firstDraw) {
-        drawSettingsInfo();
-    }
-}
-
-// ─── drawOverview ─────────────────────────────────────────────────────────────
-
-void DisplayUI::drawOverview() {
-    _D.fillScreen(UI_BG);
-
-    drawBox(SOLAR_X, BOX_Y,  BOX_W, BOX_H,  "SOLAR",    _sd.valid);
-    drawBox(BATT_X,  BOX_Y,  BOX_W, BOX_H,  "BATTERY",  _bd.valid);
-    drawBox(ORION_X, BOX_Y,  BOX_W, BOX_H,  "DC-DC",    _od.valid);
-    drawBox(LOADS_X, LOADS_Y,BOX_W, LOADS_H, "LOADS",   false, false);
-
-    // Level screen button (right of LOADS)
-    _D.fillRoundRect(ORION_X, LOADS_Y, BOX_W, LOADS_H, 6, UI_SURFACE);
-    _D.drawRoundRect(ORION_X, LOADS_Y, BOX_W, LOADS_H, 6, UI_BORDER);
-    _setFont(1);
-    _D.setTextColor(UI_MUTED, UI_SURFACE);
-    _D.setCursor(ORION_X + 5, LOADS_Y + 5);
-    _D.print("LEVEL");
-    _D.drawFastVLine(ORION_X + 69, LOADS_Y + 14, LOADS_H - 18, UI_BORDER);
-
-    _lvUpC = _lvDnC = _lvLtC = _lvRtC = 1;  // force arrow redraw on first updateOverviewValues()
-    drawSettingsBox();
-    updateOverviewValues();
-    drawFlowLines(false, false, false);  // draw static lines, animation starts in update()
-}
-
-// ─── updateOverviewValues ─────────────────────────────────────────────────────
-
-void DisplayUI::updateOverviewValues() {
-    char buf[16];
-    uint16_t col;
-
-    // ── Solar ─────────────────────────────────────────────────────────────────
-    {
-        float pw = _sd.valid ? _sd.solarPower : 0.0f;
-        col = (pw > 0.5f) ? UI_GREEN : UI_MUTED;
-        fmtF(buf, pw, 0); strcat(buf, "W");
-        fillText(SOLAR_X+4, BOX_Y+16, BOX_W-8, 28, buf, 4, col, UI_SURFACE);
-
-        const char* stStr = (_sd.valid && _sd.chargeState != 0xFF) ? victronStateName(_sd.chargeState) : "--";
-        fillText(SOLAR_X+4, BOX_Y+50, BOX_W-8, 18, stStr, 2, UI_MUTED, UI_SURFACE);
-
-        fmtF(buf, _sd.valid ? _sd.chargeCurrent : NAN, 1); strcat(buf, "A");
-        fillText(SOLAR_X+4, BOX_Y+72,  BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-
-        fmtF(buf, _sd.valid ? _sd.battVoltage : NAN, 1); strcat(buf, "V");
-        fillText(SOLAR_X+4, BOX_Y+104, BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-
-        fmtF(buf, _sd.valid ? _sd.yieldToday : NAN, 0); strcat(buf, "Wh");
-        fillText(SOLAR_X+4, BOX_Y+136, BOX_W-8, 28, buf, 4, UI_MUTED, UI_SURFACE);
-    }
-
-    // ── Battery ───────────────────────────────────────────────────────────────
-    {
-        float soc = (_bd.valid && !isnan((float)_bd.soc)) ? (float)_bd.soc : 0.0f;
-        fmtF(buf, soc, 0); strcat(buf, "%");
-        col = socCol(soc);
-        fillText(BATT_X+4, BOX_Y+16, BOX_W-8, 28, buf, 4, col, UI_SURFACE);
-
-        float curr = _bd.valid ? _bd.current : 0.0f;
-        const char* stStr = !_bd.valid ? "--" : curr > 0.1f ? "CHARGING" : curr < -0.1f ? "DISCHARGING" : "IDLE";
-        col = !_bd.valid ? UI_MUTED : curr > 0.1f ? UI_GREEN : curr < -0.1f ? UI_ORANGE : UI_MUTED;
-        fillText(BATT_X+4, BOX_Y+50, BOX_W-8, 18, stStr, 2, col, UI_SURFACE);
-
-        fmtF(buf, _bd.valid ? _bd.current : NAN, 1); strcat(buf, "A");
-        fillText(BATT_X+4, BOX_Y+72, BOX_W-8, 28, buf, 4, signCol(_bd.valid ? _bd.current : 0), UI_SURFACE);
-
-        fmtF(buf, _bd.valid ? _bd.voltage : NAN, 1); strcat(buf, "V");
-        fillText(BATT_X+4, BOX_Y+104, BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-
-        fmtF(buf, _bd.valid ? _bd.power : NAN, 0); strcat(buf, "W");
-        fillText(BATT_X+4, BOX_Y+136, BOX_W-8, 28, buf, 4, signCol(_bd.valid ? _bd.power : 0), UI_SURFACE);
-    }
-
-    // ── Orion — OUT only ──────────────────────────────────────────────────────
-    {
-        float outW = (_od.valid && !isnan(_od.outCurrent) && !isnan(_od.outVoltage))
-                     ? _od.outCurrent * _od.outVoltage : 0.0f;
-        col = (outW > 0.5f) ? UI_GREEN : UI_MUTED;
-        fmtF(buf, outW, 0); strcat(buf, "W");
-        fillText(ORION_X+4, BOX_Y+16, BOX_W-8, 28, buf, 4, col, UI_SURFACE);
-
-        const char* stStr = (_od.valid && _od.deviceState != 0xFF) ? victronStateName(_od.deviceState) : "--";
-        fillText(ORION_X+4, BOX_Y+50, BOX_W-8, 18, stStr, 2, UI_MUTED, UI_SURFACE);
-
-        char tmp[10];
-        fmtF(tmp, _od.valid ? _od.outCurrent : NAN, 1); strncpy(buf, tmp, 10); strcat(buf, "A");
-        fillText(ORION_X+4, BOX_Y+72, BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-
-        fmtF(tmp, _od.valid ? _od.outVoltage : NAN, 1); strncpy(buf, tmp, 10); strcat(buf, "V");
-        fillText(ORION_X+4, BOX_Y+104, BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-    }
-
-    // ── Loads ─────────────────────────────────────────────────────────────────
-    {
-        float solarW = (_sd.valid && !isnan(_sd.solarPower))  ? _sd.solarPower  : 0.0f;
-        float orionW = (_od.valid && !isnan(_od.outCurrent) && !isnan(_od.outVoltage))
-                       ? _od.outCurrent * _od.outVoltage : 0.0f;
-        float battW  = (_bd.valid && !isnan(_bd.power)) ? _bd.power : 0.0f;
-        float loadsW = fmaxf(0.0f, solarW + orionW - battW);
-        float battV  = (_bd.valid && !isnan(_bd.voltage) && _bd.voltage > 1.0f) ? _bd.voltage : 12.0f;
-        float loadsA = loadsW / battV;
-
-        fmtF(buf, loadsA, 1); strcat(buf, "A");
-        fillText(LOADS_X+4, LOADS_Y+27, BOX_W-8, 28, buf, 4, UI_MUTED, UI_SURFACE);
-
-        fmtF(buf, loadsW, 0); strcat(buf, "W");
-        fillText(LOADS_X+4, LOADS_Y+61, BOX_W-8, 28, buf, 4, UI_TEXT, UI_SURFACE);
-    }
-
-    // ── Online dots — update every tick based on staleness ────────────────────
-    uint32_t _now = millis();
-    _D.fillCircle(SOLAR_X + BOX_W - 10, BOX_Y + 10, 5,
-        (_sd.valid && _now - _sd.lastSeen < DEVICE_STALE_MS) ? UI_GREEN : UI_RED);
-    _D.fillCircle(BATT_X  + BOX_W - 10, BOX_Y + 10, 5,
-        (_bd.valid && _now - _bd.lastSeen < DEVICE_STALE_MS) ? UI_GREEN : UI_RED);
-    _D.fillCircle(ORION_X + BOX_W - 10, BOX_Y + 10, 5,
-        (_od.valid && _now - _od.lastSeen < DEVICE_STALE_MS) ? UI_GREEN : UI_RED);
-    _D.fillCircle(ORION_X + BOX_W - 10, LOADS_Y + 10, 5,
-        (_imu.valid && _now - _imu.lastSeen < DEVICE_STALE_MS) ? UI_GREEN : UI_RED);
-
-    // ── LEVEL box: arrows (top) → values → labels (bottom) ───────────────────
-    {
-        bool imuOk = _imu.valid && (_now - _imu.lastSeen < DEVICE_STALE_MS);
-        const int cx1 = ORION_X + 34;    // pitch column center (x=368)
-        const int cx2 = ORION_X + 103;   // roll column center  (x=437)
-        const int ay  = LOADS_Y + 41;    // arrow vertical center
-
-        // ── Value + label colors ──────────────────────────────────────────────
-        uint16_t pCol = imuOk ? (fabsf(_imu.pitch) < 2.f ? UI_GREEN : fabsf(_imu.pitch) < 5.f ? UI_YELLOW : UI_RED) : UI_MUTED;
-        uint16_t rCol = imuOk ? (fabsf(_imu.roll)  < 2.f ? UI_GREEN : fabsf(_imu.roll)  < 5.f ? UI_YELLOW : UI_RED) : UI_MUTED;
-
-        // ── Arrow colors: both arrows on each axis show the threshold color ──────
-        uint16_t upCol, dnCol, ltCol, rtCol;
-        if (!imuOk) {
-            upCol = dnCol = ltCol = rtCol = UI_BORDER;
-        } else {
-            upCol = dnCol = pCol;
-            ltCol = rtCol = rCol;
-        }
-
-        // ── Arrows: only redraw when colors change (eliminates flicker) ───────
-        if (upCol != _lvUpC || dnCol != _lvDnC || ltCol != _lvLtC || rtCol != _lvRtC) {
-            _lvUpC = upCol; _lvDnC = dnCol; _lvLtC = ltCol; _lvRtC = rtCol;
-
-            // Erase arrow area only (below "LEVEL" title, above values)
-            _D.fillRect(ORION_X+2, LOADS_Y+20, 130, 44, UI_SURFACE);
-            // Restore divider for erased portion
-            _D.drawFastVLine(ORION_X+69, LOADS_Y+20, 44, UI_BORDER);
-
-            // UP arrow: tip at top (LOADS_Y+20), head 8px, shaft 10px
-            _D.fillTriangle(cx1, LOADS_Y+20, cx1-5, LOADS_Y+28, cx1+5, LOADS_Y+28, upCol);
-            _D.fillRect(cx1-2, LOADS_Y+28, 5, 10, upCol);
-            // DOWN arrow: tip at bottom (LOADS_Y+63), head 8px, shaft 10px
-            _D.fillTriangle(cx1, LOADS_Y+63, cx1-5, LOADS_Y+55, cx1+5, LOADS_Y+55, dnCol);
-            _D.fillRect(cx1-2, LOADS_Y+45, 5, 10, dnCol);
-
-            // LEFT arrow: tip at left
-            _D.fillTriangle(cx2-17, ay, cx2-9, ay-5, cx2-9, ay+5, ltCol);
-            _D.fillRect(cx2-9, ay-2, 8, 5, ltCol);
-            // RIGHT arrow: tip at right
-            _D.fillTriangle(cx2+17, ay, cx2+9, ay-5, cx2+9, ay+5, rtCol);
-            _D.fillRect(cx2+1,  ay-2, 8, 5, rtCol);
-        }
-
-        // ── Values (font2) — below arrows, flicker-free via fillText ──────────
-        char lvBuf[10];
-        if (imuOk) snprintf(lvBuf, sizeof(lvBuf), "%+.1f\xB0", _imu.pitch);
-        else strcpy(lvBuf, "--");
-        fillText(ORION_X+2,  LOADS_Y+66, 63, 18, lvBuf, 2, pCol, UI_SURFACE);
-
-        if (imuOk) snprintf(lvBuf, sizeof(lvBuf), "%+.1f\xB0", _imu.roll);
-        else strcpy(lvBuf, "--");
-        fillText(ORION_X+71, LOADS_Y+66, 63, 18, lvBuf, 2, rCol, UI_SURFACE);
-
-        // ── Labels (font1) — very bottom ──────────────────────────────────────
-        fillText(ORION_X+2,  LOADS_Y+84, 63, 10, "PITCH", 1, UI_MUTED, UI_SURFACE);
-        fillText(ORION_X+71, LOADS_Y+84, 63, 10, "ROLL",  1, UI_MUTED, UI_SURFACE);
-    }
-}
-
-// ─── Detail header ────────────────────────────────────────────────────────────
-
-void DisplayUI::drawDetailHeader(const char* title, bool online) {
-    _D.fillScreen(UI_BG);
-    _D.fillRoundRect(4, 4, 58, 30, 6, UI_SURFACE);
-    _D.drawRoundRect(4, 4, 58, 30, 6, UI_BORDER);
-    _setFont(1);
-    _D.setTextColor(UI_TEXT, UI_SURFACE);
-    _D.setCursor(10, 13);
-    _D.print("< BACK");
-
-    _setFont(2);
-    _D.setTextColor(UI_TEXT, UI_BG);
-    _D.setCursor(70, 12);
-    _D.print(title);
-
-    _D.fillCircle(472, 20, 5, online ? UI_GREEN : UI_RED);
-    _D.drawFastHLine(0, 40, 480, UI_BORDER);
-}
-
-// ─── Metric card ─────────────────────────────────────────────────────────────
-
-void DisplayUI::drawMetric(int x, int y, int w, int h,
-                            const char* label, const char* val, const char* unit, uint16_t valCol) {
-    _D.fillRoundRect(x, y, w, h, 6, UI_SURFACE);
-    // Value (font4)
-    _setFont(4);
-    _D.setTextColor(valCol, UI_SURFACE);
-    _D.setCursor(x + 6, y + 8);
-    _D.print(val);
-    // Unit (font1)
-    _setFont(1);
-    _D.setTextColor(UI_MUTED, UI_SURFACE);
-    _D.print(unit);
-    // Label at bottom
-    _D.setCursor(x + 6, y + h - 14);
-    _D.print(label);
-}
-
-void DisplayUI::drawStateTag(int x, int y, const char* state) {
-    uint16_t col = stateColor(state);
-    _D.fillRoundRect(x, y, 160, 28, 4, UI_SURFACE);
-    _D.drawRoundRect(x, y, 160, 28, 4, col);
-    _setFont(2);
-    _D.setTextColor(col, UI_SURFACE);
-    _D.setCursor(x + 8, y + 7);
-    _D.print(state ? state : "--");
-}
-
-// ─── Detail: Battery ──────────────────────────────────────────────────────────
-
-void DisplayUI::drawDetailBatt() {
-    bool on = _bd.valid;
-    drawDetailHeader("LITIME 140AH", on);
-    if (!on) { _setFont(2); _D.setTextColor(UI_MUTED,UI_BG); _D.setCursor(80,110); _D.print("OFFLINE"); return; }
-
-    char v[10];
-    // Row 1: y=48
-    fmtF(v, _bd.voltage, 2);     drawMetric(6,   48, 148, 70, "VOLTAGE",  v, "V",  UI_TEXT);
-    fmtF(v, _bd.current, 2);     drawMetric(162, 48, 148, 70, "CURRENT",  v, "A",  signCol(_bd.current));
-    fmtF(v, _bd.power,   0);     drawMetric(318, 48, 148, 70, "POWER",    v, "W",  signCol(_bd.power));
-    // Row 2: y=124
-    fmtF(v, (float)_bd.soc, 0);  drawMetric(6,   124, 148, 70, "SOC",     v, "%",  socCol(_bd.soc));
-    fmtF(v, (float)_bd.soh, 0);  drawMetric(162, 124, 148, 70, "SOH",     v, "%",  UI_TEXT);
-    fmtF(v, _bd.remainingAh, 1); drawMetric(318, 124, 148, 70, "REM. Ah", v, "Ah", UI_TEXT);
-    // Row 3: y=200
-    fmtF(v, (float)_bd.cellTemp,  0); drawMetric(6,   200, 148, 70, "CELL C",  v, "\xB0", UI_TEXT);
-    fmtF(v, (float)_bd.mosfetTemp,0); drawMetric(162, 200, 148, 70, "FET C",   v, "\xB0", UI_TEXT);
-    fmtF(v, _bd.fullCapacityAh,1);    drawMetric(318, 200, 148, 70, "FULL Ah", v, "Ah",   UI_MUTED);
-
-    // Cell voltages (compact)
-    if (_bd.cellCount > 0) {
-        _setFont(1);
-        _D.setTextColor(UI_MUTED, UI_BG);
-        int cx = 6;
-        for (int i = 0; i < _bd.cellCount && i < 8; i++) {
-            char cell[12];
-            snprintf(cell, sizeof(cell), "C%d:%.3f", i+1, _bd.cellVoltages[i]);
-            _D.setCursor(cx, 278);
-            _D.print(cell);
-            cx += 74;
-            if (cx > 400) break;
-        }
-    }
-}
-
-// ─── Detail: Solar ────────────────────────────────────────────────────────────
-
-void DisplayUI::drawDetailSolar() {
-    bool on = _sd.valid;
-    drawDetailHeader("SMARTSOLAR 75/15", on);
-    if (!on) { _setFont(2); _D.setTextColor(UI_MUTED,UI_BG); _D.setCursor(80,110); _D.print("OFFLINE"); return; }
-
-    char v[10];
-    fmtF(v, _sd.solarPower, 0);     drawMetric(6,   48, 228, 72, "POWER",    v, "W",  UI_GREEN);
-    fmtF(v, _sd.chargeCurrent, 2);  drawMetric(246, 48, 228, 72, "CHARGE A", v, "A",  UI_GREEN);
-    fmtF(v, _sd.battVoltage, 2);    drawMetric(6,   128, 228, 72, "BATT V",  v, "V",  UI_TEXT);
-    fmtF(v, _sd.yieldToday, 0);     drawMetric(246, 128, 228, 72, "YIELD",   v, "Wh", UI_TEXT);
-
-    if (!isnan(_sd.loadCurrent)) {
-        fmtF(v, _sd.loadCurrent, 2);
-        drawMetric(6, 208, 228, 72, "LOAD A", v, "A", UI_MUTED);
-    }
-
-    const char* stStr = (_sd.chargeState != 0xFF) ? victronStateName(_sd.chargeState) : "--";
-    drawStateTag(246, 216, stStr);
-}
-
-// ─── Detail: Orion ────────────────────────────────────────────────────────────
-
-void DisplayUI::drawDetailOrion() {
-    bool on = _od.valid;
-    drawDetailHeader("DC-DC 50A", on);
-    if (!on) { _setFont(2); _D.setTextColor(UI_MUTED,UI_BG); _D.setCursor(80,110); _D.print("OFFLINE"); return; }
-
-    // Column headers
-    _setFont(2);
-    _D.setTextColor(UI_MUTED, UI_BG); _D.setCursor(50,  48); _D.print("INPUT");
-    _D.setTextColor(UI_BLUE,  UI_BG); _D.setCursor(310, 48); _D.print("OUTPUT");
-    _D.drawFastVLine(240, 48, 240, UI_BORDER);
-
-    char v[10];
-    float inW  = (!isnan(_od.inVoltage)  && !isnan(_od.inCurrent))  ? _od.inVoltage  * _od.inCurrent  : 0.0f;
-    float outW = (!isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : 0.0f;
-
-    // Voltage row y=70
-    fmtF(v, _od.inVoltage, 2);  drawMetric(6,   70, 228, 66, "VOLTAGE", v, "V", UI_TEXT);
-    fmtF(v, _od.outVoltage,2);  drawMetric(246, 70, 228, 66, "VOLTAGE", v, "V", UI_GREEN);
-    // Current row y=144
-    fmtF(v, _od.inCurrent, 2);  drawMetric(6,   144, 228, 66, "CURRENT", v, "A", UI_TEXT);
-    fmtF(v, _od.outCurrent,2);  drawMetric(246, 144, 228, 66, "CURRENT", v, "A", UI_GREEN);
-    // Power row y=218
-    fmtF(v, inW,  0);            drawMetric(6,   218, 228, 60, "POWER",  v, "W", UI_TEXT);
-    fmtF(v, outW, 0);            drawMetric(246, 218, 228, 60, "POWER",  v, "W", UI_GREEN);
-
-    // Efficiency
-    if (inW > 1.0f) {
-        float eff = fminf(100.0f, outW / inW * 100.0f);
-        char effBuf[8]; dtostrf(eff, 0, 1, effBuf); strcat(effBuf, "%");
-        _setFont(1); _D.setTextColor(eff > 85 ? UI_GREEN : UI_YELLOW, UI_BG);
-        _D.setCursor(6, 290); _D.print("EFF: "); _D.print(effBuf);
-    }
-}
-
-// ─── Level screen ─────────────────────────────────────────────────────────────
-
-// Draws only the static colored bar (no bubble, no text).
-void DisplayUI::drawLevelPanel(int px, bool isPitch) {
-    if (isPitch) {
-        // Vertical pitch bar: BAR_X=102, y=70-240 (170px), ±10° range
-        // RED42|YEL26|GRN34|YEL26|RED42, center at y=155
-        const int BAR_X = px + 102;
-        _D.fillRect(BAR_X, 70,  36, 42, UI_RED);
-        _D.fillRect(BAR_X, 112, 36, 26, UI_YELLOW);
-        _D.fillRect(BAR_X, 138, 36, 34, UI_GREEN);
-        _D.fillRect(BAR_X, 172, 36, 26, UI_YELLOW);
-        _D.fillRect(BAR_X, 198, 36, 42, UI_RED);
-        _D.drawFastHLine(BAR_X - 3, 155, 42, UI_BG);   // center tick
-    } else {
-        // Horizontal roll bar: BAR_X=px+20, y=110, h=36, ±10° range
-        // RED50|YEL30|GRN40|YEL30|RED50, center at BAR_X+100
-        const int BAR_X = px + 20;
-        _D.fillRect(BAR_X,        110, 50, 36, UI_RED);
-        _D.fillRect(BAR_X + 50,   110, 30, 36, UI_YELLOW);
-        _D.fillRect(BAR_X + 80,   110, 40, 36, UI_GREEN);
-        _D.fillRect(BAR_X + 120,  110, 30, 36, UI_YELLOW);
-        _D.fillRect(BAR_X + 150,  110, 50, 36, UI_RED);
-        _D.drawFastVLine(BAR_X + 100, 107, 42, UI_BG); // center tick
-    }
-}
-
-void DisplayUI::drawLevelScreen() {
-    _D.fillScreen(UI_BG);
-
-    _D.fillRoundRect(4, 4, 58, 30, 6, UI_SURFACE);
-    _D.drawRoundRect(4, 4, 58, 30, 6, UI_BORDER);
-    _setFont(1);
-    _D.setTextColor(UI_TEXT, UI_SURFACE);
-    _D.setCursor(10, 13);
-    _D.print("< BACK");
-
-    _setFont(2);
-    _D.setTextColor(UI_TEXT, UI_BG);
-    _D.setCursor(70, 12);
-    _D.print("LIVELLO");
-
-    _D.drawFastHLine(0, 40, 480, UI_BORDER);
-    _D.drawFastVLine(240, 40, 280, UI_BORDER);
-
-    _setFont(2);
-    _D.setTextColor(UI_MUTED, UI_BG);
-    _D.setCursor(20,  44); _D.print("PITCH");
-    _D.setCursor(260, 44); _D.print("ROLL");
-
-    // Draw static bars, reset bubble trackers, draw initial bubble+text
-    drawLevelPanel(0,   true);
-    drawLevelPanel(240, false);
-    _lvPitchBy = -999;
-    _lvRollBx  = -999;
-    updateLevelValues();
-}
-
-void DisplayUI::updateLevelValues() {
-    float pitch = _imu.valid ? _imu.pitch : 0.0f;
-    float roll  = _imu.valid ? _imu.roll  : 0.0f;
-    bool imuOk  = _imu.valid;
-
-    // Zone tables for bar restoration (compile-time constants)
-    static const int  pZY[] = {70, 112, 138, 172, 198};
-    static const int  pZH[] = {42, 26,  34,  26,  42};
-    static const uint16_t pZC[] = {UI_RED, UI_YELLOW, UI_GREEN, UI_YELLOW, UI_RED};
-
-    static const int  rZX[] = {260, 310, 340, 380, 410};
-    static const int  rZW[] = {50,  30,  40,  30,  50};
-    static const uint16_t rZC[] = {UI_RED, UI_YELLOW, UI_GREEN, UI_YELLOW, UI_RED};
-
-    // ── PITCH (vertical bar, cx=120, BAR_X=102, BAR_CY=155) ─────────────────
-    {
-        const int cx = 120, BAR_X = 102, BAR_CY = 155;
-        float cl = imuOk ? fmaxf(-10.f, fminf(10.f, pitch)) : 0.f;
-        int by = BAR_CY - (int)(cl * 85.f / 10.f);
-
-        if (_lvPitchBy != by) {
-            // Restore bar colors under old bubble
-            if (_lvPitchBy >= 0) {
-                int y0 = max(70, _lvPitchBy - 15);
-                int y1 = min(240, _lvPitchBy + 15);
-                for (int i = 0; i < 5; i++) {
-                    int zy = max(y0, pZY[i]), zb = min(y1, pZY[i] + pZH[i]);
-                    if (zy < zb) _D.fillRect(BAR_X, zy, 36, zb - zy, pZC[i]);
-                }
-                _D.drawFastHLine(BAR_X - 3, BAR_CY, 42, UI_BG); // restore center tick if erased
-            }
-            _D.fillCircle(cx, by, 14, UI_BG);
-            _D.drawCircle(cx, by, 14, UI_TEXT);
-            _D.drawCircle(cx, by, 13, UI_TEXT);
-            _lvPitchBy = by;
-        }
-
-        // Angle text (font4): fillRect erase then centered print
-        uint16_t col = imuOk ? (fabsf(pitch) < 2.f ? UI_GREEN : fabsf(pitch) < 5.f ? UI_YELLOW : UI_RED) : UI_MUTED;
-        char buf[14];
-        if (imuOk) snprintf(buf, sizeof(buf), "%+.1f\xB0", pitch);
-        else strncpy(buf, "--", sizeof(buf));
-        _D.fillRect(70, 248, 100, 26, UI_BG);
-        _setFont(4);
-        _D.setTextColor(col, UI_BG);
-        _D.setCursor(cx - _textWidth(buf) / 2, 248);
-        _D.print(buf);
-
-        // Status text (font1)
-        const char* st; uint16_t sc;
-        if (!imuOk) { st = "NO IMU DATA"; sc = UI_MUTED; }
-        else {
-            float ab = fabsf(pitch);
-            sc = ab < 0.3f ? UI_GREEN : ab < 2.f ? UI_GREEN : ab < 5.f ? UI_YELLOW : UI_RED;
-            st = ab < 0.3f ? "LIVELLATO" : (pitch > 0 ? "REAR LOW" : "FRONT LOW");
-        }
-        _D.fillRect(60, 276, 120, 10, UI_BG);
-        _setFont(1);
-        _D.setTextColor(sc, UI_BG);
-        _D.setCursor(cx - _textWidth(st) / 2, 276);
-        _D.print(st);
-    }
-
-    // ── ROLL (horizontal bar, px=240, BAR_X=260, BAR_CY=128, cx=360) ────────
-    {
-        const int cx = 360, BAR_X = 260, BAR_CY = 128;
-        float cl = imuOk ? fmaxf(-10.f, fminf(10.f, roll)) : 0.f;
-        int bx = BAR_X + 100 + (int)(cl * 100.f / 10.f);
-
-        if (_lvRollBx != bx) {
-            // Restore bar colors under old bubble
-            if (_lvRollBx >= 0) {
-                int x0 = max(BAR_X, _lvRollBx - 15);
-                int x1 = min(BAR_X + 200, _lvRollBx + 15);
-                for (int i = 0; i < 5; i++) {
-                    int zx = max(x0, rZX[i]), ze = min(x1, rZX[i] + rZW[i]);
-                    if (zx < ze) _D.fillRect(zx, 110, ze - zx, 36, rZC[i]);
-                }
-                _D.drawFastVLine(BAR_X + 100, 107, 42, UI_BG); // restore center tick if erased
-            }
-            _D.fillCircle(bx, BAR_CY, 14, UI_BG);
-            _D.drawCircle(bx, BAR_CY, 14, UI_TEXT);
-            _D.drawCircle(bx, BAR_CY, 13, UI_TEXT);
-            _lvRollBx = bx;
-        }
-
-        // Angle text
-        uint16_t col = imuOk ? (fabsf(roll) < 2.f ? UI_GREEN : fabsf(roll) < 5.f ? UI_YELLOW : UI_RED) : UI_MUTED;
-        char buf[14];
-        if (imuOk) snprintf(buf, sizeof(buf), "%+.1f\xB0", roll);
-        else strncpy(buf, "--", sizeof(buf));
-        _D.fillRect(310, 64, 100, 26, UI_BG);
-        _setFont(4);
-        _D.setTextColor(col, UI_BG);
-        _D.setCursor(cx - _textWidth(buf) / 2, 64);
-        _D.print(buf);
-
-        // Status text
-        const char* st; uint16_t sc;
-        if (!imuOk) { st = "NO IMU DATA"; sc = UI_MUTED; }
-        else {
-            float ab = fabsf(roll);
-            sc = ab < 0.3f ? UI_GREEN : ab < 2.f ? UI_GREEN : ab < 5.f ? UI_YELLOW : UI_RED;
-            st = ab < 0.3f ? "LIVELLATO" : (roll > 0 ? "DRIVER SIDE LOW" : "PASS. SIDE LOW");
-        }
-        _D.fillRect(250, 96, 220, 10, UI_BG);
-        _setFont(1);
-        _D.setTextColor(sc, UI_BG);
-        _D.setCursor(cx - _textWidth(st) / 2, 96);
-        _D.print(st);
-    }
-
-    _lastPitch    = pitch;
-    _lastRoll     = roll;
-    _lastImuValid = _imu.valid;
+                              const char* staSsid, const char* staIp,
+                              const char* ntpTime) {
+    if (apSsid)  strncpy(_syApSsid,  apSsid,  sizeof(_syApSsid) - 1);
+    if (apIp)    strncpy(_syApIp,    apIp,    sizeof(_syApIp) - 1);
+    if (staSsid) strncpy(_syStaSsid, staSsid, sizeof(_syStaSsid) - 1);
+    if (staIp)   strncpy(_syStaIp,   staIp,   sizeof(_syStaIp) - 1);
+    if (ntpTime) strncpy(_syNtpTime, ntpTime, sizeof(_syNtpTime) - 1);
+    if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) updateSystem();
 }
