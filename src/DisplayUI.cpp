@@ -530,16 +530,14 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
         float len = sqrtf(dx * dx + dy * dy);
         if (len < 1) return;
         float ux = dx / len, uy = dy / len;
-        uint16_t c = active ? col : C_BORDER;
-        // clear the corridor lightly by redrawing background dots first would flicker;
-        // instead draw gap dots in bg then segment dots in colour
+        // active: coloured dashes that flow (phase-shifted). inactive: faint static grey dashes.
         int period = 14;
         for (int i = -period; i < (int)len + period; i += period) {
             for (int j = 0; j < period; j++) {
-                int t = i + j - _flowPhase;
+                int t = i + j - (active ? _flowPhase : 0);
                 if (t < 0 || t >= (int)len) continue;
                 int x = x0 + (int)(ux * t), y = y0 + (int)(uy * t);
-                uint16_t dc = (j < 6 && active) ? c : C_BG;
+                uint16_t dc = (j < 6) ? (active ? col : C_BORDER) : C_BG;
                 _D.fillCircle(x, y, 1, dc);
             }
         }
