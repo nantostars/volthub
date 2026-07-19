@@ -129,7 +129,7 @@ private:
     ImuData   _imu;
 
     // Anti-flicker caches
-    int      _lastSocBucket = -1;      // overview/battery ring
+    int      _lastSocBucket = -999;    // overview/battery ring (-999 = undrawn; -1 = offline)
     float    _lastPitch = 99.0f, _lastRoll = 99.0f;
     bool     _lastImuValid = false;
     char     _lastClock[8] = "";
