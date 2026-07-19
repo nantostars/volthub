@@ -97,7 +97,7 @@ static void handleApiData() {
     jb["online"] = b.valid && (now - b.lastSeen < DEVICE_STALE_MS);
     if (jb["online"].as<bool>()) {
         jb["voltage"]=b.voltage; jb["current"]=b.current; jb["power"]=b.power;
-        jb["soc"]=b.soc; jb["soh"]=b.soh;
+        jb["soc"]=b.soc; jb["soh"]=b.soh; jb["cycles"]=b.dischargesCount;
         jb["remainingAh"]=b.remainingAh; jb["fullAh"]=b.fullCapacityAh;
         jb["cellTemp"]=b.cellTemp; jb["mosfetTemp"]=b.mosfetTemp;
         JsonArray cells = jb["cells"].to<JsonArray>();
