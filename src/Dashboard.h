@@ -77,10 +77,12 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .ov-mid{flex:1;display:flex;align-items:center;justify-content:center;gap:28px}
 .ov-bmeta{text-align:left}
 .ov-bot{flex:none}
-.node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
-.node .nh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.node .nv{font-family:var(--mono);font-size:34px;font-weight:600;margin-top:4px}
-.node .nv small{font-size:16px;color:var(--muted)}
+.node{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.node .nh{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--muted)}
+.node .nv{font-family:var(--mono);font-size:42px;font-weight:600;margin-top:6px;line-height:1}
+.node .nv small{font-size:20px;color:var(--muted)}
+.node .na{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:4px;line-height:1}
+.node .na small{font-size:14px;color:var(--muted)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
 
 /* ── big value ── */
@@ -181,10 +183,12 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <div class="node">
           <div class="nh"><span class="dot" id="ov-d-sol"></span>Solar</div>
           <div class="nv c-orange"><span id="ov-solw">--</span><small> W</small></div>
+          <div class="na"><span id="ov-sola">--</span><small> A</small></div>
         </div>
         <div class="node">
           <div class="nh"><span class="dot" id="ov-d-dc"></span>DC-DC</div>
           <div class="nv c-blue"><span id="ov-dcw">--</span><small> W</small></div>
+          <div class="na"><span id="ov-dca">--</span><small> A</small></div>
         </div>
       </div>
       <!-- battery -->
@@ -210,6 +214,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <div class="node">
           <div class="nh"><span class="dot" id="ov-d-ld"></span>Loads</div>
           <div class="nv c-pale"><span id="ov-ldw">--</span><small> W</small></div>
+          <div class="na"><span id="ov-lda">--</span><small> A</small></div>
         </div>
       </div>
     </div>
@@ -467,13 +472,20 @@ function updateOverview(d){
   var s=d.solar||{}, o=d.orion||{};
   var solW=(s.online&&s.solarPower!==undefined)?s.solarPower:NaN;
   var dcW=(o.online&&o.outVoltage!==undefined&&o.outCurrent!==undefined)?o.outVoltage*o.outCurrent:NaN;
+  var solA=(s.online&&s.chargeCurrent!==undefined)?s.chargeCurrent:NaN;
+  var dcA=(o.online&&o.outCurrent!==undefined)?o.outCurrent:NaN;
   $('ov-solw').textContent=fmt(solW,0);
   $('ov-dcw').textContent=fmt(dcW,0);
+  $('ov-sola').textContent=fmt(solA,1);
+  $('ov-dca').textContent=fmt(dcA,1);
   $('ov-d-sol').style.background=(solW>0.5)?'var(--orange)':'var(--muted)';
   $('ov-d-dc').style.background=(dcW>0.5)?'var(--blue)':'var(--muted)';
   var ldW=NaN;
   if(on){ var bp=b.power||0; ldW=Math.max(0,(isNaN(solW)?0:solW)+(isNaN(dcW)?0:dcW)-bp); }
+  var batV=(on&&b.voltage)?b.voltage:12.8;
+  var ldA=isNaN(ldW)?NaN:ldW/batV;
   $('ov-ldw').textContent=fmt(ldW,0);
+  $('ov-lda').textContent=fmt(ldA,1);
   $('ov-d-ld').style.background=(ldW>0.5)?'var(--pale)':'var(--muted)';
 }
 
