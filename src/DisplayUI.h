@@ -70,6 +70,7 @@ private:
     void drawTabBar();
     void drawTabIcon(int idx, int cx, int cy, uint16_t col);
     void selectScreen(Screen s);       // switch + full-redraw content + tab bar
+    void present();                    // push canvas to panel (Guition); no-op on CYD
 
     // ── Per-screen full draw + periodic value refresh ─────────────────────────
     void drawOverview();   void updateOverview();
@@ -105,8 +106,9 @@ private:
 
     // ── Hardware backend ──────────────────────────────────────────────────────
 #ifdef BOARD_GUITION
-    Arduino_ESP32QSPI* _bus = nullptr;
-    Arduino_GFX*       _gfx = nullptr;
+    Arduino_ESP32QSPI* _bus   = nullptr;
+    Arduino_GFX*       _panel = nullptr;  // native 320x480 portrait panel
+    Arduino_GFX*       _gfx   = nullptr;  // software-rotated 480x320 canvas (PSRAM)
     uint32_t _touchPollMs = 0;
     bool     _touchDown   = false;
     int      _touchSX = 0, _touchSY = 0;

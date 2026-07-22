@@ -3,6 +3,28 @@
 #include "Arduino_AXS15231B_Guition.h"
 #include <math.h>
 
+#ifdef BOARD_GUITION
+#include "esp_heap_caps.h"
+// Canvas whose framebuffer lives in PSRAM (480x320x2 ~ 300KB won't fit internal RAM).
+// The panel only works in native portrait (hw landscape rotation is broken), so we draw
+// the landscape UI into this canvas and flush() it rotated onto the 320x480 panel.
+class PsramCanvas : public Arduino_Canvas {
+public:
+    PsramCanvas(int16_t w, int16_t h, Arduino_G *output) : Arduino_Canvas(w, h, output) {}
+    bool begin(int32_t speed = GFX_NOT_DEFINED) override {
+        if (speed != GFX_SKIP_OUTPUT_BEGIN && _output) {
+            if (!_output->begin(speed)) return false;
+        }
+        if (!_framebuffer) {
+            size_t s = (size_t)_width * _height * 2;
+            _framebuffer = (uint16_t *)heap_caps_malloc(s, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            if (!_framebuffer) return false;
+        }
+        return true;
+    }
+};
+#endif
+
 // Board-agnostic display alias: _D.fillRect(...) works for TFT_eSPI and Arduino_GFX
 #ifdef BOARD_GUITION
 #define _D (*_gfx)
@@ -58,10 +80,22 @@ void DisplayUI::begin() {
     _bus = new Arduino_ESP32QSPI(
         45 /* CS */, 47 /* PCLK */,
         21 /* D0 */, 48 /* D1 */, 40 /* D2 */, 39 /* D3 */);
-    _gfx = new Arduino_AXS15231B_Guition(
+    // Panel in NATIVE PORTRAIT 320x480 (hw landscape rotation via MADCTL MV is broken).
+    // Custom driver sets the vendor init + COLMOD 0x55.
+    _panel = new Arduino_AXS15231B_Guition(
         _bus, GFX_NOT_DEFINED, 0, false, 320, 480);
-    _gfx->begin();
-    _gfx->setRotation(1);   // landscape 480×320
+    _panel->begin();
+    _panel->setRotation(0);
+    // force COLMOD = RGB565 (0x55) AFTER init — the init sequence alone doesn't stick
+    // (without this: solid fill shows vertical stripes = colour-depth mismatch)
+    _bus->beginWrite();
+    _bus->writeC8D8(0x3A, 0x55);
+    _bus->endWrite();
+    // landscape 480x320 drawing surface in PSRAM, flushed rotated onto the portrait panel
+    PsramCanvas* cv = new PsramCanvas(320, 480, _panel);
+    cv->begin(GFX_SKIP_OUTPUT_BEGIN);
+    cv->setRotation(1);
+    _gfx = cv;
 #else
     pinMode(PIN_TOUCH_IRQ, INPUT);
     _tft.init();
@@ -69,6 +103,9 @@ void DisplayUI::begin() {
 #endif
 
     _D.fillScreen(C_BG);
+#ifdef BOARD_GUITION
+    _gfx->flush();
+#endif
     _firstDraw   = true;
     _lastTouchMs = millis();
 }
@@ -122,8 +159,11 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
         }
         _firstDraw = false;
         _lastValMs = nowMs;
+        present();
         return;
     }
+
+    bool drew = false;
 
     // Periodic value refresh (300ms) — status bar + current screen values
     if (nowMs - _lastValMs >= 300) {
@@ -137,6 +177,7 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
             case SCR_LEVEL:    updateLevel();    break;
             case SCR_SYSTEM:   updateSystem();   break;
         }
+        drew = true;
     }
 
     // Overview flow animation (60ms)
@@ -148,7 +189,10 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
                        ? _od.outCurrent * (_od.outVoltage > 0 ? _od.outVoltage : 13.0f) : 0.0f;
         float battW  = isnan(_bd.power) ? 0.0f : _bd.power;
         drawFlow(_sd.chargeCurrent > 0.1f, _od.outCurrent > 0.1f, fmaxf(0.0f, solarW + orionW - battW) > 2.0f);
+        drew = true;
     }
+
+    if (drew) present();
 }
 
 // ─── handleTouch ──────────────────────────────────────────────────────────────
@@ -199,11 +243,19 @@ void DisplayUI::handleTouch() {
     if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 168, 40)) {
         _alwaysOn = !_alwaysOn;
         drawSystem();
+        present();
     }
 }
 
 bool DisplayUI::hitTest(int tx, int ty, int bx, int by, int bw, int bh) {
     return tx >= bx && tx < bx + bw && ty >= by && ty < by + bh;
+}
+
+// Push the RAM canvas to the panel (Guition software rotation). No-op on CYD.
+void DisplayUI::present() {
+#ifdef BOARD_GUITION
+    _gfx->flush();
+#endif
 }
 
 void DisplayUI::selectScreen(Screen s) {
@@ -223,6 +275,7 @@ void DisplayUI::selectScreen(Screen s) {
         case SCR_SYSTEM:   drawSystem();   break;
     }
     _lastValMs = millis();
+    present();
 }
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
@@ -837,5 +890,5 @@ void DisplayUI::updateSysInfo(const char* apSsid, const char* apIp,
     if (staSsid) strncpy(_syStaSsid, staSsid, sizeof(_syStaSsid) - 1);
     if (staIp)   strncpy(_syStaIp,   staIp,   sizeof(_syStaIp) - 1);
     if (ntpTime) strncpy(_syNtpTime, ntpTime, sizeof(_syNtpTime) - 1);
-    if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) updateSystem();
+    if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) { updateSystem(); present(); }
 }
