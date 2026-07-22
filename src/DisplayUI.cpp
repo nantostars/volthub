@@ -96,6 +96,10 @@ void DisplayUI::begin() {
     cv->begin(GFX_SKIP_OUTPUT_BEGIN);
     cv->setRotation(1);
     _gfx = cv;
+    // anti-tearing: shadow copy of the framebuffer; flush only when content changes
+    _fbBytes = (size_t)320 * 480 * 2;
+    _shadow = (uint16_t *)heap_caps_malloc(_fbBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (_shadow) memset(_shadow, 0xA5, _fbBytes);  // != first frame → force initial flush
 #else
     pinMode(PIN_TOUCH_IRQ, INPUT);
     _tft.init();
@@ -103,9 +107,7 @@ void DisplayUI::begin() {
 #endif
 
     _D.fillScreen(C_BG);
-#ifdef BOARD_GUITION
-    _gfx->flush();
-#endif
+    present();
     _firstDraw   = true;
     _lastTouchMs = millis();
 }
@@ -252,9 +254,13 @@ bool DisplayUI::hitTest(int tx, int ty, int bx, int by, int bw, int bh) {
 }
 
 // Push the RAM canvas to the panel (Guition software rotation). No-op on CYD.
+// Anti-tearing: only flush when the framebuffer actually changed vs the last flush.
 void DisplayUI::present() {
 #ifdef BOARD_GUITION
+    uint16_t* fb = static_cast<Arduino_Canvas*>(_gfx)->getFramebuffer();
+    if (_shadow && fb && memcmp(fb, _shadow, _fbBytes) == 0) return;  // unchanged → skip
     _gfx->flush();
+    if (_shadow && fb) memcpy(_shadow, fb, _fbBytes);
 #endif
 }
 

@@ -109,6 +109,8 @@ private:
     Arduino_ESP32QSPI* _bus   = nullptr;
     Arduino_GFX*       _panel = nullptr;  // native 320x480 portrait panel
     Arduino_GFX*       _gfx   = nullptr;  // software-rotated 480x320 canvas (PSRAM)
+    uint16_t*          _shadow = nullptr; // last-flushed framebuffer copy (anti-tearing gate)
+    size_t             _fbBytes = 0;
     uint32_t _touchPollMs = 0;
     bool     _touchDown   = false;
     int      _touchSX = 0, _touchSY = 0;
