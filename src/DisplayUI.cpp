@@ -1,5 +1,6 @@
 #include "DisplayUI.h"
 #include "Config.h"
+#include "Arduino_AXS15231B_Guition.h"
 #include <math.h>
 
 // Board-agnostic display alias: _D.fillRect(...) works for TFT_eSPI and Arduino_GFX
@@ -57,8 +58,8 @@ void DisplayUI::begin() {
     _bus = new Arduino_ESP32QSPI(
         45 /* CS */, 47 /* PCLK */,
         21 /* D0 */, 48 /* D1 */, 40 /* D2 */, 39 /* D3 */);
-    _gfx = new Arduino_AXS15231B(
-        _bus, GFX_NOT_DEFINED, 0, false, 320, 480, 0, 0, 0, 0);
+    _gfx = new Arduino_AXS15231B_Guition(
+        _bus, GFX_NOT_DEFINED, 0, false, 320, 480);
     _gfx->begin();
     _gfx->setRotation(1);   // landscape 480×320
 #else
