@@ -462,7 +462,13 @@ void DisplayUI::drawStatusBar(bool full) {
     else if (nlen >= 5 && _syNtpTime[2] == ':') { memcpy(hhmm, _syNtpTime, 5); hhmm[5] = 0; }
     if (full || strcmp(_lastClock, hhmm) != 0) {
         strcpy(_lastClock, hhmm);
+        // "HH:MM" in font2. GFX (Guition) font2 is ~12px/char → 60px wide, so shift left and
+        // widen to stay inside 480 (was overflowing off-screen and wrapping). TFT (CYD) is narrower.
+#ifdef BOARD_GUITION
+        fillText(408, 10, 70, 16, hhmm, 2, C_TEXT, C_BG);
+#else
         fillText(420, 10, 52, 16, hhmm, 2, C_TEXT, C_BG);
+#endif
     }
 
     // BLE device count
@@ -556,7 +562,13 @@ void DisplayUI::drawOverview() {
 void DisplayUI::drawNodeVal(int x, int y, float w, uint16_t col) {
     char num[10]; fmtF(num, w, 0);
     fillText(x, y, 100, 48, num, 6, col, C_INSET);            // number, opaque, left
-    fillText(x + 102, y + 22, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), fixed
+    // "W" bottom-aligned to the number. The two fonts have different metrics per board:
+    // TFT_eSPI (CYD) font6≈48 / font4≈26 → +22; GFX (Guition) font6=size5(40) / font4=size3(24) → +14.
+#ifdef BOARD_GUITION
+    fillText(x + 102, y + 14, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), bottom-aligned
+#else
+    fillText(x + 102, y + 22, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), bottom-aligned
+#endif
 }
 
 void DisplayUI::updateOverview() {
@@ -705,10 +717,18 @@ void DisplayUI::updateBattery() {
                 _D.fillRoundRect(bx, boxY, bw, bh, 8, bgc);
                 _D.drawRoundRect(bx, boxY, bw, bh, 8, bdc);
                 char lbl[8]; snprintf(lbl, sizeof(lbl), "C%d", i + 1);
+                char cvb[10]; fmtF(cvb, v, 2);
+#ifdef BOARD_GUITION
+                // GFX fonts are taller — a separate "V" line overflows the box. Put value+unit
+                // on one compact line ("3.28V") so the V no longer wraps below.
+                centerFill(bx + bw / 2, boxY + 6,  bw - 8, 10, lbl, 1, C_MUTED, bgc);
+                char cvu[12]; snprintf(cvu, sizeof(cvu), "%sV", cvb);
+                centerFill(bx + bw / 2, boxY + 20, bw - 8, 16, cvu, 2, vc, bgc);
+#else
                 centerFill(bx + bw / 2, boxY + 5, bw - 8, 10, lbl, 1, C_MUTED, bgc);
-                char cvb[8]; fmtF(cvb, v, 2);
                 centerFill(bx + bw / 2, boxY + 16, bw - 8, 18, cvb, 2, vc, bgc);
                 centerFill(bx + bw / 2, boxY + 30, bw - 8, 9, "V", 1, vc, bgc);
+#endif
             } else {
                 _D.fillRect(bx, boxY, bw, bh, C_CARD);  // clear unused box
             }
