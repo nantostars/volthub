@@ -739,7 +739,12 @@ void DisplayUI::updateBattery() {
 // ─── Solar (degraded: no PV V/A, no hourly history) ───────────────────────────
 void DisplayUI::drawSolar() {
     drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
+    // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
+#ifdef BOARD_GUITION
+    fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
+#else
     fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+#endif
     // inset backgrounds + static labels (drawn once)
     int iy = CT_Y + 82, iw = 142;
     _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
@@ -786,7 +791,12 @@ void DisplayUI::drawDcdc() {
     fillText(26, CT_Y + 182, 210, 14, "Input range", 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
     fillText(250, CT_Y + 164, 150, 14, "Mode", 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, "Adaptive", 1, C_TEXT, C_CARD);
     fillText(250, CT_Y + 182, 150, 14, "Engine detect", 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, "Auto", 1, C_TEXT, C_CARD);
+    // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
+#ifdef BOARD_GUITION
+    fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
+#else
     fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
+#endif
     // inset backgrounds + static labels (drawn once)
     int iy = CT_Y + 82, iw = 142;
     _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
