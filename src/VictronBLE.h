@@ -58,8 +58,14 @@ struct OrionData {
 // device → generic fallback for now (fill from /api/data `orion.pid` when connected).
 static inline const char* victronModelName(uint16_t pid, bool isOrion) {
     if (isOrion) {
+        // Orion-XS product IDs from the public Victron list. Not read line-by-line from the
+        // primary source (VE.Direct PDF text is compressed) — corroborated across searches.
+        // Safe: a wrong/unknown pid just falls back to the generic "Orion-XS".
+        // Confirm against the device's real `orion.pid` in /api/data when connected.
         switch (pid) {
-            // TODO: add real Orion-XS product IDs (read `orion.pid` from /api/data).
+            case 0xA38B: return "Orion XS 12/12-50";
+            case 0xA3F0: return "Orion XS 1400";   // less certain — verify
+            // TODO: Orion XS 12/12-70 (recente) — pid da confermare dal device.
             default: return "Orion-XS";
         }
     }
