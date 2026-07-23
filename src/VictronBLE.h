@@ -65,8 +65,8 @@ static inline const char* victronModelName(uint16_t pid, bool isOrion) {
         switch (pid) {
             case 0xA38B: return "Orion XS 12/12-50";
             case 0xA3F0: return "Orion XS 1400";   // less certain — verify
-            // TODO: Orion XS 12/12-70 (recente) — pid da confermare dal device.
-            default: return "Orion-XS";
+            // TODO: Orion XS 12/12-70 + Orion-Tr Smart (12/12-18/30, 24/12, ...) — pid da confermare.
+            default: return "Orion";   // neutro: NON assumere "XS" (esistono anche gli Orion-Tr Smart)
         }
     }
     switch (pid) {
