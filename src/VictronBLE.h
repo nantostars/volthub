@@ -53,24 +53,22 @@ struct OrionData {
 // from the key that decrypts). Add specific product IDs here as they are observed
 // (the raw productId is exposed in /api/data to help identify them).
 // Model name from the Victron BLE Product ID (advert bytes [4..5], uint16 LE).
-// SmartSolar/BlueSolar MPPT table = the public Victron product-id list (stable across the
-// open-source Victron BLE projects). Orion-XS PIDs are not yet confirmed against a real
-// device → generic fallback for now (fill from /api/data `orion.pid` when connected).
+// Table extracted VERBATIM from the OFFICIAL Victron "VE.Direct Protocol" document
+// (victronenergy.com, product-id appendix). Orion-Tr Smart chargers are intentionally
+// absent: they have no VE.Direct and are not in this registry, so there is no official
+// PID for them (unknown Orion pid → generic "Orion").
 static inline const char* victronModelName(uint16_t pid, bool isOrion) {
     if (isOrion) {
-        // Orion-XS product IDs from the public Victron list. Not read line-by-line from the
-        // primary source (VE.Direct PDF text is compressed) — corroborated across searches.
-        // Safe: a wrong/unknown pid just falls back to the generic "Orion-XS".
-        // Confirm against the device's real `orion.pid` in /api/data when connected.
         switch (pid) {
-            case 0xA38B: return "Orion XS 12/12-50";
-            case 0xA3F0: return "Orion XS 1400";   // less certain — verify
-            // TODO: Orion XS 12/12-70 + Orion-Tr Smart (12/12-18/30, 24/12, ...) — pid da confermare.
-            default: return "Orion";   // neutro: NON assumere "XS" (esistono anche gli Orion-Tr Smart)
+            case 0xA3F0: return "Orion XS 12/12-50A";  // ex "Smart BuckBoost", rinominato da Victron
+            case 0xA3F1: return "Orion XS 1400";
+            default:     return "Orion";
         }
     }
     switch (pid) {
-        // BlueSolar MPPT
+        case 0x0300: return "BlueSolar MPPT 70/15";
+        case 0xA040: return "BlueSolar MPPT 75/50";
+        case 0xA041: return "BlueSolar MPPT 150/35";
         case 0xA042: return "BlueSolar MPPT 75/15";
         case 0xA043: return "BlueSolar MPPT 100/15";
         case 0xA044: return "BlueSolar MPPT 100/30";
@@ -79,17 +77,11 @@ static inline const char* victronModelName(uint16_t pid, bool isOrion) {
         case 0xA047: return "BlueSolar MPPT 150/100";
         case 0xA049: return "BlueSolar MPPT 100/50 rev2";
         case 0xA04A: return "BlueSolar MPPT 100/30 rev2";
-        case 0xA04B: return "BlueSolar MPPT 150/35";
+        case 0xA04B: return "BlueSolar MPPT 150/35 rev2";
         case 0xA04C: return "BlueSolar MPPT 75/10";
         case 0xA04D: return "BlueSolar MPPT 150/45";
         case 0xA04E: return "BlueSolar MPPT 150/60";
         case 0xA04F: return "BlueSolar MPPT 150/85";
-        case 0xA066: return "BlueSolar MPPT 100/20";
-        case 0xA067: return "BlueSolar MPPT 100/20 48V";
-        case 0xA06F: return "BlueSolar MPPT 150/45 rev2";
-        case 0xA070: return "BlueSolar MPPT 150/60 rev2";
-        case 0xA071: return "BlueSolar MPPT 150/70 rev2";
-        // SmartSolar MPPT
         case 0xA050: return "SmartSolar MPPT 250/100";
         case 0xA051: return "SmartSolar MPPT 150/100";
         case 0xA052: return "SmartSolar MPPT 150/85";
@@ -112,6 +104,8 @@ static inline const char* victronModelName(uint16_t pid, bool isOrion) {
         case 0xA063: return "SmartSolar MPPT 150/70";
         case 0xA064: return "SmartSolar MPPT 250/85 rev2";
         case 0xA065: return "SmartSolar MPPT 250/100 rev2";
+        case 0xA066: return "BlueSolar MPPT 100/20";
+        case 0xA067: return "BlueSolar MPPT 100/20 48V";
         case 0xA068: return "SmartSolar MPPT 250/60 rev2";
         case 0xA069: return "SmartSolar MPPT 250/70 rev2";
         case 0xA06A: return "SmartSolar MPPT 150/45 rev2";
@@ -119,7 +113,25 @@ static inline const char* victronModelName(uint16_t pid, bool isOrion) {
         case 0xA06C: return "SmartSolar MPPT 150/70 rev2";
         case 0xA06D: return "SmartSolar MPPT 150/85 rev3";
         case 0xA06E: return "SmartSolar MPPT 150/100 rev3";
-        // SmartSolar MPPT VE.Can
+        case 0xA06F: return "BlueSolar MPPT 150/45 rev2";
+        case 0xA070: return "BlueSolar MPPT 150/60 rev2";
+        case 0xA071: return "BlueSolar MPPT 150/70 rev2";
+        case 0xA072: return "BlueSolar MPPT 150/45 rev3";
+        case 0xA073: return "SmartSolar MPPT 150/45 rev3";
+        case 0xA074: return "SmartSolar MPPT 75/10 rev2";
+        case 0xA075: return "SmartSolar MPPT 75/15 rev2";
+        case 0xA076: return "BlueSolar MPPT 100/30 rev3";
+        case 0xA077: return "BlueSolar MPPT 100/50 rev3";
+        case 0xA078: return "BlueSolar MPPT 150/35 rev3";
+        case 0xA079: return "BlueSolar MPPT 75/10 rev2";
+        case 0xA07A: return "BlueSolar MPPT 75/15 rev2";
+        case 0xA07B: return "BlueSolar MPPT 100/15 rev2";
+        case 0xA07C: return "BlueSolar MPPT 75/10 rev3";
+        case 0xA07D: return "BlueSolar MPPT 75/15 rev3";
+        case 0xA07E: return "SmartSolar MPPT 100/30 12V";
+        case 0xA07F: return "All-In-1 SmartSolar MPPT 75/15 12V";
+        case 0xA080: return "SmartSolar MPPT 250/60 rev3";
+        case 0xA081: return "SmartSolar MPPT 250/70 rev3";
         case 0xA102: return "SmartSolar MPPT VE.Can 150/70";
         case 0xA103: return "SmartSolar MPPT VE.Can 150/45";
         case 0xA104: return "SmartSolar MPPT VE.Can 150/60";
@@ -130,7 +142,17 @@ static inline const char* victronModelName(uint16_t pid, bool isOrion) {
         case 0xA109: return "SmartSolar MPPT VE.Can 250/70";
         case 0xA10A: return "SmartSolar MPPT VE.Can 250/85";
         case 0xA10B: return "SmartSolar MPPT VE.Can 250/100";
-        default: return "SmartSolar MPPT";
+        case 0xA10C: return "SmartSolar MPPT VE.Can 150/70 rev2";
+        case 0xA10D: return "SmartSolar MPPT VE.Can 150/85 rev2";
+        case 0xA10E: return "SmartSolar MPPT VE.Can 150/100 rev2";
+        case 0xA10F: return "BlueSolar MPPT VE.Can 150/100";
+        case 0xA112: return "BlueSolar MPPT VE.Can 250/70";
+        case 0xA113: return "BlueSolar MPPT VE.Can 250/100";
+        case 0xA114: return "SmartSolar MPPT VE.Can 250/70 rev2";
+        case 0xA115: return "SmartSolar MPPT VE.Can 250/100 rev2";
+        case 0xA116: return "SmartSolar MPPT VE.Can 250/85 rev2";
+        case 0xA117: return "BlueSolar MPPT VE.Can 150/100 rev2";
+        default:     return "SmartSolar MPPT";
     }
 }
 
