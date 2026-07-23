@@ -636,9 +636,11 @@ void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {
             }
         }
     };
-    dash(158, CT_Y + 48, 192, CT_Y + 97,  solar, C_ORANGE);   // solar → battery
-    dash(158, CT_Y + 182, 192, CT_Y + 133, dcdc,  C_BLUE);    // dc-dc → battery
-    dash(290, CT_Y + 115, 322, CT_Y + 115, loads, C_PALE);    // battery → loads
+    // Battery-side endpoints kept ~60px from the ring centre (ring outer edge = 55) so the
+    // dashes stop just outside the ring instead of drawing over its stroke each frame.
+    dash(158, CT_Y + 48,  186, CT_Y + 89,  solar, C_ORANGE);  // solar → battery
+    dash(158, CT_Y + 182, 186, CT_Y + 141, dcdc,  C_BLUE);    // dc-dc → battery
+    dash(300, CT_Y + 115, 322, CT_Y + 115, loads, C_PALE);    // battery → loads
 }
 
 // ─── Battery ──────────────────────────────────────────────────────────────────
