@@ -118,19 +118,41 @@ bool DisplayUI::_readTouch(int& sx, int& sy) {
     uint32_t now = millis();
     if (now - _touchPollMs >= 20) {
         _touchPollMs = now;
-        static const uint8_t cmd[] = {0xb5, 0xab, 0xa5, 0x5a, 0x00, 0x00, 0x00, 0x08};
-        Wire.beginTransmission(AXS15231B_ADDR);
-        Wire.write(cmd, sizeof(cmd));
-        Wire.endTransmission();
-        Wire.requestFrom((uint8_t)AXS15231B_ADDR, (uint8_t)8);
+        // 11-byte read command (vendor esp_lcd_axs15231b). Sending only 8 bytes makes the
+        // controller return garbage (0xNN filler) → the fix for the bogus 3646 coordinate.
+        // Bytes [6..7] = payload length = AXS_MAX_TOUCH_NUMBER(1)*6 + 2 = 8.
+        static const uint8_t cmd[] = {0xb5, 0xab, 0xa5, 0x5a, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00};
+        // The controller intermittently returns filler frames (buf[1] = 0x3E/0xFF) even
+        // while a finger is down. A valid frame has buf[0]=0 (gesture) and buf[1] ∈ {0,1}
+        // (point count). Retry within the poll until we get one, so a single physical
+        // touch doesn't flicker down/up and fire an action repeatedly.
+        // The controller intermittently returns filler frames (buf[0]/buf[1] = 0x3E/0x3A/0xFF…)
+        // even while a finger is down. Retry within the poll to grab a good frame.
         uint8_t buf[8] = {};
-        for (int i = 0; i < 8 && Wire.available(); i++) buf[i] = Wire.read();
-        _touchDown = (buf[1] > 0);
-        if (_touchDown) {
-            uint16_t tx = ((buf[2] & 0x0F) << 8) | buf[3];
-            uint16_t ty = ((buf[4] & 0x0F) << 8) | buf[5];
-            _touchSX = constrain((int)ty,       0, 479);
-            _touchSY = constrain(319 - (int)tx, 0, 319);
+        bool valid = false;
+        for (int attempt = 0; attempt < 4 && !valid; attempt++) {
+            Wire.beginTransmission(AXS15231B_ADDR);
+            Wire.write(cmd, sizeof(cmd));
+            Wire.endTransmission();
+            Wire.requestFrom((uint8_t)AXS15231B_ADDR, (uint8_t)8);
+            for (int i = 0; i < 8; i++) buf[i] = Wire.available() ? Wire.read() : 0xFF;
+            valid = (buf[0] == 0x00 && (buf[1] == 0 || buf[1] == 1));
+        }
+        if (valid) {
+            if (buf[1] == 1) {                         // real touch frame
+                _touchDown  = true;
+                _lastDownMs = now;
+                uint16_t tx = ((buf[2] & 0x0F) << 8) | buf[3];
+                uint16_t ty = ((buf[4] & 0x0F) << 8) | buf[5];
+                _touchSX = constrain((int)ty,       0, 479);
+                _touchSY = constrain(319 - (int)tx, 0, 319);
+            } else {                                   // clean rest frame → released
+                _touchDown = false;
+            }
+        } else if (_touchDown && (now - _lastDownMs > 120)) {
+            // Only garbage read: hold "down" briefly to bridge filler bursts, but release
+            // after a timeout so a lifted finger can't stay stuck (that blocked new taps).
+            _touchDown = false;
         }
     }
     sx = _touchSX;

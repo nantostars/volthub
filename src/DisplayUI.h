@@ -112,6 +112,7 @@ private:
     uint16_t*          _shadow = nullptr; // last-flushed framebuffer copy (anti-tearing gate)
     size_t             _fbBytes = 0;
     uint32_t _touchPollMs = 0;
+    uint32_t _lastDownMs  = 0;   // last valid finger-down frame (timed-release debounce)
     bool     _touchDown   = false;
     int      _touchSX = 0, _touchSY = 0;
     bool _readTouch(int& sx, int& sy);
