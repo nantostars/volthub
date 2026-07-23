@@ -476,7 +476,12 @@ void DisplayUI::drawStatusBar(bool full) {
     if (full || devs != _lastDevs) {
         _lastDevs = devs;
         char cbuf[8]; snprintf(cbuf, sizeof(cbuf), "BLE %d", devs);
+        // Width must not reach the clock's clear rect (Guition clock starts at x=408; CYD at 420).
+#ifdef BOARD_GUITION
+        fillText(360, 11, 44, 14, cbuf, 1, C_BLUE, C_BG);
+#else
         fillText(360, 11, 56, 14, cbuf, 1, C_BLUE, C_BG);
+#endif
     }
 
     // charge state dot + label
