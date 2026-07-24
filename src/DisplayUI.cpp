@@ -663,19 +663,23 @@ void DisplayUI::updateOverview() {
     char buf[16];
     // Solar W
     float sw = (!isnan(_sd.solarPower) && _sd.valid) ? _sd.solarPower : NAN;
-    drawNodeVal(0, 20, CT_Y + 38, sw, sw > 0.5f ? C_ORANGE : C_MUTED);
+    drawNodeVal(0, 20, CT_Y + 38, sw, sw > 0.5f ? C_GREEN : C_MUTED);   // green when producing
     // DC-DC W
     float ow = (_od.valid && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
-    drawNodeVal(1, 20, CT_Y + 172, ow, ow > 0.5f ? C_BLUE : C_MUTED);
-    // Loads W (aggregate only — degraded)
+    drawNodeVal(1, 20, CT_Y + 172, ow, ow > 0.5f ? C_GREEN : C_MUTED);  // green when producing
+    // Loads W (aggregate only — degraded). Amber when the battery is discharging (loads fed
+    // by the battery — "W drawn from the battery"); pale when covered by generation.
     float loadsW = NAN;
+    bool battDischarging = false;
     if (_bd.valid) {
         float solW = (!isnan(_sd.solarPower)) ? _sd.solarPower : 0;
         float dcW  = (!isnan(ow)) ? ow : 0;
         float batW = isnan(_bd.power) ? 0 : _bd.power;
         loadsW = fmaxf(0.0f, solW + dcW - batW);
+        battDischarging = batW < -2.0f;
     }
-    drawNodeVal(2, 334, CT_Y + 105, loadsW, loadsW > 0.5f ? C_PALE : C_MUTED);
+    uint16_t loadsCol = battDischarging ? C_AMBER : (loadsW > 0.5f ? C_PALE : C_MUTED);
+    drawNodeVal(2, 334, CT_Y + 105, loadsW, loadsCol);
 
     // Battery ring (center) — redraw only when SOC bucket changes
     int cx = 240, cy = CT_Y + 115, r = 50, th = 10;

@@ -478,14 +478,18 @@ function updateOverview(d){
   $('ov-dcw').textContent=fmt(dcW,0);
   $('ov-sola').textContent=fmt(solA,1);
   $('ov-dca').textContent=fmt(dcA,1);
+  $('ov-solw').style.color=(solW>0.5)?'var(--green)':'var(--muted)';   // green when producing
+  $('ov-dcw').style.color=(dcW>0.5)?'var(--green)':'var(--muted)';
   $('ov-d-sol').style.background=(solW>0.5)?'var(--orange)':'var(--muted)';
   $('ov-d-dc').style.background=(dcW>0.5)?'var(--blue)':'var(--muted)';
-  var ldW=NaN;
-  if(on){ var bp=b.power||0; ldW=Math.max(0,(isNaN(solW)?0:solW)+(isNaN(dcW)?0:dcW)-bp); }
+  var ldW=NaN, bp=on?(b.power||0):0;
+  if(on){ ldW=Math.max(0,(isNaN(solW)?0:solW)+(isNaN(dcW)?0:dcW)-bp); }
   var batV=(on&&b.voltage)?b.voltage:12.8;
   var ldA=isNaN(ldW)?NaN:ldW/batV;
   $('ov-ldw').textContent=fmt(ldW,0);
   $('ov-lda').textContent=fmt(ldA,1);
+  // amber when battery is discharging (loads drawn from the battery)
+  $('ov-ldw').style.color=(bp<-2)?'var(--amber)':((ldW>0.5)?'var(--pale)':'var(--muted)');
   $('ov-d-ld').style.background=(ldW>0.5)?'var(--pale)':'var(--muted)';
 }
 
