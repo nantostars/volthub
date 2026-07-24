@@ -16,3 +16,6 @@
 
 # Demo/reference del vendor (materiale di riferimento, non serve al build)
 JC3248W535EN/
+
+# ESP-IDF component manager auto-generated manifest
+src/idf_component.yml
