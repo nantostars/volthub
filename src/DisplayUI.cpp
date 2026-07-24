@@ -228,6 +228,14 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
         drew = true;
     }
 
+    // Level bubble follows tilt in near-real-time — decoupled from the 300ms value throttle
+    // (the IMU refreshes every ~100ms, so ~80ms display cadence keeps the bubble responsive).
+    if (_screen == SCR_LEVEL && nowMs - _lastFlowMs >= 80) {
+        _lastFlowMs = nowMs;
+        updateLevel();
+        drew = true;
+    }
+
     if (drew) present();
 }
 
