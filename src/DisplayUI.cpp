@@ -607,19 +607,55 @@ void DisplayUI::drawOverview() {
     fillText(20, CT_Y + 150, 130, 16, "DC-DC", 2, C_MUTED, C_INSET);
     drawCard(322, CT_Y + 75, 150, 80, C_INSET, true);
     fillText(334, CT_Y + 83, 130, 16, "Loads", 2, C_MUTED, C_INSET);
+    for (int i = 0; i < 3; i++) _nodeTxt[i][0] = '\x01';  // invalidate node cache → force redraw
+    _lastSocBucket = -999;                                  // force ring redraw
     updateOverview();
 }
 
-// Big node value: number in font6 (digits only) + fixed "W" unit in font4.
-void DisplayUI::drawNodeVal(int x, int y, float w, uint16_t col) {
+// Big node value: [number][W] as a group centred in the box. The number is right-aligned
+// against the W within a fixed 3-digit slot, so the W never moves as digits grow and the
+// group stays centred. x = box content-left (boxes are 150 wide, x = boxLeft + 12).
+void DisplayUI::drawNodeVal(int slot, int x, int y, float w, uint16_t col) {
     char num[10]; fmtF(num, w, 0);
-    fillText(x, y, 100, 48, num, 6, col, C_INSET);            // number, opaque, left
-    // "W" bottom-aligned to the number. The two fonts have different metrics per board:
-    // TFT_eSPI (CYD) font6≈48 / font4≈26 → +22; GFX (Guition) font6=size5(40) / font4=size3(24) → +14.
+    if (strcmp(_nodeTxt[slot], num) == 0 && _nodeCol[slot] == col) return;  // unchanged → skip
+    strncpy(_nodeTxt[slot], num, sizeof(_nodeTxt[slot]) - 1);
+    _nodeTxt[slot][sizeof(_nodeTxt[slot]) - 1] = 0;
+    _nodeCol[slot] = col;
+
+    int cx = x + 63;                              // box centre
+    _setFont(6); int w3 = _textWidth("888");
+    _setFont(4); int wW = _textWidth("W");
+    const int gap = 10;
+    const int SLOT_H = 40;
+    int groupW = w3 + gap + wW;
+    int gl = cx - groupW / 2;
+    int rightX = gl + w3;                         // number right edge (3-digit slot)
+    int wLeftX = gl + w3 + gap;                   // W left edge
+    _D.fillRect(gl, y, groupW, 48, C_INSET);      // clear the fixed band (no leftovers)
+    // Draw number and W on a common BASELINE (from a fixed digit box, centred in the slot):
+    // digits and "--" then sit at the same height, and the W bottom lines up with the number.
 #ifdef BOARD_GUITION
-    fillText(x + 102, y + 14, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), bottom-aligned
+    _setFont(6);
+    int16_t dx, dy; uint16_t dbw, dbh; _gfx->getTextBounds("8", 0, 0, &dx, &dy, &dbw, &dbh);
+    int baseline = y + (SLOT_H + (int)dbh) / 2;
+    int16_t x1, y1; uint16_t bw, bh; _gfx->getTextBounds(num, 0, 0, &x1, &y1, &bw, &bh);
+    _gfx->setTextColor(col);
+    _gfx->setCursor(rightX - x1 - (int)bw, baseline);   // number right-aligned, on baseline
+    _gfx->print(num);
+    _setFont(4);
+    int16_t wx, wy; uint16_t wbw, wbh; _gfx->getTextBounds("W", 0, 0, &wx, &wy, &wbw, &wbh);
+    _gfx->setTextColor(C_MUTED);
+    _gfx->setCursor(wLeftX - wx, baseline);             // W bottom on the same baseline
+    _gfx->print("W");
 #else
-    fillText(x + 102, y + 22, 30, 28, "W", 4, C_MUTED, C_INSET); // unit (font4), bottom-aligned
+    _setFont(6);
+    int baseline = y + (SLOT_H + _tft.fontHeight()) / 2;
+    _tft.setTextColor(col, C_INSET); _tft.setTextPadding(0);
+    _tft.setTextDatum(BR_DATUM); _tft.drawString(num, rightX, baseline);
+    _setFont(4);
+    _tft.setTextColor(C_MUTED, C_INSET);
+    _tft.setTextDatum(BL_DATUM); _tft.drawString("W", wLeftX, baseline);
+    _tft.setTextDatum(TL_DATUM);
 #endif
 }
 
@@ -627,10 +663,10 @@ void DisplayUI::updateOverview() {
     char buf[16];
     // Solar W
     float sw = (!isnan(_sd.solarPower) && _sd.valid) ? _sd.solarPower : NAN;
-    drawNodeVal(20, CT_Y + 38, sw, sw > 0.5f ? C_ORANGE : C_MUTED);
+    drawNodeVal(0, 20, CT_Y + 38, sw, sw > 0.5f ? C_ORANGE : C_MUTED);
     // DC-DC W
     float ow = (_od.valid && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
-    drawNodeVal(20, CT_Y + 172, ow, ow > 0.5f ? C_BLUE : C_MUTED);
+    drawNodeVal(1, 20, CT_Y + 172, ow, ow > 0.5f ? C_BLUE : C_MUTED);
     // Loads W (aggregate only — degraded)
     float loadsW = NAN;
     if (_bd.valid) {
@@ -639,7 +675,7 @@ void DisplayUI::updateOverview() {
         float batW = isnan(_bd.power) ? 0 : _bd.power;
         loadsW = fmaxf(0.0f, solW + dcW - batW);
     }
-    drawNodeVal(334, CT_Y + 105, loadsW, loadsW > 0.5f ? C_PALE : C_MUTED);
+    drawNodeVal(2, 334, CT_Y + 105, loadsW, loadsW > 0.5f ? C_PALE : C_MUTED);
 
     // Battery ring (center) — redraw only when SOC bucket changes
     int cx = 240, cy = CT_Y + 115, r = 50, th = 10;
@@ -653,21 +689,48 @@ void DisplayUI::updateOverview() {
         drawRing(cx, cy, r, th, _bd.valid ? soc / 100.0f : 1.0f, rc, C_INSET);
         if (_bd.valid) {
             char num[6]; snprintf(num, sizeof(num), "%d", (int)soc);
+            const int gap = 3;
             _setFont(6); int nw = _textWidth(num);
             _setFont(2); int uw = _textWidth("%");
-            int sx = cx - (nw + 3 + uw) / 2;
-            drawTextL(sx, cy - 24, num, 6, rc);            // big number
-            drawTextL(sx + nw + 3, cy - 4, "%", 2, C_MUTED);
+            int gl = cx - (nw + gap + uw) / 2;         // [num %] group centred at cx
+#ifdef BOARD_GUITION
+            _setFont(6);
+            int16_t x1, y1; uint16_t bw, bh; _gfx->getTextBounds(num, 0, 0, &x1, &y1, &bw, &bh);
+            int topN = cy - (int)bh / 2;               // number vertically centred at cy
+            drawTextL(gl, topN, num, 6, rc);
+            drawTextL(gl + nw + gap, topN + (int)bh - 14, "%", 2, C_MUTED);
+#else
+            int hn = 34;                               // TFT free-font6 height (approx)
+            int topN = cy - hn / 2;
+            drawTextL(gl, topN, num, 6, rc);
+            drawTextL(gl + nw + gap, topN + hn - 16, "%", 2, C_MUTED);
+#endif
         } else {
-            centerText(cx, cy - 14, "--", 4, C_MUTED);
+#ifdef BOARD_GUITION
+            _setFont(4); int16_t ex, ey; uint16_t ebw, ebh; _gfx->getTextBounds("--", 0, 0, &ex, &ey, &ebw, &ebh);
+            _gfx->setTextColor(C_MUTED);
+            _gfx->setCursor(cx - (int)ebw / 2 - ex, cy - (int)ebh / 2 - ey);   // "--" centred in ring
+            _gfx->print("--");
+#else
+            _setFont(4);
+            _tft.setTextColor(C_MUTED, C_BG); _tft.setTextPadding(0);
+            _tft.setTextDatum(MC_DATUM); _tft.drawString("--", cx, cy);
+            _tft.setTextDatum(TL_DATUM);
+#endif
         }
     }
-    // sub line V·A below the ring (font2)
+    // V / A stacked and centred below the ring
     if (_bd.valid) {
         char vb[8], ab[8]; fmtF(vb, _bd.voltage, 1); fmtF(ab, _bd.current, 1);
-        snprintf(buf, sizeof(buf), "%sV  %sA", vb, ab);
-    } else strcpy(buf, "offline");
-    centerFill(cx, cy + r + 8, 160, 16, buf, 2, C_MUTED, C_BG);
+        char l1[10], l2[10];
+        snprintf(l1, sizeof(l1), "%s V", vb);
+        snprintf(l2, sizeof(l2), "%s A", ab);
+        centerFill(cx, cy + r + 16, 120, 16, l1, 2, C_MUTED, C_BG);
+        centerFill(cx, cy + r + 34, 120, 16, l2, 2, C_MUTED, C_BG);
+    } else {
+        centerFill(cx, cy + r + 16, 120, 16, "offline", 2, C_MUTED, C_BG);
+        _D.fillRect(cx - 60, cy + r + 34, 120, 16, C_BG);
+    }
 }
 
 void DisplayUI::drawFlow(bool solar, bool dcdc, bool loads) {

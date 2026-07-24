@@ -74,7 +74,7 @@ private:
 
     // ── Per-screen full draw + periodic value refresh ─────────────────────────
     void drawOverview();   void updateOverview();
-    void drawNodeVal(int x, int y, float w, uint16_t col);
+    void drawNodeVal(int slot, int x, int y, float w, uint16_t col);
     void drawBattery();    void updateBattery();
     void drawSolar();      void updateSolar();
     void drawDcdc();       void updateDcdc();
@@ -142,6 +142,8 @@ private:
     int      _lastChargeState = -2;    // -1 discharge, 0 idle, 1 charge
     int      _lastDevs = -1;           // status-bar BLE count
     char     _pill[5][14] = {{0}};     // last drawn pill text (0=bms 1=solar 2=dcdc 3=level 4=sys)
+    char     _nodeTxt[3][12] = {{0}};  // overview node last value (0=solar 1=dcdc 2=loads) anti-flicker
+    uint16_t _nodeCol[3]  = {0, 0, 0}; // overview node last colour
     long     _cellSig = -1;            // battery cell-bars change signature
     int      _lvBx = -999, _lvBy = -999;  // last level-bubble center (erase-in-place)
 
