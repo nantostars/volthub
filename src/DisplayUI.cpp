@@ -3,8 +3,11 @@
 #include "Arduino_AXS15231B_Guition.h"
 #include <math.h>
 
+
 #ifdef BOARD_GUITION
 #include "esp_heap_caps.h"
+#include "fonts/FreeSansBold18pt7b.h"   // font4 (valori grandi) — Adafruit GFX
+#include "fonts/FreeSansBold24pt7b.h"   // font6 (valori grandi)
 // Canvas whose framebuffer lives in PSRAM (480x320x2 ~ 300KB won't fit internal RAM).
 // The panel only works in native portrait (hw landscape rotation is broken), so we draw
 // the landscape UI into this canvas and flush() it rotated onto the 320x480 panel.
@@ -47,15 +50,24 @@ DisplayUI::DisplayUI() {}
 void DisplayUI::_setFont(uint8_t f) {
 #ifdef BOARD_GUITION
     _gfx->setFont(nullptr);
+    _gfx->setTextSize(1);
+    _propFont = false;
     switch (f) {
-        case 1: _gfx->setTextSize(1); break;  // ~7px
-        case 2: _gfx->setTextSize(2); break;  // ~14px
-        case 4: _gfx->setTextSize(3); break;  // ~21px
-        case 6: _gfx->setTextSize(5); break;  // ~35px
+        case 1: _gfx->setTextSize(1); break;  // ~7px  bitmap
+        case 2: _gfx->setTextSize(2); break;  // ~14px bitmap
+        // Large values → proportional Helvetica-Bold (Adafruit FreeSansBold, baseline-anchored)
+        case 4: _gfx->setFont(&FreeSansBold18pt7b); _propFont = true; break;  // ~25px
+        case 6: _gfx->setFont(&FreeSansBold24pt7b); _propFont = true; break;  // ~34px
         default: _gfx->setTextSize(1); break;
     }
 #else
-    _tft.setTextFont(f);
+    // Large values → FreeSansBold (bundled in TFT_eSPI via LOAD_GFXFF). Small text keeps
+    // the built-in fonts. TFT_eSPI handles the free-font baseline via the text datum.
+    switch (f) {
+        case 4: _tft.setFreeFont(&FreeSansBold18pt7b); break;  // ~25px
+        case 6: _tft.setFreeFont(&FreeSansBold24pt7b); break;  // ~34px
+        default: _tft.setTextFont(f); break;
+    }
 #endif
 }
 
@@ -360,7 +372,14 @@ void DisplayUI::fillText(int x, int y, int w, int h, const char* txt, uint8_t fo
     _gfx->fillRect(x, y, w, h, bg);
     _setFont(font);
     _gfx->setTextColor(col);
-    _gfx->setCursor(x + 1, y + 1);
+    if (_propFont) {
+        // proportional GFXfont: cursor is on the baseline → place bbox left-aligned, v-centered
+        int16_t x1, y1; uint16_t bw, bh;
+        _gfx->getTextBounds(txt, 0, 0, &x1, &y1, &bw, &bh);
+        _gfx->setCursor(x + 2 - x1, y + (h - (int)bh) / 2 - y1);
+    } else {
+        _gfx->setCursor(x + 1, y + 1);
+    }
     _gfx->print(txt);
 #else
     _setFont(font);
@@ -377,7 +396,13 @@ void DisplayUI::centerText(int cx, int y, const char* txt, uint8_t font, uint16_
     int w = _textWidth(txt);
 #ifdef BOARD_GUITION
     _gfx->setTextColor(col);
-    _gfx->setCursor(cx - w / 2, y);
+    if (_propFont) {
+        int16_t x1, y1; uint16_t bw, bh;
+        _gfx->getTextBounds(txt, 0, 0, &x1, &y1, &bw, &bh);
+        _gfx->setCursor(cx - bw / 2 - x1, y - y1);   // y treated as top of glyph
+    } else {
+        _gfx->setCursor(cx - w / 2, y);
+    }
     _gfx->print(txt);
 #else
     _tft.setTextColor(col);
@@ -391,7 +416,15 @@ void DisplayUI::centerText(int cx, int y, const char* txt, uint8_t font, uint16_
 void DisplayUI::drawTextL(int x, int y, const char* txt, uint8_t font, uint16_t col) {
     _setFont(font);
 #ifdef BOARD_GUITION
-    _gfx->setTextColor(col); _gfx->setCursor(x, y); _gfx->print(txt);
+    _gfx->setTextColor(col);
+    if (_propFont) {
+        int16_t x1, y1; uint16_t bw, bh;
+        _gfx->getTextBounds(txt, 0, 0, &x1, &y1, &bw, &bh);
+        _gfx->setCursor(x - x1, y - y1);   // y treated as top of glyph
+    } else {
+        _gfx->setCursor(x, y);
+    }
+    _gfx->print(txt);
 #else
     _tft.setTextColor(col); _tft.setTextPadding(0); _tft.setTextDatum(TL_DATUM);
     _tft.drawString(txt, x, y);
@@ -404,8 +437,14 @@ void DisplayUI::centerFill(int cx, int y, int w, int h, const char* txt, uint8_t
     _D.fillRect(cx - w / 2, y, w, h, bg);
     _setFont(font);
     _gfx->setTextColor(col);
-    int tw = _textWidth(txt);
-    _gfx->setCursor(cx - tw / 2, y + 1);
+    if (_propFont) {
+        int16_t x1, y1; uint16_t bw, bh;
+        _gfx->getTextBounds(txt, 0, 0, &x1, &y1, &bw, &bh);
+        _gfx->setCursor(cx - bw / 2 - x1, y + (h - (int)bh) / 2 - y1);
+    } else {
+        int tw = _textWidth(txt);
+        _gfx->setCursor(cx - tw / 2, y + 1);
+    }
     _gfx->print(txt);
 #else
     _setFont(font);
