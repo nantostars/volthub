@@ -704,7 +704,9 @@ void DisplayUI::updateBattery() {
     snprintf(buf, sizeof(buf), "%d C", on ? _bd.cellTemp : 0);
     drawStat(254, CT_Y + 134, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
     snprintf(buf, sizeof(buf), "%d mV", delta);
-    drawStat(368, CT_Y + 134, 90, "Delta", on ? buf : "--", C_TEXT);
+    // Delta cell imbalance alarm: white ≤50mV, amber 50–100mV, red >100mV.
+    uint16_t deltaCol = !on ? C_MUTED : (delta > 100 ? C_RED : delta > 50 ? C_AMBER : C_TEXT);
+    drawStat(368, CT_Y + 134, 90, "Delta", on ? buf : "--", deltaCol);
 
     // cell voltage boxes — 4-col grid, red when out of range; redraw only on change
     int cells = _bd.cellCount; if (cells > 4) cells = 4;
@@ -782,7 +784,7 @@ void DisplayUI::updateSolar() {
     fmtF(t, on ? _sd.chargeCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
     fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
-    fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_ORANGE, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     // card B: yield today big
     fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
     centerFill(120, CT_Y + 162, 200, 28, buf, 4, on ? C_TEXT : C_MUTED, C_CARD);

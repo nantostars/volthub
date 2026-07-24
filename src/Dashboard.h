@@ -510,6 +510,8 @@ function updateBattery(d){
   var mn=9,mx=0; cells.forEach(function(v){ if(v<mn)mn=v; if(v>mx)mx=v; });
   var delta=cells.length?Math.round((mx-mn)*1000):0;
   $('bt-delta').textContent=on?delta+' mV':'--';
+  // delta alarm: white <=50mV, amber 50-100mV, red >100mV
+  $('bt-delta').style.color=!on?'var(--muted)':(delta>100?'var(--red)':delta>50?'var(--amber)':'var(--text)');
   pill($('bt-bms'), on?(delta<=30?'Balanced':'Balancing'):'offline',
        on?(delta<=30?'var(--green)':'var(--amber)'):'var(--muted)',
        on?(delta<=30?'rgba(70,207,130,.15)':'rgba(255,162,77,.16)'):'var(--inset)');
