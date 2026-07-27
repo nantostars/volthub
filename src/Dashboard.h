@@ -608,7 +608,9 @@ function updateSystem(d){
 function updateSysInfo(sys){
   if(!sys) return;
   var el=$('st-status'); if(!el) return;
-  var rows='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
+  var rows='';
+  if(sys.fw) rows+='<div class="st-status-row"><span class="st-status-lbl">Firmware</span><span class="st-status-val">v'+sys.fw+'</span></div>';
+  rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
   if(sys.staIp) rows+='<div class="st-status-row"><span class="st-status-lbl">WiFi Client</span><span class="st-status-val ok">&#10003; '+sys.staIp+'</span></div>';
   if(sys.time&&sys.date) rows+='<div class="st-status-row"><span class="st-status-lbl">Orario NTP</span><span class="st-status-val">'+sys.date+'&nbsp;&nbsp;'+sys.time+'</span></div>';
   else { var m=(sys.staIp&&sys.staIp.length>0)?'in attesa...':'non sincronizzato';

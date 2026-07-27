@@ -8,6 +8,7 @@
 #include "esp_sntp.h"
 
 #include "Config.h"
+#include "Version.h"
 #include "Settings.h"
 #include "VictronBLE.h"
 #include "LitimeBMS.h"
@@ -150,6 +151,7 @@ static void handleApiData() {
     }
     jsys["apIp"]  = WiFi.softAPIP().toString();
     jsys["staIp"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "";
+    jsys["fw"]    = FW_VERSION;
 
     String json; serializeJson(doc,json);
     server.sendHeader("Access-Control-Allow-Origin", "*");

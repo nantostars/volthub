@@ -1,5 +1,6 @@
 #include "DisplayUI.h"
 #include "Config.h"
+#include "Version.h"
 #include "Arduino_AXS15231B_Guition.h"
 #include <math.h>
 
@@ -1054,12 +1055,13 @@ void DisplayUI::updateSystem() {
     auto row = [&](const char* label, const char* val) {
         fillText(312, ny, 150, 12, label, 1, C_MUTED, C_CARD);
         fillText(312, ny + 12, 150, 14, (val && val[0]) ? val : "--", 1, C_TEXT, C_CARD);
-        ny += 32;
+        ny += 28;
     };
     row("AP SSID", _syApSsid);
     row("AP IP", _syApIp);
     row("Client IP", _syStaIp[0] ? _syStaIp : nullptr);
     row("NTP time", _syNtpTime);
+    row("Firmware", "v" FW_VERSION);
 }
 
 // ─── updateSysInfo ────────────────────────────────────────────────────────────
