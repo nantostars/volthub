@@ -10,6 +10,10 @@ of the web dashboard.
 
 ---
 
+## 0.44 — dual language (web): translations + language toggle in System
+- Web dashboard translatable EN/IT (`TR()` dict + `data-i18n` on labels, tabs by id, dynamic states).
+- Language toggle (EN/IT) in the System tab writes `/api/settings` → switches device + web; the page syncs from `/api/data` → `sys.lang`.
+
 ## 0.43 — dual language (device): i18n engine + IT translation
 - Device UI translatable EN/IT via a `t()` lookup (English key, Italian table, English fallback).
 - Language stored in NVS (`Settings::getLang/setLang`), applied at boot and on change (full redraw).

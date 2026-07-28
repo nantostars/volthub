@@ -158,6 +158,9 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 .st-status-lbl{color:var(--muted)} .st-status-val{font-family:var(--mono)}
 .st-status-val.ok{color:var(--green)} .st-status-val.dim{color:var(--muted)}
 .ota-link{display:block;text-align:center;color:var(--blue);font-size:13px;margin-top:12px;text-decoration:none}
+.lang-sel{display:inline-flex;gap:4px}
+.lang-btn{background:var(--inset);color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.lang-btn.on{background:var(--orange);color:#111;border-color:transparent}
 </style>
 </head>
 <body>
@@ -270,7 +273,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         </div>
       </div>
       <div class="card">
-        <div class="card-s" style="margin-bottom:6px">Produzione oggi</div>
+        <div class="card-s" style="margin-bottom:6px" data-i18n="Production today">Production today</div>
         <div class="bigw"><div class="n" id="so-y2" style="font-size:40px">--</div><div class="u">Wh</div></div>
         <div class="card-s" style="margin-top:6px">Nessuno storico orario disponibile sul firmware</div>
       </div>
@@ -291,7 +294,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         </div>
       </div>
       <div class="card">
-        <div class="card-s" style="margin-bottom:10px">Charge profile</div>
+        <div class="card-s" style="margin-bottom:10px" data-i18n="Charge profile">Charge profile</div>
         <div class="grid2">
           <div class="st-status-row"><span class="st-status-lbl">Current limit</span><span class="st-status-val">50 A</span></div>
           <div class="st-status-row"><span class="st-status-lbl">Input range</span><span class="st-status-val">9-17 V</span></div>
@@ -305,7 +308,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <div class="view" id="v-level">
       <div class="lv-wrap">
         <div class="lv-left">
-          <div class="card-s" style="align-self:flex-start;margin-bottom:10px">Bubble level</div>
+          <div class="card-s" style="align-self:flex-start;margin-bottom:10px" data-i18n="Bubble level">Bubble level</div>
           <div class="bubble">
             <div class="ring2"></div><div class="hx"></div><div class="vx"></div>
             <div class="dot2" id="lv-dot"></div>
@@ -329,18 +332,20 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
     <!-- ═════ SYSTEM ═════ -->
     <div class="view" id="v-system">
       <div class="card">
-        <div class="card-s" style="margin-bottom:6px">Connected devices</div>
+        <div class="card-s" style="margin-bottom:6px" data-i18n="Connected devices">Connected devices</div>
         <div id="sy-devs"></div>
       </div>
       <div class="card">
-        <div class="card-s" style="margin-bottom:6px">Network</div>
+        <div class="card-s" style="margin-bottom:6px" data-i18n="Network">Network</div>
         <div id="st-status"></div>
-        <a class="ota-link" href="/update">Firmware update (OTA) →</a>
+        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Language">Language</span>
+          <span class="lang-sel"><button class="lang-btn on" id="lang-en" onclick="setLang(0)">EN</button><button class="lang-btn" id="lang-it" onclick="setLang(1)">IT</button></span></div>
+        <a class="ota-link" href="/update" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
       <!-- settings form -->
       <div class="card">
-        <div class="card-s" style="margin-bottom:10px">Configurazione</div>
+        <div class="card-s" style="margin-bottom:10px" data-i18n="Configuration">Configuration</div>
 
         <div class="st-group"><div class="st-gt">WiFi AP</div>
           <div class="st-field"><label class="st-label" for="st-wifi-ssid">SSID</label>
@@ -389,7 +394,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div id="st-imu-mac-hint" class="st-hint">Formato: AA:BB:CC:DD:EE:FF</div></div>
         </div>
 
-        <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()">Salva e riavvia</button>
+        <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
         <div class="st-msg" id="st-msg"></div>
       </div>
     </div>
@@ -417,6 +422,37 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 <script>
 var $=function(id){return document.getElementById(id)};
 var lastData=null, curView='overview';
+
+// ── i18n (English key → Italian; English fallback) ──
+var I18N={ it:{
+  "Overview":"Panoramica","Battery":"Batteria","Solar":"Solare","Level":"Livella","System":"Sistema",
+  "Loads":"Carichi","offline":"offline","online":"online",
+  "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo","Standby":"Standby",
+  "Balanced":"Bilanciata","Balancing":"Bilanciamento",
+  "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
+  "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
+  "Cell voltages":"Tensioni celle","Charge profile":"Profilo di carica","Bubble level":"Livella a bolla",
+  "Production today":"Produzione oggi","Ramp / chock guidance":"Guida cunei / rampe",
+  "No hourly history available on this firmware":"Nessuno storico orario disponibile sul firmware",
+  "No cell data":"Nessun dato cella","Language":"Lingua",
+  "WiFi Client (optional)":"WiFi Client (opzionale)","NTP / Time":"NTP / Orario",
+  "Saving...":"Salvataggio...","Reboot in progress...":"Riavvio in corso...",
+  "Tilt sensor":"Inclinometro"
+}};
+var curLang='en';
+function TR(k){ return (curLang==='it'&&I18N.it[k]!==undefined)?I18N.it[k]:k; }
+function applyLang(){
+  var tabs={'t-overview':'Overview','t-battery':'Battery','t-solar':'Solar','t-dcdc':'DC-DC','t-level':'Level','t-system':'System'};
+  for(var id in tabs){ var s=document.querySelector('#'+id+' span'); if(s) s.textContent=TR(tabs[id]); }
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent=TR(el.getAttribute('data-i18n')); });
+  var le=$('lang-en'), li=$('lang-it');
+  if(le&&li){ le.classList.toggle('on',curLang==='en'); li.classList.toggle('on',curLang==='it'); }
+  if(lastData) applyData(lastData);
+}
+function setLang(l){
+  curLang=l?'it':'en'; applyLang();
+  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:l})});
+}
 
 function fmt(v,d){ if(v===undefined||v===null||isNaN(v))return '--'; return Number(v).toFixed(d); }
 function socColor(s){ return s>45?'var(--green)':s>18?'var(--amber)':'var(--red)'; }
@@ -447,7 +483,7 @@ function updateTop(d){
   var b=d.battery||{};
   var p=(b.online&&b.power!==undefined)?b.power:0;
   var st=p>8?1:(p<-8?-1:0);
-  var lbl=st===1?'Charging':st===-1?'Discharging':'Idle';
+  var lbl=TR(st===1?'Charging':st===-1?'Discharging':'Idle');
   var col=st===1?'var(--green)':st===-1?'var(--amber)':'var(--muted)';
   var chip=$('tb-charge'); chip.querySelector('.d').style.background=col;
   chip.querySelector('span:last-child').textContent=lbl;
@@ -466,7 +502,7 @@ function updateOverview(d){
   $('ov-soc').style.color=col;
   $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
-  $('ov-bstate').textContent=on?st:'offline';
+  $('ov-bstate').textContent=on?TR(st):TR('offline');
   $('ov-bstate').style.color=on?(p>8?'var(--green)':p<-8?'var(--amber)':'var(--muted)'):'var(--muted)';
 
   var s=d.solar||{}, o=d.orion||{};
@@ -516,7 +552,7 @@ function updateBattery(d){
   $('bt-delta').textContent=on?delta+' mV':'--';
   // delta alarm: white <=50mV, amber 50-100mV, red >100mV
   $('bt-delta').style.color=!on?'var(--muted)':(delta>100?'var(--red)':delta>50?'var(--amber)':'var(--text)');
-  pill($('bt-bms'), on?(delta<=30?'Balanced':'Balancing'):'offline',
+  pill($('bt-bms'), on?TR(delta<=30?'Balanced':'Balancing'):TR('offline'),
        on?(delta<=30?'var(--green)':'var(--amber)'):'var(--muted)',
        on?(delta<=30?'rgba(70,207,130,.15)':'rgba(255,162,77,.16)'):'var(--inset)');
   var html='';
@@ -530,14 +566,14 @@ function updateBattery(d){
         +'<div class="num" style="font-size:20px;font-weight:600;margin-top:3px;color:'+col+'">'+v.toFixed(2)+'</div>'
         +'<div style="font-size:10px;color:'+col+'">V</div></div>';
   });
-  $('bt-cells').innerHTML=html||'<div class="card-s">Nessun dato cella</div>';
+  $('bt-cells').innerHTML=html||'<div class="card-s">'+TR('No cell data')+'</div>';
 }
 
 // ── solar ──
 function updateSolar(d){
   var s=d.solar||{}, on=s.online;
   $('so-title').textContent=on?(s.model||'Solar'):'Solar';
-  pill($('so-state'), on?(s.state||'--'):'offline', on?'var(--orange)':'var(--muted)', on?'rgba(255,105,0,.16)':'var(--inset)');
+  pill($('so-state'), on?(s.state||'--'):TR('offline'), on?'var(--orange)':'var(--muted)', on?'rgba(255,105,0,.16)':'var(--inset)');
   $('so-w').textContent=on?fmt(s.solarPower,0):'--';
   $('so-bv').textContent=on?fmt(s.battVoltage,2)+' V':'--';
   $('so-a').textContent=on?fmt(s.chargeCurrent,1)+' A':'--';
@@ -550,7 +586,7 @@ function updateDcdc(d){
   var o=d.orion||{}, on=o.online;
   $('dc-title').textContent=on?(o.model||'DC-DC'):'DC-DC';
   var w=(on&&o.outVoltage!==undefined&&o.outCurrent!==undefined)?o.outVoltage*o.outCurrent:NaN;
-  var st=!on?'offline':(o.outCurrent>0.1?'Charging':'Standby');
+  var st=!on?TR('offline'):(o.outCurrent>0.1?TR('Charging'):TR('Standby'));
   pill($('dc-state'), st, on?'var(--blue)':'var(--muted)', on?'rgba(90,165,245,.16)':'var(--inset)');
   $('dc-w').textContent=fmt(w,0);
   $('dc-iv').textContent=on?fmt(o.inVoltage,1)+' V':'--';
@@ -599,8 +635,8 @@ function updateSystem(d){
   var html='';
   devs.forEach(function(x){
     html+='<div class="devrow"><span class="dot" style="background:'+(x.on?'var(--green)':'var(--muted)')+'"></span>'
-        +'<div class="dn">'+x.n+'</div>'
-        +'<div class="ds" style="color:'+(x.on?'var(--green)':'var(--muted)')+'">'+(x.on?'online':'offline')+'</div></div>';
+        +'<div class="dn">'+TR(x.n)+'</div>'
+        +'<div class="ds" style="color:'+(x.on?'var(--green)':'var(--muted)')+'">'+TR(x.on?'online':'offline')+'</div></div>';
   });
   $('sy-devs').innerHTML=html;
 }
@@ -620,6 +656,8 @@ function updateSysInfo(sys){
 
 function applyData(d){
   lastData=d;
+  // sync language from the device (initial load + device-side changes)
+  if(d.sys&&d.sys.lang!==undefined){ var wl=d.sys.lang?'it':'en'; if(wl!==curLang){ curLang=wl; applyLang(); } }
   updateTop(d);
   if(curView==='overview') updateOverview(d);
   else if(curView==='battery') updateBattery(d);
