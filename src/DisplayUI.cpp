@@ -92,7 +92,7 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"Loads","Carichi"}, {"offline","offline"}, {"online","online"},
     // states
     {"Idle","Inattivo"}, {"Charging","In carica"}, {"Discharging","In scarica"},
-    {"Balanced","Bilanciata"}, {"Balancing","Bilanciamento"},
+    {"Balanced","Bilanciata"}, {"Balancing","Bilanciam."},
     // battery detail
     {"Voltage","Tensione"}, {"Current","Corrente"}, {"Charge","Carica"}, {"Capacity","Capacita'"},
     {"Cycles","Cicli"}, {"Temp","Temp"},
@@ -105,7 +105,7 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"Current limit","Limite corrente"}, {"Input range","Range ingresso"}, {"Mode","Modo"},
     {"Engine detect","Rileva motore"}, {"Adaptive","Adattivo"}, {"Auto","Auto"},
     // level
-    {"PITCH F-R","BECCHEGGIO A-P"}, {"ROLL L-R","ROLLIO S-D"},
+    {"PITCH F-R","BECC. A-P"}, {"ROLL L-R","ROLL. S-D"},
     // system
     {"Connected devices","Dispositivi connessi"}, {"Screen","Schermo"}, {"Network","Rete"},
     {"Client IP","IP client"}, {"NTP time","Ora NTP"}, {"Tilt sensor","Inclinometro"},

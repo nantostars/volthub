@@ -10,6 +10,9 @@ of the web dashboard.
 
 ---
 
+## 0.45 — i18n: abbreviate long Italian device labels
+- Italian strings that would overflow the small device boxes are abbreviated (e.g. Balancing→"Bilanciam.", PITCH F-R→"BECC. A-P", ROLL L-R→"ROLL. S-D"). Web keeps full words (responsive).
+
 ## 0.44 — dual language (web): translations + language toggle in System
 - Web dashboard translatable EN/IT (`TR()` dict + `data-i18n` on labels, tabs by id, dynamic states).
 - Language toggle (EN/IT) in the System tab writes `/api/settings` → switches device + web; the page syncs from `/api/data` → `sys.lang`.
