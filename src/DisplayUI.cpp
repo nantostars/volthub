@@ -82,6 +82,48 @@ int DisplayUI::_textWidth(const char* s) {
 #endif
 }
 
+// ─── i18n ──────────────────────────────────────────────────────────────────────
+// English is the key; Italian is looked up here. Missing entries fall back to English.
+static const struct { const char* en; const char* it; } LANG_IT[] = {
+    // tabs
+    {"Overview","Panoramica"}, {"Battery","Batteria"}, {"Solar","Solare"}, {"Level","Livella"},
+    {"System","Sistema"},
+    // overview / nodes
+    {"Loads","Carichi"}, {"offline","offline"}, {"online","online"},
+    // states
+    {"Idle","Inattivo"}, {"Charging","In carica"}, {"Discharging","In scarica"},
+    {"Balanced","Bilanciata"}, {"Balancing","Bilanciamento"},
+    // battery detail
+    {"Voltage","Tensione"}, {"Current","Corrente"}, {"Charge","Carica"}, {"Capacity","Capacita'"},
+    {"Cycles","Cicli"}, {"Temp","Temp"},
+    {"Cell voltages   recommended 3.00 - 3.55 V","Tensioni celle   consigliato 3.00 - 3.55 V"},
+    // solar detail
+    {"To battery","Alla batteria"}, {"Yield today","Resa oggi"},
+    {"Production today","Produzione oggi"}, {"energy today","energia oggi"},
+    // dc-dc detail
+    {"Alternator in","Alternatore"}, {"Output","Uscita"}, {"Charge profile","Profilo di carica"},
+    {"Current limit","Limite corrente"}, {"Input range","Range ingresso"}, {"Mode","Modo"},
+    {"Engine detect","Rileva motore"}, {"Adaptive","Adattivo"}, {"Auto","Auto"},
+    // level
+    {"PITCH F-R","BECCHEGGIO A-P"}, {"ROLL L-R","ROLLIO S-D"},
+    // system
+    {"Connected devices","Dispositivi connessi"}, {"Screen","Schermo"}, {"Network","Rete"},
+    {"Client IP","IP client"}, {"NTP time","Ora NTP"}, {"Tilt sensor","Inclinometro"},
+    {"Language","Lingua"}, {"ALWAYS","SEMPRE"},
+};
+
+const char* DisplayUI::t(const char* en) {
+    if (_lang == 0 || en == nullptr) return en;                 // English (default) → identity
+    for (auto& p : LANG_IT) if (strcmp(p.en, en) == 0) return p.it;
+    return en;                                                  // no translation → English fallback
+}
+
+void DisplayUI::setLanguage(uint8_t lang) {
+    if (lang == _lang) return;
+    _lang = lang;
+    _firstDraw = true;   // force a full redraw of the current screen in the new language
+}
+
 // ─── begin ────────────────────────────────────────────────────────────────────
 void DisplayUI::begin() {
     pinMode(PIN_BL, OUTPUT);
@@ -372,7 +414,7 @@ void DisplayUI::drawPill(int x, int y, int w, int h, const char* txt, uint16_t f
 
 // label (small, muted) above value (font2, colored). Clears value rect for anti-flicker.
 void DisplayUI::drawStat(int x, int y, int w, const char* label, const char* val, uint16_t valCol) {
-    fillText(x, y, w, 12, label, 1, C_MUTED, C_CARD);
+    fillText(x, y, w, 12, t(label), 1, C_MUTED, C_CARD);
     fillText(x, y + 13, w, 20, val, 2, valCol, C_CARD);
 }
 
@@ -537,7 +579,7 @@ void DisplayUI::drawStatusBar(bool full) {
     int st = p > 8 ? 1 : (p < -8 ? -1 : 0);
     if (full || st != _lastChargeState) {
         _lastChargeState = st;
-        const char* lbl = st == 1 ? "Charging" : st == -1 ? "Discharging" : "Idle";
+        const char* lbl = t(st == 1 ? "Charging" : st == -1 ? "Discharging" : "Idle");
         uint16_t sc = st == 1 ? C_GREEN : st == -1 ? C_AMBER : C_MUTED;
         _D.fillCircle(240, 17, 4, sc);
         fillText(248, 11, 104, 14, lbl, 1, sc, C_BG);
@@ -588,13 +630,14 @@ void DisplayUI::drawTabBar() {
             _D.fillRect(x, TAB_Y, TAB_W, 2, C_ORANGE);
         }
         drawTabIcon(i, x + TAB_W / 2, TAB_Y + 20, col);
-        int tw = _textWidth(labels[i]); _setFont(1);
-        tw = _textWidth(labels[i]);
+        const char* lbl = t(labels[i]);
+        _setFont(1);
+        int tw = _textWidth(lbl);
 #ifdef BOARD_GUITION
-        _gfx->setTextColor(col); _gfx->setCursor(x + (TAB_W - tw) / 2, TAB_Y + 38); _gfx->print(labels[i]);
+        _gfx->setTextColor(col); _gfx->setCursor(x + (TAB_W - tw) / 2, TAB_Y + 38); _gfx->print(lbl);
 #else
         _tft.setTextColor(col); _tft.setTextPadding(0); _tft.setTextDatum(TL_DATUM);
-        _tft.drawString(labels[i], x + (TAB_W - tw) / 2, TAB_Y + 38);
+        _tft.drawString(lbl, x + (TAB_W - tw) / 2, TAB_Y + 38);
 #endif
     }
 }
@@ -603,11 +646,11 @@ void DisplayUI::drawTabBar() {
 void DisplayUI::drawOverview() {
     // side nodes (enlarged for font6 value + font4 unit) — labels font2
     drawCard(8, CT_Y + 8, 150, 80, C_INSET, true);
-    fillText(20, CT_Y + 16, 130, 16, "Solar", 2, C_MUTED, C_INSET);
+    fillText(20, CT_Y + 16, 130, 16, t("Solar"), 2, C_MUTED, C_INSET);
     drawCard(8, CT_Y + 142, 150, 80, C_INSET, true);
-    fillText(20, CT_Y + 150, 130, 16, "DC-DC", 2, C_MUTED, C_INSET);
+    fillText(20, CT_Y + 150, 130, 16, t("DC-DC"), 2, C_MUTED, C_INSET);
     drawCard(322, CT_Y + 75, 150, 80, C_INSET, true);
-    fillText(334, CT_Y + 83, 130, 16, "Loads", 2, C_MUTED, C_INSET);
+    fillText(334, CT_Y + 83, 130, 16, t("Loads"), 2, C_MUTED, C_INSET);
     for (int i = 0; i < 3; i++) _nodeTxt[i][0] = '\x01';  // invalidate node cache → force redraw
     _lastSocBucket = -999;                                  // force ring redraw
     updateOverview();
@@ -733,7 +776,7 @@ void DisplayUI::updateOverview() {
         centerFill(cx, cy + r + 16, 120, 16, l1, 2, C_MUTED, C_BG);
         centerFill(cx, cy + r + 34, 120, 16, l2, 2, C_MUTED, C_BG);
     } else {
-        centerFill(cx, cy + r + 16, 120, 16, "offline", 2, C_MUTED, C_BG);
+        centerFill(cx, cy + r + 16, 120, 16, t("offline"), 2, C_MUTED, C_BG);
         _D.fillRect(cx - 60, cy + r + 34, 120, 16, C_BG);
     }
 }
@@ -781,12 +824,12 @@ void DisplayUI::updateBattery() {
         int nomV = _bd.cellCount <= 4 ? 12 : _bd.cellCount <= 8 ? 24 : 48;
         if (_bd.fullCapacityAh > 0) snprintf(btit, sizeof(btit), "%dV %.0fAh %dS", nomV, _bd.fullCapacityAh, _bd.cellCount);
         else                        snprintf(btit, sizeof(btit), "%dV %dS", nomV, _bd.cellCount);
-    } else strcpy(btit, "Battery");
+    } else strcpy(btit, t("Battery"));
     fillText(26, CT_Y + 12, 300, 16, btit, 2, C_TEXT, C_CARD);
     // cell delta / balance
     float mn = 9, mx = 0; for (int i = 0; i < _bd.cellCount; i++) { if (_bd.cellVoltages[i] < mn) mn = _bd.cellVoltages[i]; if (_bd.cellVoltages[i] > mx) mx = _bd.cellVoltages[i]; }
     int delta = (_bd.cellCount > 0) ? (int)lroundf((mx - mn) * 1000) : 0;
-    const char* bmsTxt = !on ? "offline" : (delta <= 30 ? "Balanced" : "Balancing");
+    const char* bmsTxt = !on ? t("offline") : (delta <= 30 ? t("Balanced") : t("Balancing"));
     uint16_t bmsFg = !on ? C_MUTED : (delta <= 30 ? C_GREEN : C_AMBER);
     pillCached(0, 372, CT_Y + 12, 84, 20, bmsTxt, bmsFg, C_INSET);   // card A header row
 
@@ -874,34 +917,34 @@ void DisplayUI::drawSolar() {
     _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
     _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET);
     _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
-    fillText(34, iy + 3, iw - 12, 11, "Battery", 1, C_MUTED, C_INSET);
-    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET);
-    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Yield today", 1, C_MUTED, C_INSET);
+    fillText(34, iy + 3, iw - 12, 11, t("Battery"), 1, C_MUTED, C_INSET);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, t("To battery"), 1, C_MUTED, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, t("Yield today"), 1, C_MUTED, C_INSET);
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
-    fillText(26, CT_Y + 144, 300, 14, "Production today", 1, C_MUTED, C_CARD);
-    fillText(300, CT_Y + 170, 160, 14, "energia oggi", 1, C_MUTED, C_CARD);
+    fillText(26, CT_Y + 144, 300, 14, t("Production today"), 1, C_MUTED, C_CARD);
+    fillText(300, CT_Y + 170, 160, 14, t("energy today"), 1, C_MUTED, C_CARD);
     updateSolar();
 }
 
 void DisplayUI::updateSolar() {
-    char buf[16], t[8];
+    char buf[16], tb[8];
     bool on = _sd.valid;
-    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_sd.productId, false) : "Solar", 2, C_TEXT, C_CARD);
-    const char* state = on ? victronStateName(_sd.chargeState) : "offline";
+    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_sd.productId, false) : t("Solar"), 2, C_TEXT, C_CARD);
+    const char* state = on ? victronStateName(_sd.chargeState) : t("offline");
     pillCached(1, 360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
     // big W (opaque, single pass)
     fmtF(buf, on ? _sd.solarPower : NAN, 0);
     centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_ORANGE : C_MUTED, C_CARD);
     // inset values (backgrounds/labels already drawn in drawSolar)
     int iy = CT_Y + 82, iw = 142;
-    fmtF(t, on ? _sd.battVoltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", t);
+    fmtF(tb, on ? _sd.battVoltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", tb);
     fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(t, on ? _sd.chargeCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
+    fmtF(tb, on ? _sd.chargeCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
     fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
+    fmtF(tb, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", tb);
     fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     // card B: yield today big
-    fmtF(t, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", t);
+    fmtF(tb, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", tb);
     centerFill(120, CT_Y + 162, 200, 28, buf, 4, on ? C_TEXT : C_MUTED, C_CARD);
 }
 
@@ -909,12 +952,12 @@ void DisplayUI::updateSolar() {
 void DisplayUI::drawDcdc() {
     drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
-    fillText(26, CT_Y + 144, 300, 14, "Charge profile", 1, C_MUTED, C_CARD);
+    fillText(26, CT_Y + 144, 300, 14, t("Charge profile"), 1, C_MUTED, C_CARD);
     // static charge profile
-    fillText(26, CT_Y + 164, 210, 14, "Current limit", 1, C_MUTED, C_CARD);  fillText(180, CT_Y + 164, 56, 14, "50 A", 1, C_TEXT, C_CARD);
-    fillText(26, CT_Y + 182, 210, 14, "Input range", 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
-    fillText(250, CT_Y + 164, 150, 14, "Mode", 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, "Adaptive", 1, C_TEXT, C_CARD);
-    fillText(250, CT_Y + 182, 150, 14, "Engine detect", 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, "Auto", 1, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 164, 210, 14, t("Current limit"), 1, C_MUTED, C_CARD);  fillText(180, CT_Y + 164, 56, 14, "50 A", 1, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 182, 210, 14, t("Input range"), 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
+    fillText(250, CT_Y + 164, 150, 14, t("Mode"), 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, t("Adaptive"), 1, C_TEXT, C_CARD);
+    fillText(250, CT_Y + 182, 150, 14, t("Engine detect"), 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, t("Auto"), 1, C_TEXT, C_CARD);
     // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
 #ifdef BOARD_GUITION
     fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
@@ -926,27 +969,27 @@ void DisplayUI::drawDcdc() {
     _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
     _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET);
     _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
-    fillText(34, iy + 3, iw - 12, 11, "Alternator in", 1, C_MUTED, C_INSET);
-    fillText(34 + iw + 6, iy + 3, iw - 12, 11, "To battery", 1, C_MUTED, C_INSET);
-    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, "Output", 1, C_MUTED, C_INSET);
+    fillText(34, iy + 3, iw - 12, 11, t("Alternator in"), 1, C_MUTED, C_INSET);
+    fillText(34 + iw + 6, iy + 3, iw - 12, 11, t("To battery"), 1, C_MUTED, C_INSET);
+    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, t("Output"), 1, C_MUTED, C_INSET);
     updateDcdc();
 }
 
 void DisplayUI::updateDcdc() {
-    char buf[16], t[8];
+    char buf[16], tb[8];
     bool on = _od.valid;
-    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : "DC-DC", 2, C_TEXT, C_CARD);
+    fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : t("DC-DC"), 2, C_TEXT, C_CARD);
     float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
-    const char* state = !on ? "offline" : (_od.outCurrent > 0.1f ? "Charging" : "Standby");
+    const char* state = !on ? t("offline") : (_od.outCurrent > 0.1f ? t("Charging") : t("Standby"));
     pillCached(2, 360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
     fmtF(buf, w, 0);
     centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_BLUE : C_MUTED, C_CARD);
     int iy = CT_Y + 82, iw = 142;
-    fmtF(t, on ? _od.inVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
+    fmtF(tb, on ? _od.inVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", tb);
     fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(t, on ? _od.outCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", t);
+    fmtF(tb, on ? _od.outCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
     fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(t, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", t);
+    fmtF(tb, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", tb);
     fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
 }
 
@@ -963,9 +1006,9 @@ void DisplayUI::drawLevel() {
     _D.drawFastVLine(cx, cy - R + 8, 2 * (R - 8), C_BORDER);
 
     drawCard(200, CT_Y + 8, 128, 66, C_CARD, true);
-    fillText(210, CT_Y + 16, 110, 12, "PITCH F-R", 1, C_MUTED, C_CARD);
+    fillText(210, CT_Y + 16, 110, 12, t("PITCH F-R"), 1, C_MUTED, C_CARD);
     drawCard(336, CT_Y + 8, 132, 66, C_CARD, true);
-    fillText(346, CT_Y + 16, 110, 12, "ROLL L-R", 1, C_MUTED, C_CARD);
+    fillText(346, CT_Y + 16, 110, 12, t("ROLL L-R"), 1, C_MUTED, C_CARD);
     drawCard(200, CT_Y + 82, 268, 140, C_CARD, true);
     fillText(210, CT_Y + 90, 240, 14, "Ramp / chock guidance", 1, C_MUTED, C_CARD);
     _lvBx = -999;   // fresh screen — no old bubble to erase
@@ -1025,11 +1068,11 @@ void DisplayUI::updateLevel() {
 // ─── System (degraded: no RSSI / no wifi scan) ────────────────────────────────
 void DisplayUI::drawSystem() {
     drawCard(12, CT_Y + 8, 280, 214, C_CARD, true);
-    fillText(24, CT_Y + 16, 200, 14, "Connected devices", 1, C_MUTED, C_CARD);
+    fillText(24, CT_Y + 16, 200, 14, t("Connected devices"), 1, C_MUTED, C_CARD);
     drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // screen-timeout toggle pill area
-    fillText(312, CT_Y + 14, 90, 14, "Screen", 1, C_MUTED, C_INSET);
+    fillText(312, CT_Y + 14, 90, 14, t("Screen"), 1, C_MUTED, C_INSET);
     drawCard(300, CT_Y + 56, 168, 166, C_CARD, true);
-    fillText(312, CT_Y + 64, 150, 14, "Network", 1, C_MUTED, C_CARD);
+    fillText(312, CT_Y + 64, 150, 14, t("Network"), 1, C_MUTED, C_CARD);
     updateSystem();
 }
 
@@ -1043,25 +1086,31 @@ void DisplayUI::updateSystem() {
     for (int i = 0; i < 4; i++) {
         int y = CT_Y + 40 + i * 44;
         _D.fillCircle(32, y + 12, 4, devs[i].on ? C_GREEN : C_MUTED);
-        fillText(44, y + 4, 236, 16, devs[i].name, 2, C_TEXT, C_CARD);
-        fillText(44, y + 22, 236, 12, devs[i].on ? "online" : "offline", 1, devs[i].on ? C_GREEN : C_MUTED, C_CARD);
+        fillText(44, y + 4, 236, 16, t(devs[i].name), 2, C_TEXT, C_CARD);
+        fillText(44, y + 22, 236, 12, t(devs[i].on ? "online" : "offline"), 1, devs[i].on ? C_GREEN : C_MUTED, C_CARD);
     }
 
     // screen-timeout toggle (label drawn once in drawSystem)
-    pillCached(4, 400, CT_Y + 16, 60, 22, _alwaysOn ? "ALWAYS" : "AUTO", _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+    pillCached(4, 400, CT_Y + 16, 60, 22, _alwaysOn ? t("ALWAYS") : t("AUTO"), _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
 
     // network info
     int ny = CT_Y + 82;
-    auto row = [&](const char* label, const char* val) {
-        fillText(312, ny, 150, 12, label, 1, C_MUTED, C_CARD);
+    auto row = [&](const char* label, const char* val) {          // stacked (long values)
+        fillText(312, ny, 150, 12, t(label), 1, C_MUTED, C_CARD);
         fillText(312, ny + 12, 150, 14, (val && val[0]) ? val : "--", 1, C_TEXT, C_CARD);
-        ny += 28;
+        ny += 26;
     };
     row("AP SSID", _syApSsid);
     row("AP IP", _syApIp);
     row("Client IP", _syStaIp[0] ? _syStaIp : nullptr);
     row("NTP time", _syNtpTime);
-    row("Firmware", "v" FW_VERSION);
+    auto rowc = [&](const char* label, const char* val) {         // compact single line (short values)
+        fillText(312, ny, 66, 14, t(label), 1, C_MUTED, C_CARD);
+        fillText(380, ny, 84, 14, val, 1, C_TEXT, C_CARD);
+        ny += 15;
+    };
+    rowc("Language", _lang == 1 ? "Italiano" : "English");
+    rowc("Firmware", "v" FW_VERSION);
 }
 
 // ─── updateSysInfo ────────────────────────────────────────────────────────────

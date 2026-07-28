@@ -55,6 +55,9 @@ public:
     // Call from main loop — polls touch and handles taps
     void handleTouch();
 
+    // UI language: 0 = English (default), 1 = Italiano. Forces a full redraw on change.
+    void setLanguage(uint8_t lang);
+
     // Update system info shown on the System screen (call periodically from main)
     void updateSysInfo(const char* apSsid, const char* apIp,
                        const char* staSsid, const char* staIp,
@@ -97,6 +100,9 @@ private:
     // opaque centered text — single-pass, flicker-free (clears its own w×h via bg)
     void centerFill(int cx, int y, int w, int h, const char* txt, uint8_t font, uint16_t col, uint16_t bg);
 
+    // ── i18n: returns the translation of an English literal for the current language ──
+    const char* t(const char* en);
+
     // ── Board-agnostic font/text helpers ─────────────────────────────────────
     void _setFont(uint8_t f);
     int  _textWidth(const char* s);
@@ -123,6 +129,7 @@ private:
 
     // ── State ─────────────────────────────────────────────────────────────────
     Screen   _screen     = SCR_OVERVIEW;
+    uint8_t  _lang       = 0;          // 0 = English, 1 = Italiano
     bool     _firstDraw  = true;       // force full draw of current screen
     uint8_t  _flowPhase  = 0;
     uint32_t _lastFlowMs = 0;

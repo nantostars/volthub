@@ -10,6 +10,11 @@ of the web dashboard.
 
 ---
 
+## 0.43 — dual language (device): i18n engine + IT translation
+- Device UI translatable EN/IT via a `t()` lookup (English key, Italian table, English fallback).
+- Language stored in NVS (`Settings::getLang/setLang`), applied at boot and on change (full redraw).
+- System screen shows the current language (read-only); language exposed on `/api/data` → `sys.lang` and via `/api/settings`. Web toggle to follow in 0.44.
+
 ## 0.42 — public documentation + open-source license
 - Added `README.md` (English): overview, hardware, build/flash, configuration, components, license.
 - Added `LICENSE` (MIT, © nantostars).

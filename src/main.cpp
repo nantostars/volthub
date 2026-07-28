@@ -152,6 +152,7 @@ static void handleApiData() {
     jsys["apIp"]  = WiFi.softAPIP().toString();
     jsys["staIp"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "";
     jsys["fw"]    = FW_VERSION;
+    jsys["lang"]  = settings.getLang();
 
     String json; serializeJson(doc,json);
     server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -171,6 +172,7 @@ static void handleGetSettings() {
     doc["ntpServer"]  = settings.getNtpServer();
     doc["ntpTZ"]      = settings.getNtpTZ();
     doc["imuMac"]     = settings.getWitmotionMac();
+    doc["lang"]       = settings.getLang();
     String json; serializeJson(doc,json);
     server.send(200,"application/json",json);
 }
@@ -189,6 +191,7 @@ static void handlePostSettings() {
     if (doc["ntpServer"].is<const char*>() && strlen(doc["ntpServer"])>0) settings.setNtpServer(doc["ntpServer"].as<String>());
     if (doc["ntpTZ"].is<const char*>()     && strlen(doc["ntpTZ"])>0)     settings.setNtpTZ(doc["ntpTZ"].as<String>());
     if (doc["imuMac"].is<const char*>()    && strlen(doc["imuMac"])>0)    settings.setWitmotionMac(doc["imuMac"].as<String>());
+    if (doc["lang"].is<int>()) { int lg = doc["lang"].as<int>(); settings.setLang(lg); display.setLanguage(lg); }
     server.send(200,"application/json","{\"status\":\"ok\",\"rebooting\":true}");
     delay(300); ESP.restart();
 }
@@ -297,6 +300,7 @@ void setup() {
 
     display.begin();
     settings.begin();
+    display.setLanguage(settings.getLang());
     Serial.printf("[Settings] BMS MAC: %s\n", settings.getBmsMac().c_str());
 
     wifiSetup();

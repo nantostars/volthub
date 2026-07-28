@@ -21,6 +21,7 @@ public:
     String getNtpServer()     { return _prefs.getString("ntp_srv",   NTP_SERVER);        }
     String getNtpTZ()         { return _prefs.getString("ntp_tz",    NTP_TZ);            }
     String getWitmotionMac()  { return _prefs.getString("imu_mac",   WITMOTION_MAC);     }
+    int    getLang()          { return _prefs.getInt("lang", 0); }   // 0 = English, 1 = Italiano
 
     void setBmsMac(const String& v)        { _prefs.putString("bms_mac",   v); }
     void setSolarKey(const String& v)      { _prefs.putString("solar_key", v); }
@@ -32,6 +33,7 @@ public:
     void setNtpServer(const String& v)     { _prefs.putString("ntp_srv",   v); }
     void setNtpTZ(const String& v)         { _prefs.putString("ntp_tz",    v); }
     void setWitmotionMac(const String& v)  { _prefs.putString("imu_mac",   v); }
+    void setLang(int v)                    { _prefs.putInt("lang", v); }
 
 private:
     Preferences _prefs;
