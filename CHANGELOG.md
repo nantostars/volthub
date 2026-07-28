@@ -1,99 +1,104 @@
 # Changelog — volt·hub
 
-Tutte le modifiche rilevanti del firmware. Formato ispirato a
-[Keep a Changelog](https://keepachangelog.com/). Versioning **basato sulle change**:
-si incrementa `FW_VERSION` (`src/Version.h`) a **ogni commit** e si aggiunge qui una voce.
-Schema `0.N` (N = numero della change) fino alla release `1.0`.
+All notable changes to the firmware. Format inspired by
+[Keep a Changelog](https://keepachangelog.com/). **Change-based versioning**:
+`FW_VERSION` (`src/Version.h`) is bumped on **every commit** and a matching entry is
+added here. Scheme `0.N` (N = change number) until the `1.0` release.
 
-La versione corrente è visibile nella schermata **System** del display e nella tab
-**System** della dashboard web.
+The current version is shown on the device **System** screen and in the **System** tab
+of the web dashboard.
 
 ---
 
-## 0.41 — sistema di versioning + changelog
-- Aggiunta `FW_VERSION` (`src/Version.h`), mostrata in System su device e web (via `/api/data` → `sys.fw`).
-- Creato questo `CHANGELOG.md` con lo storico dalle origini (v0.0).
+## 0.42 — public documentation + open-source license
+- Added `README.md` (English): overview, hardware, build/flash, configuration, components, license.
+- Added `LICENSE` (MIT, © nantostars).
+- Translated this changelog to English.
 
-## 0.40 — Overview: colore valori nodi per stato
-- Solar/DC-DC verdi quando in produzione; Loads arancione quando la batteria è in scarica. Device + web.
+## 0.41 — versioning system + changelog
+- Added `FW_VERSION` (`src/Version.h`), shown in System on device and web (via `/api/data` → `sys.fw`).
+- Created this `CHANGELOG.md` with the full history from the origins (v0.0).
 
-## 0.39 — Overview: valori centrati e allineati
-- SOC % centrato nel ring; V/A incolonnati e centrati sotto il ring; gruppo numero+W centrato nel box con numero allineato alla W (slot fisso 3 cifre) su baseline comune. Cache anti-flicker per nodo.
+## 0.40 — Overview: node value colour by state
+- Solar/DC-DC green when producing; Loads amber when the battery is discharging. Device + web.
 
-## 0.38 — Level: refresh in tempo reale
-- La bolla segue l'inclinazione con un path di refresh dedicato (~80ms), decoupled dal throttle valori a 300ms.
+## 0.39 — Overview: centred and aligned values
+- SOC % centred in the ring; V/A stacked and centred below the ring; number+W group centred in the box with the number right-aligned to the W (fixed 3-digit slot) on a common baseline. Per-node anti-flicker cache.
+
+## 0.38 — Level: real-time refresh
+- The bubble follows the tilt with a dedicated refresh path (~80ms), decoupled from the 300ms value throttle.
 
 ## 0.37 — chore: gitignore `src/idf_component.yml`
-- Manifest auto-generato dal build escluso dal tracking.
+- Build-generated manifest excluded from tracking.
 
-## 0.36 — Font: valori grandi in Helvetica-Bold
-- I valori grandi (font4/font6) usano FreeSansBold su Guition (Arduino_GFX, baseline-aware) e CYD (TFT_eSPI `setFreeFont`).
+## 0.36 — Fonts: large values in Helvetica-Bold
+- Large values (font4/font6) use FreeSansBold on Guition (Arduino_GFX, baseline-aware) and CYD (TFT_eSPI `setFreeFont`).
 
-## 0.35 — Battery: Delta con soglia d'allarme
-- Il Delta celle cambia colore: bianco ≤50mV, arancione 50–100mV, rosso >100mV. Device + web.
+## 0.35 — Battery: Delta alarm threshold
+- Cell Delta changes colour: white ≤50mV, amber 50–100mV, red >100mV. Device + web.
 
-## 0.34 — Status bar: separa BLE dall'orario (Guition)
-- Ridotta la larghezza del campo BLE per non sovrapporsi all'orario.
+## 0.34 — Status bar: separate BLE from clock (Guition)
+- Narrowed the BLE field so it no longer overlaps the clock.
 
-## 0.33 — docs: valutazione upgrade stack
-- `docs/UPGRADE-latest-stack.md`: piano/rischi per arduino v3 / NimBLE 2.x / GFX / TFT_eSPI.
+## 0.33 — docs: stack upgrade assessment
+- `docs/UPGRADE-latest-stack.md`: plan/risks for arduino v3 / NimBLE 2.x / GFX / TFT_eSPI.
 
-## 0.32 — Victron: tabella product-id dalla fonte ufficiale
-- `victronModelName()` rigenerata verbatim dall'appendice del VE.Direct Protocol PDF (86 MPPT + Orion XS 0xA3F0/0xA3F1). Corretti errori delle fonti non ufficiali.
+## 0.32 — Victron: product-id table from the official source
+- `victronModelName()` regenerated verbatim from the VE.Direct Protocol PDF appendix (86 MPPT + Orion XS 0xA3F0/0xA3F1). Fixed errors from unofficial sources.
 
-## 0.31 — Victron: fallback Orion neutro
-- Pid Orion sconosciuto → "Orion" invece di "Orion-XS".
+## 0.31 — Victron: neutral Orion fallback
+- Unknown Orion pid → "Orion" instead of "Orion-XS".
 
-## 0.30 — Victron: product-id Orion XS (poi corretti in 0.32)
-- Primo tentativo Orion XS da ricerca web.
+## 0.30 — Victron: Orion XS product-ids (later corrected in 0.32)
+- First Orion XS attempt from web search.
 
-## 0.29 — Victron: tabella product-id SmartSolar/BlueSolar MPPT
-- Modello esatto dal Product ID nelle tab di dettaglio.
+## 0.29 — Victron: SmartSolar/BlueSolar MPPT product-id table
+- Exact model from the Product ID in the detail tabs.
 
-## 0.28 — Overview: linee di flusso staccate dal ring
-- Gli estremi lato-batteria si fermano fuori dallo stroke del ring.
+## 0.28 — Overview: flow lines detached from the ring
+- Battery-side endpoints stop just outside the ring stroke.
 
-## 0.27 — Guition: allinea "W" al valore watt (Solar/DC-DC)
-- Offset board-specific per i font GFX.
+## 0.27 — Guition: align "W" to the watt value (Solar/DC-DC)
+- Board-specific offset for the GFX fonts.
 
-## 0.26 — Guition: ritocchi Overview e Battery
-- W allineata, orario spostato, celle Battery valore+V su una riga.
+## 0.26 — Guition: Overview and Battery tweaks
+- W alignment, clock shifted, Battery cells value+V on one line.
 
-## 0.25 — Guition: display luminoso + QSPI 40 MHz + touch affidabile
-- Init table dal BSP del demo (luminosità piena); QSPI a 40 MHz (via trama); touch con comando 11 byte + retry + rilascio a timeout.
+## 0.25 — Guition: bright display + QSPI 40 MHz + reliable touch
+- Init table from the demo BSP (full brightness); QSPI at 40 MHz (removes texture); touch with 11-byte command + retry + timed release.
 
 ## 0.24 — Guition: anti-tearing
-- Flush del canvas solo quando il framebuffer cambia.
+- Canvas flushed only when the framebuffer changes.
 
-## 0.23 — Rimosso `src/idf_component.yml`
-- Residuo dell'esperimento arduino v3.
+## 0.23 — Removed `src/idf_component.yml`
+- Leftover from the arduino v3 experiment.
 
-## 0.22 — Guition: display FUNZIONANTE su arduino v2
-- Canvas software-rotato in PSRAM (pannello portrait nativo 320×480).
+## 0.22 — Guition: WORKING display on arduino v2
+- Software-rotated canvas in PSRAM (native 320×480 portrait panel).
 
-## 0.21 — Guition: driver AXS15231B con init del vendor
-- Fix schermo nero.
+## 0.21 — Guition: AXS15231B driver with vendor init
+- Black-screen fix.
 
-## 0.20 — Nomi: generici ovunque, modello dinamico nei dettagli
-- Concetti generici (Solar/DC-DC/Battery) in overview; modello reale solo nelle tab di dettaglio.
+## 0.20 — Naming: generic everywhere, dynamic model in detail tabs
+- Generic concepts (Solar/DC-DC/Battery) on overview; real model only in the detail tabs.
 
-## 0.19 — Web Overview: box nodi centrati + corrente A
-## 0.18 — Web Overview: nuovo layout (sorgenti sopra, battery centro, loads sotto)
-## 0.17 — Web: ring offline chiaro
-## 0.16 — Web: sfrutta lo spazio verticale + valori più grandi (mobile)
-## 0.15 — Overview (device): connessioni inattive tratteggiate
-## 0.14 — Overview (device): ring centrato in verticale
-## 0.13 — Overview (device): ring visibile offline + box nodi ingranditi
-## 0.12 — Overview (device): unità W a font4 + ring offline
-## 0.11 — Overview (device): caratteri di uno step più grandi
-## 0.10 — Battery (device): titolo + pill BMS in cima alla card A
-## 0.9 — Battery (device): fix layout (card unite / altezza)
-## 0.8 — Battery: celle a griglia colorate (da Claude design)
-## 0.7 — Status bar: correzione orologio (offset ora)
-## 0.6 — Level: eliminato il flicker della bolla (erase-in-place)
-## 0.5 — Display: eliminato il flicker del testo (disciplina anti-flicker)
-## 0.4 — Web: Dashboard.h col design volt·hub (6 view a tab)
-## 0.3 — Display: DisplayUI col design volt·hub (6 schermate)
-## 0.2 — Aggiunto riferimento design volt·hub (token + palette + UX)
-## 0.1 — Rimosso il demo vendor JC3248W535EN dal tracking git
-## 0.0 — Baseline: import del codice sorgente (grafica originale)
+## 0.19 — Web Overview: centred node boxes + current A
+## 0.18 — Web Overview: new layout (sources top, battery centre, loads bottom)
+## 0.17 — Web: clear offline ring
+## 0.16 — Web: better vertical space + larger values (mobile)
+## 0.15 — Overview (device): inactive connections dashed
+## 0.14 — Overview (device): ring vertically centred
+## 0.13 — Overview (device): ring visible offline + enlarged node boxes
+## 0.12 — Overview (device): W unit to font4 + offline ring
+## 0.11 — Overview (device): one step larger characters
+## 0.10 — Battery (device): title + BMS pill at the top of card A
+## 0.9 — Battery (device): layout fix (merged cards / height)
+## 0.8 — Battery: coloured cell grid (from Claude design)
+## 0.7 — Status bar: clock fix (hour offset)
+## 0.6 — Level: bubble flicker removed (erase-in-place)
+## 0.5 — Display: text flicker removed (anti-flicker discipline)
+## 0.4 — Web: Dashboard.h with the volt·hub design (6 tabbed views)
+## 0.3 — Display: DisplayUI with the volt·hub design (6 screens)
+## 0.2 — Added the volt·hub design reference (tokens + palette + UX)
+## 0.1 — Removed the JC3248W535EN vendor demo from git tracking
+## 0.0 — Baseline: source code import (original graphics)
