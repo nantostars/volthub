@@ -69,7 +69,13 @@ static void wifiSetup() {
             Serial.printf("[WiFi] STA OK – http://%s\n", WiFi.localIP().toString().c_str());
             ntpSetup();
         } else {
+            // Stop the STA: otherwise it keeps retrying the failed join in the background,
+            // and each attempt disrupts the shared-radio softAP (AP "comes and goes", and
+            // page loads get truncated). Drop to a stable AP-only mode until next reboot.
             Serial.println("[WiFi] STA failed – AP only mode");
+            WiFi.setAutoReconnect(false);
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_AP);
         }
     }
 }

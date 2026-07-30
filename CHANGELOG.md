@@ -10,6 +10,12 @@ of the web dashboard.
 
 ---
 
+## 0.53 — WiFi: stable AP when the STA (client) fails
+- On a failed STA join the code left `WIFI_AP_STA` with auto-reconnect on, so the driver kept
+  retrying in the background and each attempt disrupted the shared-radio softAP (AP "comes and
+  goes", and the served page loaded truncated → missing tab bar). Now it stops the STA and drops
+  to a stable AP-only mode until the next reboot.
+
 ## 0.52 — OTA: runtime credentials, disabled by default, configured from web
 - Removed the hardcoded OTA credentials from `Config.h` (no secrets in the repo).
 - OTA is **disabled by default**; enable it and set username/password from the web
