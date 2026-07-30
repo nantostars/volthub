@@ -26,9 +26,10 @@
 #define BMS_RECONNECT_DELAY_MS   30000
 #define DEVICE_STALE_MS          10000
 
-// ─── OTA update credentials (change these before deploying) ─────────────────
-#define OTA_USERNAME  "ota"
-#define OTA_PASSWORD  "camper-ota"
+// ─── OTA update ──────────────────────────────────────────────────────────────
+// No credentials here (keeps them out of git). OTA is DISABLED by default and is
+// enabled + configured at runtime from the web System page (stored in NVS).
+// See Settings::getOtaEnabled / getOtaUser / getOtaPass / otaActive().
 
 // ─── Display hardware ────────────────────────────────────────────────────────
 #ifdef BOARD_GUITION

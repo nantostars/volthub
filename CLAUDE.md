@@ -100,7 +100,7 @@ Offsets are in the raw NimBLE `getManufacturerData()` buffer, **including** the 
 - **Library:** standard Arduino `WebServer.h`
 - **Default mode:** AP (`WIFI_AP`), SSID `CamperEnergy`, password `camper1234`
 - **API:** dashboard polls `/api/data` (JSON) every 2s
-- **OTA:** `GET /update` → upload page · `POST /update` → flash + reboot. Protected by HTTP Basic Auth (`OTA_USERNAME` / `OTA_PASSWORD` in `Config.h`). Binary: `.pio/build/cyd/firmware.bin`.
+- **OTA:** `GET /update` → upload page · `POST /update` → flash + reboot. **Disabled by default**; enabled + credentials set at runtime from the web System page (stored in NVS: `Settings::getOtaEnabled/getOtaUser/getOtaPass`, `otaActive()`). The `/update` handlers return 403 unless `otaActive()` (enabled AND both credentials set), then require HTTP Basic Auth with the stored credentials. No credentials in `Config.h`. Binary: `.pio/build/<env>/firmware.bin`.
 
 ### NimBLE GATT quirks (IMU)
 

@@ -22,6 +22,12 @@ public:
     String getNtpTZ()         { return _prefs.getString("ntp_tz",    NTP_TZ);            }
     String getWitmotionMac()  { return _prefs.getString("imu_mac",   WITMOTION_MAC);     }
     int    getLang()          { return _prefs.getInt("lang", 0); }   // 0 = English, 1 = Italiano
+    // OTA — disabled by default, no credentials on first boot (nothing hardcoded/in git)
+    bool   getOtaEnabled()    { return _prefs.getBool("ota_en", false); }
+    String getOtaUser()       { return _prefs.getString("ota_user", ""); }
+    String getOtaPass()       { return _prefs.getString("ota_pass", ""); }
+    // OTA is usable only when enabled AND both credentials are set
+    bool   otaActive()        { return getOtaEnabled() && getOtaUser().length() > 0 && getOtaPass().length() > 0; }
 
     void setBmsMac(const String& v)        { _prefs.putString("bms_mac",   v); }
     void setSolarKey(const String& v)      { _prefs.putString("solar_key", v); }
@@ -34,6 +40,9 @@ public:
     void setNtpTZ(const String& v)         { _prefs.putString("ntp_tz",    v); }
     void setWitmotionMac(const String& v)  { _prefs.putString("imu_mac",   v); }
     void setLang(int v)                    { _prefs.putInt("lang", v); }
+    void setOtaEnabled(bool v)             { _prefs.putBool("ota_en", v); }
+    void setOtaUser(const String& v)       { _prefs.putString("ota_user", v); }
+    void setOtaPass(const String& v)       { _prefs.putString("ota_pass", v); }
 
 private:
     Preferences _prefs;

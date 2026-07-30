@@ -21,7 +21,8 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
 - **Exact device models** — Victron model name resolved from the BLE Product ID
   (official VE.Direct product‑id table).
 - **Dual language** — English / Italian, switchable from the web System tab.
-- **OTA updates** — flash new firmware from the browser (HTTP Basic Auth).
+- **OTA updates** — disabled by default; enable it and set the credentials from the web
+  System page (nothing hardcoded, no credentials in the repo).
 - **NTP clock**, configurable Wi‑Fi (AP + optional client), persisted settings (NVS).
 
 ## Hardware
@@ -60,13 +61,17 @@ pio run -e cyd     -t upload --upload-port /dev/cu.usbserial-XXXX # CYD
 ```
 
 - **Guition tip:** if the board is in a crash loop, hold the **BOOT** button during flashing.
-- **OTA:** once running, open `http://<device-ip>/update` (HTTP Basic Auth — see `OTA_USERNAME` /
-  `OTA_PASSWORD` in `src/Config.h`) and upload `.pio/build/<env>/firmware.bin`.
+- **OTA:** off by default. In the web dashboard go to **System → Configuration → Firmware
+  update (OTA)**, tick *Enable OTA*, set a username and password, and save. Then open
+  `http://<device-ip>/update` (HTTP Basic Auth with those credentials) and upload
+  `.pio/build/<env>/firmware.bin`. OTA works only while enabled with both credentials set.
 
 ## Configuration
 
-- **Compile‑time defaults** live in `src/Config.h` (Wi‑Fi AP SSID/password, NTP, OTA
-  credentials, default device MACs). Change the OTA credentials before deploying.
+- **Compile‑time defaults** live in `src/Config.h` (Wi‑Fi AP SSID/password, NTP,
+  default device MACs). No secrets/credentials are kept in the repo.
+- **OTA** is enabled and configured at runtime from the web System page (stored in NVS),
+  disabled by default.
 - **Victron keys** are the per‑device AES keys from the VictronConnect app
   (Product info → *Show encryption data*). Set them at runtime from the web **System → Configuration** form; they are stored in NVS.
 - **Runtime settings** (Wi‑Fi client, device MACs, language, screen timeout) are set from

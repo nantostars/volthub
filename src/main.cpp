@@ -153,6 +153,7 @@ static void handleApiData() {
     jsys["staIp"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "";
     jsys["fw"]    = FW_VERSION;
     jsys["lang"]  = settings.getLang();
+    jsys["ota"]   = settings.otaActive();
 
     String json; serializeJson(doc,json);
     server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -173,6 +174,10 @@ static void handleGetSettings() {
     doc["ntpTZ"]      = settings.getNtpTZ();
     doc["imuMac"]     = settings.getWitmotionMac();
     doc["lang"]       = settings.getLang();
+    doc["otaEnabled"] = settings.getOtaEnabled();
+    doc["otaUser"]    = settings.getOtaUser();
+    doc["otaHasPass"] = settings.getOtaPass().length() > 0;   // never echo the password itself
+    doc["otaActive"]  = settings.otaActive();
     String json; serializeJson(doc,json);
     server.send(200,"application/json",json);
 }
@@ -192,6 +197,9 @@ static void handlePostSettings() {
     if (doc["ntpTZ"].is<const char*>()     && strlen(doc["ntpTZ"])>0)     settings.setNtpTZ(doc["ntpTZ"].as<String>());
     if (doc["imuMac"].is<const char*>()    && strlen(doc["imuMac"])>0)    settings.setWitmotionMac(doc["imuMac"].as<String>());
     if (doc["lang"].is<int>()) { int lg = doc["lang"].as<int>(); settings.setLang(lg); display.setLanguage(lg); }
+    if (doc["otaEnabled"].is<bool>())       settings.setOtaEnabled(doc["otaEnabled"].as<bool>());
+    if (doc["otaUser"].is<const char*>())   settings.setOtaUser(doc["otaUser"].as<String>());
+    if (doc["otaPass"].is<const char*>() && strlen(doc["otaPass"]) > 0) settings.setOtaPass(doc["otaPass"].as<String>());
     server.send(200,"application/json","{\"status\":\"ok\",\"rebooting\":true}");
     delay(300); ESP.restart();
 }
@@ -236,15 +244,23 @@ document.getElementById('f').addEventListener('submit',function(e){
 });
 </script></body></html>)";
 
+// OTA is only usable when enabled AND both credentials are set (Settings, from web).
+static bool otaAllowed() { return settings.otaActive(); }
+static bool otaGuard() {   // returns true if the request may proceed (sends response otherwise)
+    if (!otaAllowed()) { server.send(403, "text/plain", "OTA disabled"); return false; }
+    if (!server.authenticate(settings.getOtaUser().c_str(), settings.getOtaPass().c_str())) {
+        server.requestAuthentication(); return false;
+    }
+    return true;
+}
+
 static void handleOtaPage() {
-    if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD))
-        return server.requestAuthentication();
+    if (!otaGuard()) return;
     server.send(200, "text/html", OTA_PAGE);
 }
 
 static void handleOtaDone() {
-    if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD))
-        return server.requestAuthentication();
+    if (!otaGuard()) return;
     bool ok = !Update.hasError();
     server.send(200, "text/plain", ok ? "Update OK — rebooting." : "Update FAILED.");
     Serial.printf("[OTA] %s\n", ok ? "Success" : "Failed");
@@ -253,7 +269,8 @@ static void handleOtaDone() {
 }
 
 static void handleOtaChunk() {
-    if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD)) return;
+    if (!otaAllowed()) return;
+    if (!server.authenticate(settings.getOtaUser().c_str(), settings.getOtaPass().c_str())) return;
     HTTPUpload& up = server.upload();
     if (up.status == UPLOAD_FILE_START) {
         Serial.printf("[OTA] Start: %s\n", up.filename.c_str());
@@ -362,7 +379,7 @@ void loop() {
             strftime(ntpBuf, sizeof(ntpBuf), "%Y-%m-%d %H:%M:%S", &ti);
         }
         display.updateSysInfo(apSsid.c_str(), apIp.c_str(),
-                              staSsid.c_str(), staIp.c_str(), ntpBuf);
+                              staSsid.c_str(), staIp.c_str(), ntpBuf, settings.otaActive());
     }
 
     BmsData   b = bms.getData();

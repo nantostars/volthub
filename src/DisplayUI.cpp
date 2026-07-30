@@ -1128,29 +1128,31 @@ void DisplayUI::updateSystem() {
     auto row = [&](const char* label, const char* val) {          // stacked (long values)
         fillText(312, ny, 150, 12, t(label), 1, C_MUTED, C_CARD);
         fillText(312, ny + 12, 150, 14, (val && val[0]) ? val : "--", 1, C_TEXT, C_CARD);
-        ny += 26;
+        ny += 24;
     };
     row("AP SSID", _syApSsid);
     row("AP IP", _syApIp);
     row("Client IP", _syStaIp[0] ? _syStaIp : nullptr);
     row("NTP time", _syNtpTime);
-    auto rowc = [&](const char* label, const char* val) {         // compact single line (short values)
+    auto rowc = [&](const char* label, const char* val, uint16_t vc) {   // compact single line
         fillText(312, ny, 66, 14, t(label), 1, C_MUTED, C_CARD);
-        fillText(380, ny, 84, 14, val, 1, C_TEXT, C_CARD);
-        ny += 15;
+        fillText(380, ny, 84, 14, val, 1, vc, C_CARD);
+        ny += 13;
     };
-    rowc("Language", _lang == 1 ? "Italiano" : "English");
-    rowc("Firmware", "v" FW_VERSION);
+    rowc("Language", _lang == 1 ? "Italiano" : "English", C_TEXT);
+    rowc("OTA", _syOta ? "ON" : "OFF", _syOta ? C_GREEN : C_MUTED);
+    rowc("Firmware", "v" FW_VERSION, C_TEXT);
 }
 
 // ─── updateSysInfo ────────────────────────────────────────────────────────────
 void DisplayUI::updateSysInfo(const char* apSsid, const char* apIp,
                               const char* staSsid, const char* staIp,
-                              const char* ntpTime) {
+                              const char* ntpTime, bool otaOn) {
     if (apSsid)  strncpy(_syApSsid,  apSsid,  sizeof(_syApSsid) - 1);
     if (apIp)    strncpy(_syApIp,    apIp,    sizeof(_syApIp) - 1);
     if (staSsid) strncpy(_syStaSsid, staSsid, sizeof(_syStaSsid) - 1);
     if (staIp)   strncpy(_syStaIp,   staIp,   sizeof(_syStaIp) - 1);
     if (ntpTime) strncpy(_syNtpTime, ntpTime, sizeof(_syNtpTime) - 1);
+    _syOta = otaOn;
     if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) { updateSystem(); present(); }
 }

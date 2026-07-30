@@ -340,7 +340,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <div id="st-status"></div>
         <div class="st-status-row"><span class="st-status-lbl" data-i18n="Language">Language</span>
           <span class="lang-sel"><button class="lang-btn on" id="lang-en" onclick="setLang(0)">EN</button><button class="lang-btn" id="lang-it" onclick="setLang(1)">IT</button></span></div>
-        <a class="ota-link" href="/update" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
+        <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
       <!-- settings form -->
@@ -394,6 +394,15 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div id="st-imu-mac-hint" class="st-hint">Formato: AA:BB:CC:DD:EE:FF</div></div>
         </div>
 
+        <div class="st-group"><div class="st-gt" data-i18n="Firmware update (OTA)">Firmware update (OTA)</div>
+          <div class="st-field"><label class="st-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="st-ota-en" type="checkbox"><span data-i18n="Enable OTA">Enable OTA</span></label></div>
+          <div class="st-field"><label class="st-label" for="st-ota-user" data-i18n="Username">Username</label>
+            <div class="st-input-wrap"><input id="st-ota-user" class="st-input" type="text" maxlength="32" autocomplete="off"></div></div>
+          <div class="st-field"><label class="st-label" for="st-ota-pass" data-i18n="Password">Password</label>
+            <div class="st-input-wrap"><input id="st-ota-pass" class="st-input" type="password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-ota-pass',this)">&#128065;</button></div>
+            <div class="st-hint" data-i18n="OTA active only with enable + username + password">OTA active only with enable + username + password</div></div>
+        </div>
+
         <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
         <div class="st-msg" id="st-msg"></div>
       </div>
@@ -437,7 +446,10 @@ var I18N={ it:{
   "No cell data":"Nessun dato cella","Language":"Lingua",
   "WiFi Client (optional)":"WiFi Client (opzionale)","NTP / Time":"NTP / Orario",
   "Saving...":"Salvataggio...","Reboot in progress...":"Riavvio in corso...",
-  "Tilt sensor":"Inclinometro"
+  "Tilt sensor":"Inclinometro",
+  "Firmware update (OTA)":"Aggiornamento firmware (OTA)","Enable OTA":"Abilita OTA",
+  "Username":"Nome utente","OTA active only with enable + username + password":"OTA attivo solo con abilita + utente + password",
+  "set":"impostata"
 }};
 var curLang='en';
 function TR(k){ return (curLang==='it'&&I18N.it[k]!==undefined)?I18N.it[k]:k; }
@@ -646,6 +658,8 @@ function updateSysInfo(sys){
   var el=$('st-status'); if(!el) return;
   var rows='';
   if(sys.fw) rows+='<div class="st-status-row"><span class="st-status-lbl">Firmware</span><span class="st-status-val">v'+sys.fw+'</span></div>';
+  if(sys.ota!==undefined) rows+='<div class="st-status-row"><span class="st-status-lbl">OTA</span><span class="st-status-val '+(sys.ota?'ok':'dim')+'">'+(sys.ota?'ON':'OFF')+'</span></div>';
+  var ol=$('ota-link'); if(ol) ol.style.display=sys.ota?'block':'none';
   rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
   if(sys.staIp) rows+='<div class="st-status-row"><span class="st-status-lbl">WiFi Client</span><span class="st-status-val ok">&#10003; '+sys.staIp+'</span></div>';
   if(sys.time&&sys.date) rows+='<div class="st-status-row"><span class="st-status-lbl">Orario NTP</span><span class="st-status-val">'+sys.date+'&nbsp;&nbsp;'+sys.time+'</span></div>';
@@ -695,13 +709,16 @@ function loadSettings(){
     $('st-bms-mac').value=d.bmsMac||''; $('st-solar-key').value=d.solarKey||'';
     $('st-orion-key').value=d.orionKey||''; $('st-ntp-srv').value=d.ntpServer||'';
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
+    $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
+    $('st-ota-pass').placeholder=d.otaHasPass?'•••••• ('+TR('set')+')':'';
   }).catch(function(){ setMsg('Impossibile caricare le impostazioni','err'); });
 }
 function saveSettings(){
   var g=function(id){return $(id).value.trim();};
   var ssid=g('st-wifi-ssid'),pass=g('st-wifi-pass'),staSsid=g('st-sta-ssid'),staPass=g('st-sta-pass'),
       mac=g('st-bms-mac'),solar=g('st-solar-key'),orion=g('st-orion-key'),
-      ntpSrv=g('st-ntp-srv'),ntpTZ=g('st-ntp-tz'),imuMac=g('st-imu-mac');
+      ntpSrv=g('st-ntp-srv'),ntpTZ=g('st-ntp-tz'),imuMac=g('st-imu-mac'),
+      otaUser=g('st-ota-user'),otaPass=g('st-ota-pass'),otaEn=$('st-ota-en').checked;
   if(pass&&pass.length<8){ setMsg('Password AP: minimo 8 caratteri','err'); return; }
   if(mac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)){ setMsg('MAC BMS non valido','err'); return; }
   if(solar&&!/^[0-9A-Fa-f]{32}$/.test(solar)){ setMsg('Chiave MPPT non valida','err'); return; }
@@ -709,7 +726,8 @@ function saveSettings(){
   if(imuMac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(imuMac)){ setMsg('MAC IMU non valido','err'); return; }
   $('st-save-btn').disabled=true; setMsg('Salvataggio...','info');
   var body=JSON.stringify({wifiSsid:ssid,wifiPass:pass,staSsid:staSsid,staPass:staPass,
-    bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac});
+    bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,
+    otaEnabled:otaEn,otaUser:otaUser,otaPass:otaPass});
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(){ setMsg('Salvato! Riavvio...','ok'); waitReconnect(12); })
     .catch(function(){ setMsg('Riavvio in corso...','ok'); waitReconnect(12); });

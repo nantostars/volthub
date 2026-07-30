@@ -10,6 +10,14 @@ of the web dashboard.
 
 ---
 
+## 0.52 — OTA: runtime credentials, disabled by default, configured from web
+- Removed the hardcoded OTA credentials from `Config.h` (no secrets in the repo).
+- OTA is **disabled by default**; enable it and set username/password from the web
+  **System → Configuration** form (stored in NVS). `/update` returns 403 unless enabled
+  with both credentials set, then requires HTTP Basic Auth with them.
+- OTA status (ON/OFF) shown in System on the device and web; the web upload link appears
+  only when OTA is active. Password is never echoed by the API. Dual-language.
+
 ## 0.51 — Level: fix flicker of the offline "--" values (CYD)
 - The redraw guard only returned when the sensor was online, so with no IMU the "--" values redrew every cycle (~80ms) → flicker. Guard now also skips when staying offline; a forced redraw on screen entry keeps the first paint.
 

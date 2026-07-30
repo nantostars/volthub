@@ -61,7 +61,7 @@ public:
     // Update system info shown on the System screen (call periodically from main)
     void updateSysInfo(const char* apSsid, const char* apIp,
                        const char* staSsid, const char* staIp,
-                       const char* ntpTime);
+                       const char* ntpTime, bool otaOn);
 
 private:
     // ── Screens (order == tab order) ──────────────────────────────────────────
@@ -167,4 +167,5 @@ private:
     char _syStaSsid[33] = "";
     char _syStaIp[16]   = "";
     char _syNtpTime[20] = "--";
+    bool _syOta = false;   // OTA effective status (enabled + credentials set)
 };
