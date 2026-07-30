@@ -10,6 +10,9 @@ of the web dashboard.
 
 ---
 
+## 0.48 — chore: gitignore *.orig
+- Stop the build-generated `src/idf_component.yml.orig` from showing up as untracked.
+
 ## 0.47 — CYD: pin platform to arduino v2 (fix boot loop)
 - `[env:cyd]` `platform` was unpinned and resolved to espressif32 v3 (arduino-esp32 3.x / IDF5), where NimBLE 1.4.2 crashes at BT controller init → boot loop. Pinned to `espressif32@6.6.0` (v2), same as the Guition env.
 

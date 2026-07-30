@@ -19,3 +19,4 @@ JC3248W535EN/
 
 # ESP-IDF component manager auto-generated manifest
 src/idf_component.yml
+*.orig
