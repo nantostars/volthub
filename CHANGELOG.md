@@ -1,4 +1,4 @@
-# Changelog — volt·hub
+# Changelog — volthub
 
 All notable changes to the firmware. Format inspired by
 [Keep a Changelog](https://keepachangelog.com/). **Change-based versioning**:
@@ -9,6 +9,9 @@ The current version is shown on the device **System** screen and in the **System
 of the web dashboard.
 
 ---
+
+## 0.49 — naming: "volthub" (no dot) in code and docs
+- Project name is written **volthub** in code/comments/docs and the browser tab title. The middle-dot "volt·hub" is kept only as the rendered logo (device wordmark, web topbar).
 
 ## 0.48 — chore: gitignore *.orig
 - Stop the build-generated `src/idf_component.yml.orig` from showing up as untracked.
@@ -118,8 +121,8 @@ of the web dashboard.
 ## 0.7 — Status bar: clock fix (hour offset)
 ## 0.6 — Level: bubble flicker removed (erase-in-place)
 ## 0.5 — Display: text flicker removed (anti-flicker discipline)
-## 0.4 — Web: Dashboard.h with the volt·hub design (6 tabbed views)
-## 0.3 — Display: DisplayUI with the volt·hub design (6 screens)
-## 0.2 — Added the volt·hub design reference (tokens + palette + UX)
+## 0.4 — Web: Dashboard.h with the volthub design (6 tabbed views)
+## 0.3 — Display: DisplayUI with the volthub design (6 screens)
+## 0.2 — Added the volthub design reference (tokens + palette + UX)
 ## 0.1 — Removed the JC3248W535EN vendor demo from git tracking
 ## 0.0 — Baseline: source code import (original graphics)

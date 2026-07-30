@@ -10,7 +10,7 @@
 #include "VictronBLE.h"
 #include "WitmotionIMU.h"
 
-// ─── volt·hub palette (RGB565) — from Claude design "Camper Power Monitor 3.5in" ─
+// ─── volthub palette (RGB565) — from Claude design "Camper Power Monitor 3.5in" ─
 // Conversion: ((R>>3)<<11) | ((G>>2)<<5) | (B>>3). Tunable on hardware.
 #define C_BG       0x08C4   // #0e1826  screen background
 #define C_BODY     0x0041   // #05080d  frame / deepest

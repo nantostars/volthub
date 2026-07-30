@@ -1,4 +1,4 @@
-# volt·hub — Camper Energy Monitor
+# volthub — Camper Energy Monitor
 
 A self-contained energy dashboard for a camper/RV electrical system, running on an
 ESP32 touchscreen display. It reads a **LiTime BMS**, a **Victron SmartSolar** MPPT,

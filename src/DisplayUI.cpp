@@ -526,7 +526,7 @@ void DisplayUI::drawStatusBar(bool full) {
     if (full) {
         _D.fillRect(0, 0, 480, SB_H, C_BG);
         _D.drawFastHLine(0, SB_H - 1, 480, C_BORDER);
-        // wordmark "volt·hub"
+        // wordmark "volthub"
         _setFont(2);
         int x = 12, yb = 9;
 #ifdef BOARD_GUITION

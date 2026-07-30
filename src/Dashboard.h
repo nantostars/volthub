@@ -1,6 +1,6 @@
 #pragma once
 
-// volt·hub web dashboard — mirrors the CYD display design.
+// volthub web dashboard — mirrors the CYD display design.
 // Stored in flash (PROGMEM). Served once; JS polls /api/data every 2 s.
 // Endpoints used: GET /api/data, GET/POST /api/settings, /update (OTA).
 static const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
@@ -9,7 +9,7 @@ static const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>volt·hub</title>
+<title>volthub</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
 :root{
