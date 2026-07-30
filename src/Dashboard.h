@@ -275,7 +275,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
       <div class="card">
         <div class="card-s" style="margin-bottom:6px" data-i18n="Production today">Production today</div>
         <div class="bigw"><div class="n" id="so-y2" style="font-size:40px">--</div><div class="u">Wh</div></div>
-        <div class="card-s" style="margin-top:6px">Nessuno storico orario disponibile sul firmware</div>
+        <div class="card-s" style="margin-top:6px" data-i18n="No hourly history available on this firmware">No hourly history available on this firmware</div>
       </div>
     </div>
 
@@ -351,15 +351,15 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="st-field"><label class="st-label" for="st-wifi-ssid">SSID</label>
             <div class="st-input-wrap"><input id="st-wifi-ssid" class="st-input" type="text" placeholder="CamperEnergy" maxlength="32" autocomplete="off"></div></div>
           <div class="st-field"><label class="st-label" for="st-wifi-pass">Password</label>
-            <div class="st-input-wrap"><input id="st-wifi-pass" class="st-input" type="password" placeholder="min 8 caratteri" maxlength="63" oninput="validateWifiPass(this)" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-wifi-pass',this)">&#128065;</button></div>
-            <div id="st-wifi-pass-hint" class="st-hint">Minimo 8 caratteri (WPA2)</div></div>
+            <div class="st-input-wrap"><input id="st-wifi-pass" class="st-input" type="password" placeholder="min 8 characters" data-i18n-ph="min 8 characters" maxlength="63" oninput="validateWifiPass(this)" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-wifi-pass',this)">&#128065;</button></div>
+            <div id="st-wifi-pass-hint" class="st-hint" data-i18n="Minimum 8 characters (WPA2)">Minimum 8 characters (WPA2)</div></div>
         </div>
 
-        <div class="st-group"><div class="st-gt">WiFi Client (opzionale)</div>
-          <div class="st-field"><label class="st-label" for="st-sta-ssid">SSID rete esistente</label>
-            <div class="st-input-wrap"><input id="st-sta-ssid" class="st-input" type="text" placeholder="vuoto = solo AP" maxlength="32" autocomplete="off"></div></div>
+        <div class="st-group"><div class="st-gt" data-i18n="WiFi Client (optional)">WiFi Client (optional)</div>
+          <div class="st-field"><label class="st-label" for="st-sta-ssid" data-i18n="Existing network SSID">Existing network SSID</label>
+            <div class="st-input-wrap"><input id="st-sta-ssid" class="st-input" type="text" placeholder="empty = AP only" data-i18n-ph="empty = AP only" maxlength="32" autocomplete="off"></div></div>
           <div class="st-field"><label class="st-label" for="st-sta-pass">Password</label>
-            <div class="st-input-wrap"><input id="st-sta-pass" class="st-input" type="password" placeholder="password rete" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-sta-pass',this)">&#128065;</button></div></div>
+            <div class="st-input-wrap"><input id="st-sta-pass" class="st-input" type="password" placeholder="network password" data-i18n-ph="network password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-sta-pass',this)">&#128065;</button></div></div>
         </div>
 
         <div class="st-group"><div class="st-gt">LiTime BMS</div>
@@ -370,18 +370,18 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 
         <div class="st-group"><div class="st-gt">Victron MPPT</div>
           <div class="st-field"><label class="st-label" for="st-solar-key">Advertising Key</label>
-            <div class="st-input-wrap"><input id="st-solar-key" class="st-input" type="password" placeholder="32 caratteri hex" maxlength="32" oninput="validateKey(this,'st-solar-key-hint')" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-solar-key',this)">&#128065;</button></div>
+            <div class="st-input-wrap"><input id="st-solar-key" class="st-input" type="password" placeholder="32 hex characters" data-i18n-ph="32 hex characters" maxlength="32" oninput="validateKey(this,'st-solar-key-hint')" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-solar-key',this)">&#128065;</button></div>
             <div id="st-solar-key-hint" class="st-hint">VictronConnect &#8594; Product info &#8594; Advertising key</div></div>
         </div>
 
         <div class="st-group"><div class="st-gt">Victron DC-DC</div>
           <div class="st-field"><label class="st-label" for="st-orion-key">Advertising Key</label>
-            <div class="st-input-wrap"><input id="st-orion-key" class="st-input" type="password" placeholder="32 caratteri hex" maxlength="32" oninput="validateKey(this,'st-orion-key-hint')" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-orion-key',this)">&#128065;</button></div>
+            <div class="st-input-wrap"><input id="st-orion-key" class="st-input" type="password" placeholder="32 hex characters" data-i18n-ph="32 hex characters" maxlength="32" oninput="validateKey(this,'st-orion-key-hint')" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-orion-key',this)">&#128065;</button></div>
             <div id="st-orion-key-hint" class="st-hint">VictronConnect &#8594; Product info &#8594; Advertising key</div></div>
         </div>
 
-        <div class="st-group"><div class="st-gt">NTP / Orario</div>
-          <div class="st-field"><label class="st-label" for="st-ntp-srv">Server NTP</label>
+        <div class="st-group"><div class="st-gt" data-i18n="NTP / Time">NTP / Time</div>
+          <div class="st-field"><label class="st-label" for="st-ntp-srv" data-i18n="NTP server">NTP server</label>
             <div class="st-input-wrap"><input id="st-ntp-srv" class="st-input" type="text" placeholder="pool.ntp.org" maxlength="64" autocomplete="off"></div></div>
           <div class="st-field"><label class="st-label" for="st-ntp-tz">Timezone (POSIX)</label>
             <div class="st-input-wrap"><input id="st-ntp-tz" class="st-input" type="text" placeholder="CET-1CEST,M3.5.0,M10.5.0/3" maxlength="64" autocomplete="off"></div>
@@ -449,7 +449,32 @@ var I18N={ it:{
   "Tilt sensor":"Inclinometro",
   "Firmware update (OTA)":"Aggiornamento firmware (OTA)","Enable OTA":"Abilita OTA",
   "Username":"Nome utente","OTA active only with enable + username + password":"OTA attivo solo con abilita + utente + password",
-  "set":"impostata"
+  "set":"impostata",
+  "NTP time":"Ora NTP",
+  "waiting...":"in attesa...",
+  "not synced":"non sincronizzato",
+  "Could not load settings":"Impossibile caricare le impostazioni",
+  "AP password: minimum 8 characters":"Password AP: minimo 8 caratteri",
+  "Invalid BMS MAC":"MAC BMS non valido",
+  "Invalid MPPT key":"Chiave MPPT non valida",
+  "Invalid DC-DC key":"Chiave DC-DC non valida",
+  "Invalid IMU MAC":"MAC IMU non valido",
+  "Saved! Rebooting...":"Salvato! Riavvio...",
+  "Rebooting… reconnecting in":"Riavvio… riconnessione tra",
+  "Reconnecting…":"Riconnessione…",
+  "Format: AA:BB:CC:DD:EE:FF":"Formato: AA:BB:CC:DD:EE:FF",
+  "✓ Correct format":"✓ Formato corretto",
+  "Invalid format":"Formato non valido",
+  "✓ Valid key":"✓ Chiave valida",
+  "Must be 32 hex characters":"Deve essere 32 caratteri hex",
+  "Minimum 8 characters (WPA2)":"Minimo 8 caratteri (WPA2)",
+  "Minimum 8 characters":"Minimo 8 caratteri",
+  "Existing network SSID":"SSID rete esistente",
+  "NTP server":"Server NTP",
+  "min 8 characters":"min 8 caratteri",
+  "empty = AP only":"vuoto = solo AP",
+  "network password":"password rete",
+  "32 hex characters":"32 caratteri hex"
 }};
 var curLang='en';
 function TR(k){ return (curLang==='it'&&I18N.it[k]!==undefined)?I18N.it[k]:k; }
@@ -457,6 +482,7 @@ function applyLang(){
   var tabs={'t-overview':'Overview','t-battery':'Battery','t-solar':'Solar','t-dcdc':'DC-DC','t-level':'Level','t-system':'System'};
   for(var id in tabs){ var s=document.querySelector('#'+id+' span'); if(s) s.textContent=TR(tabs[id]); }
   document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent=TR(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ el.placeholder=TR(el.getAttribute('data-i18n-ph')); });
   var le=$('lang-en'), li=$('lang-it');
   if(le&&li){ le.classList.toggle('on',curLang==='en'); li.classList.toggle('on',curLang==='it'); }
   if(lastData) applyData(lastData);
@@ -662,9 +688,9 @@ function updateSysInfo(sys){
   var ol=$('ota-link'); if(ol) ol.style.display=sys.ota?'block':'none';
   rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
   if(sys.staIp) rows+='<div class="st-status-row"><span class="st-status-lbl">WiFi Client</span><span class="st-status-val ok">&#10003; '+sys.staIp+'</span></div>';
-  if(sys.time&&sys.date) rows+='<div class="st-status-row"><span class="st-status-lbl">Orario NTP</span><span class="st-status-val">'+sys.date+'&nbsp;&nbsp;'+sys.time+'</span></div>';
-  else { var m=(sys.staIp&&sys.staIp.length>0)?'in attesa...':'non sincronizzato';
-    rows+='<div class="st-status-row"><span class="st-status-lbl">Orario NTP</span><span class="st-status-val dim">'+m+'</span></div>'; }
+  if(sys.time&&sys.date) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('NTP time')+'</span><span class="st-status-val">'+sys.date+'&nbsp;&nbsp;'+sys.time+'</span></div>';
+  else { var m=(sys.staIp&&sys.staIp.length>0)?TR('waiting...'):TR('not synced');
+    rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('NTP time')+'</span><span class="st-status-val dim">'+m+'</span></div>'; }
   el.innerHTML=rows;
 }
 
@@ -686,20 +712,20 @@ function validateMac(el,hintId){
   var ok=/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(el.value);
   el.className='st-input '+(el.value.length===0?'':ok?'valid':'invalid');
   var h=$(hintId); if(h){ h.className='st-hint'+(el.value.length===0?'':ok?' ok':' err');
-    h.textContent=el.value.length===0?'Formato: AA:BB:CC:DD:EE:FF':ok?'✓ Formato corretto':'Formato non valido'; }
+    h.textContent=el.value.length===0?TR('Format: AA:BB:CC:DD:EE:FF'):ok?TR('✓ Correct format'):TR('Invalid format'); }
 }
 function validateKey(el,hintId){
   var ok=/^[0-9A-Fa-f]{32}$/.test(el.value);
   el.className='st-input '+(el.value.length===0?'':ok?'valid':'invalid');
   var h=$(hintId); if(h){ h.className='st-hint'+(el.value.length===0?'':ok?' ok':' err');
-    h.textContent=el.value.length===0?'VictronConnect → Product info → Advertising key':ok?'✓ Chiave valida':'Deve essere 32 caratteri hex'; }
+    h.textContent=el.value.length===0?'VictronConnect → Product info → Advertising key':ok?TR('✓ Valid key'):TR('Must be 32 hex characters'); }
 }
 function toggleEye(id,btn){ var i=$(id); if(!i)return; if(i.type==='password'){i.type='text';btn.style.opacity='1';}else{i.type='password';btn.style.opacity='.5';} }
 function validateWifiPass(el){
   var ok=el.value.length===0||el.value.length>=8;
   el.className='st-input'+(el.value.length===0?'':ok?' valid':' invalid');
   var h=$('st-wifi-pass-hint'); if(h){ h.className='st-hint'+(el.value.length===0?'':ok?' ok':' err');
-    h.textContent=el.value.length===0?'Minimo 8 caratteri (WPA2)':ok?'✓ OK':'Minimo 8 caratteri'; }
+    h.textContent=el.value.length===0?TR('Minimum 8 characters (WPA2)'):ok?'✓ OK':TR('Minimum 8 characters'); }
 }
 function setMsg(t,c){ var e=$('st-msg'); e.textContent=t; e.className='st-msg'+(c?' '+c:''); }
 function loadSettings(){
@@ -711,7 +737,7 @@ function loadSettings(){
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
     $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
     $('st-ota-pass').placeholder=d.otaHasPass?'•••••• ('+TR('set')+')':'';
-  }).catch(function(){ setMsg('Impossibile caricare le impostazioni','err'); });
+  }).catch(function(){ setMsg(TR('Could not load settings'),'err'); });
 }
 function saveSettings(){
   var g=function(id){return $(id).value.trim();};
@@ -719,21 +745,21 @@ function saveSettings(){
       mac=g('st-bms-mac'),solar=g('st-solar-key'),orion=g('st-orion-key'),
       ntpSrv=g('st-ntp-srv'),ntpTZ=g('st-ntp-tz'),imuMac=g('st-imu-mac'),
       otaUser=g('st-ota-user'),otaPass=g('st-ota-pass'),otaEn=$('st-ota-en').checked;
-  if(pass&&pass.length<8){ setMsg('Password AP: minimo 8 caratteri','err'); return; }
-  if(mac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)){ setMsg('MAC BMS non valido','err'); return; }
-  if(solar&&!/^[0-9A-Fa-f]{32}$/.test(solar)){ setMsg('Chiave MPPT non valida','err'); return; }
-  if(orion&&!/^[0-9A-Fa-f]{32}$/.test(orion)){ setMsg('Chiave DC-DC non valida','err'); return; }
-  if(imuMac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(imuMac)){ setMsg('MAC IMU non valido','err'); return; }
-  $('st-save-btn').disabled=true; setMsg('Salvataggio...','info');
+  if(pass&&pass.length<8){ setMsg(TR('AP password: minimum 8 characters'),'err'); return; }
+  if(mac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)){ setMsg(TR('Invalid BMS MAC'),'err'); return; }
+  if(solar&&!/^[0-9A-Fa-f]{32}$/.test(solar)){ setMsg(TR('Invalid MPPT key'),'err'); return; }
+  if(orion&&!/^[0-9A-Fa-f]{32}$/.test(orion)){ setMsg(TR('Invalid DC-DC key'),'err'); return; }
+  if(imuMac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(imuMac)){ setMsg(TR('Invalid IMU MAC'),'err'); return; }
+  $('st-save-btn').disabled=true; setMsg(TR('Saving...'),'info');
   var body=JSON.stringify({wifiSsid:ssid,wifiPass:pass,staSsid:staSsid,staPass:staPass,
     bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,
     otaEnabled:otaEn,otaUser:otaUser,otaPass:otaPass});
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
-    .then(function(){ setMsg('Salvato! Riavvio...','ok'); waitReconnect(12); })
-    .catch(function(){ setMsg('Riavvio in corso...','ok'); waitReconnect(12); });
+    .then(function(){ setMsg(TR('Saved! Rebooting...'),'ok'); waitReconnect(12); })
+    .catch(function(){ setMsg(TR('Reboot in progress...'),'ok'); waitReconnect(12); });
 }
-function waitReconnect(s){ if(s<=0){tryReconnect();return;} setMsg('Riavvio… riconnessione tra '+s+'s','info'); setTimeout(function(){waitReconnect(s-1);},1000); }
-function tryReconnect(){ setMsg('Riconnessione…','info'); fetch('/api/data').then(function(){location.reload();}).catch(function(){setTimeout(tryReconnect,2000);}); }
+function waitReconnect(s){ if(s<=0){tryReconnect();return;} setMsg(TR('Rebooting… reconnecting in')+' '+s+'s','info'); setTimeout(function(){waitReconnect(s-1);},1000); }
+function tryReconnect(){ setMsg(TR('Reconnecting…'),'info'); fetch('/api/data').then(function(){location.reload();}).catch(function(){setTimeout(tryReconnect,2000);}); }
 
 // ── poll ──
 function poll(){

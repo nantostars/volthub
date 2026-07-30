@@ -10,6 +10,12 @@ of the web dashboard.
 
 ---
 
+## 0.54 — web i18n: translate remaining Italian labels/states/messages
+- The System status (NTP time / waiting / not synced), the Solar "no hourly history" note, the
+  Configuration form labels/placeholders/hints, and the save/validation messages were hardcoded
+  in Italian and stayed Italian in English mode. Now routed through the i18n dictionary
+  (`data-i18n`, new `data-i18n-ph` for placeholders, `TR()` for dynamic strings).
+
 ## 0.53 — WiFi: stable AP when the STA (client) fails
 - On a failed STA join the code left `WIFI_AP_STA` with auto-reconnect on, so the driver kept
   retrying in the background and each attempt disrupted the shared-radio softAP (AP "comes and
