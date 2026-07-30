@@ -10,6 +10,10 @@ of the web dashboard.
 
 ---
 
+## 0.50 — CYD: fix flicker on Solar Wh and Level values/bubble
+- Solar and DC-DC value updates now have a change-guard (redraw only when a shown value changes). The CYD draws directly to the screen, so repeated redraws of the free-font values (padding erase) flickered; the Guition composites in a canvas so it was invisible there.
+- Level: value/bubble deadband raised to 0.3° so IMU noise no longer triggers constant redraws.
+
 ## 0.49 — naming: "volthub" (no dot) in code and docs
 - Project name is written **volthub** in code/comments/docs and the browser tab title. The middle-dot "volt·hub" is kept only as the rendered logo (device wordmark, web topbar).
 

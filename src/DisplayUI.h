@@ -152,6 +152,7 @@ private:
     char     _nodeTxt[3][12] = {{0}};  // overview node last value (0=solar 1=dcdc 2=loads) anti-flicker
     uint16_t _nodeCol[3]  = {0, 0, 0}; // overview node last colour
     long     _cellSig = -1;            // battery cell-bars change signature
+    long     _solarSig = -1, _dcdcSig = -1;  // solar/dcdc value change signatures (anti-flicker)
     int      _lvBx = -999, _lvBy = -999;  // last level-bubble center (erase-in-place)
 
     // Screen timeout

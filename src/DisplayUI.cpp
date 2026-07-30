@@ -923,12 +923,25 @@ void DisplayUI::drawSolar() {
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
     fillText(26, CT_Y + 144, 300, 14, t("Production today"), 1, C_MUTED, C_CARD);
     fillText(300, CT_Y + 170, 160, 14, t("energy today"), 1, C_MUTED, C_CARD);
+    _solarSig = -1;   // force value redraw on screen entry
     updateSolar();
 }
 
 void DisplayUI::updateSolar() {
     char buf[16], tb[8];
     bool on = _sd.valid;
+    // change-guard: redraw only when a shown value changes (CYD draws direct → repeated
+    // redraws of the free-font values flicker; Guition uses a canvas so it's harmless there).
+    auto ri = [](float v, float m){ return isnan(v) ? 0L : (long)lroundf(v * m); };
+    long sig = on ? 1 : 0;
+    if (on) {
+        sig = sig*8191 + ri(_sd.solarPower, 1)  + _sd.chargeState;
+        sig = sig*8191 + ri(_sd.battVoltage, 100);
+        sig = sig*8191 + ri(_sd.chargeCurrent, 10);
+        sig = sig*8191 + ri(_sd.yieldToday, 1);
+    }
+    if (sig == _solarSig) return;
+    _solarSig = sig;
     fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_sd.productId, false) : t("Solar"), 2, C_TEXT, C_CARD);
     const char* state = on ? victronStateName(_sd.chargeState) : t("offline");
     pillCached(1, 360, CT_Y + 16, 96, 20, state, on ? C_ORANGE : C_MUTED, C_INSET);
@@ -972,12 +985,23 @@ void DisplayUI::drawDcdc() {
     fillText(34, iy + 3, iw - 12, 11, t("Alternator in"), 1, C_MUTED, C_INSET);
     fillText(34 + iw + 6, iy + 3, iw - 12, 11, t("To battery"), 1, C_MUTED, C_INSET);
     fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, t("Output"), 1, C_MUTED, C_INSET);
+    _dcdcSig = -1;   // force value redraw on screen entry
     updateDcdc();
 }
 
 void DisplayUI::updateDcdc() {
     char buf[16], tb[8];
     bool on = _od.valid;
+    // change-guard (anti-flicker on CYD direct draw) — redraw only when a shown value changes
+    auto ri = [](float v, float m){ return isnan(v) ? 0L : (long)lroundf(v * m); };
+    long sig = on ? 1 : 0;
+    if (on) {
+        sig = sig*8191 + ri(_od.outVoltage, 100) + _od.deviceState;
+        sig = sig*8191 + ri(_od.outCurrent, 10);
+        sig = sig*8191 + ri(_od.inVoltage, 100);
+    }
+    if (sig == _dcdcSig) return;
+    _dcdcSig = sig;
     fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : t("DC-DC"), 2, C_TEXT, C_CARD);
     float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
     const char* state = !on ? t("offline") : (_od.outCurrent > 0.1f ? t("Charging") : t("Standby"));
@@ -1018,7 +1042,8 @@ void DisplayUI::drawLevel() {
 void DisplayUI::updateLevel() {
     bool on = _imu.valid;
     float pitch = on ? _imu.pitch : 0, roll = on ? _imu.roll : 0;
-    if (on && fabsf(pitch - _lastPitch) < 0.2f && fabsf(roll - _lastRoll) < 0.2f && on == _lastImuValid) return;
+    // deadband raised to 0.3° so IMU noise doesn't trigger constant redraws (CYD flicker)
+    if (on && fabsf(pitch - _lastPitch) < 0.3f && fabsf(roll - _lastRoll) < 0.3f && on == _lastImuValid) return;
     _lastPitch = pitch; _lastRoll = roll; _lastImuValid = on;
 
     const float tol = 0.5f;
