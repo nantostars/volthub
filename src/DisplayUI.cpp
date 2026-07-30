@@ -1035,15 +1035,20 @@ void DisplayUI::drawLevel() {
     fillText(346, CT_Y + 16, 110, 12, t("ROLL L-R"), 1, C_MUTED, C_CARD);
     drawCard(200, CT_Y + 82, 268, 140, C_CARD, true);
     fillText(210, CT_Y + 90, 240, 14, "Ramp / chock guidance", 1, C_MUTED, C_CARD);
-    _lvBx = -999;   // fresh screen — no old bubble to erase
+    _lvBx = -999;                     // fresh screen — no old bubble to erase
+    _lastImuValid = !_imu.valid;      // force updateLevel to draw once on entry
     updateLevel();
 }
 
 void DisplayUI::updateLevel() {
     bool on = _imu.valid;
     float pitch = on ? _imu.pitch : 0, roll = on ? _imu.roll : 0;
-    // deadband raised to 0.3° so IMU noise doesn't trigger constant redraws (CYD flicker)
-    if (on && fabsf(pitch - _lastPitch) < 0.3f && fabsf(roll - _lastRoll) < 0.3f && on == _lastImuValid) return;
+    // Skip redraw when nothing shown changed: same online-state AND either offline (values are
+    // static "--") or the angle moved less than the 0.3° deadband (IMU noise). Fixes the CYD
+    // flicker — including the offline case, where the old guard never returned (on == false).
+    if (on == _lastImuValid &&
+        (!on || (fabsf(pitch - _lastPitch) < 0.3f && fabsf(roll - _lastRoll) < 0.3f)))
+        return;
     _lastPitch = pitch; _lastRoll = roll; _lastImuValid = on;
 
     const float tol = 0.5f;

@@ -10,6 +10,9 @@ of the web dashboard.
 
 ---
 
+## 0.51 — Level: fix flicker of the offline "--" values (CYD)
+- The redraw guard only returned when the sensor was online, so with no IMU the "--" values redrew every cycle (~80ms) → flicker. Guard now also skips when staying offline; a forced redraw on screen entry keeps the first paint.
+
 ## 0.50 — CYD: fix flicker on Solar Wh and Level values/bubble
 - Solar and DC-DC value updates now have a change-guard (redraw only when a shown value changes). The CYD draws directly to the screen, so repeated redraws of the free-font values (padding erase) flickered; the Guition composites in a canvas so it was invisible there.
 - Level: value/bubble deadband raised to 0.3° so IMU noise no longer triggers constant redraws.
