@@ -262,7 +262,7 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
     // Overview flow animation (60ms)
     if (_screen == SCR_OVERVIEW && nowMs - _lastFlowMs >= 60) {
         _lastFlowMs = nowMs;
-        _flowPhase = (_flowPhase + 2) % 14;
+        _flowPhase = (_flowPhase + 12) % 14;   // = -2 mod 14: dashes flow x0->x1 (physical direction)
         float solarW = (!isnan(_sd.solarPower) && _sd.chargeCurrent > 0.1f) ? _sd.solarPower : 0.0f;
         float orionW = (!isnan(_od.outCurrent) && _od.outCurrent > 0.1f)
                        ? _od.outCurrent * (_od.outVoltage > 0 ? _od.outVoltage : 13.0f) : 0.0f;

@@ -10,6 +10,9 @@ of the web dashboard.
 
 ---
 
+## 0.46 — Overview: fix flow animation direction
+- All three flow lines animated backwards (phase advanced +2 instead of -2). Reversed so dashes flow in the physical direction: Solar→Battery, DC-DC→Battery, Battery→Loads.
+
 ## 0.45 — i18n: abbreviate long Italian device labels
 - Italian strings that would overflow the small device boxes are abbreviated (e.g. Balancing→"Bilanciam.", PITCH F-R→"BECC. A-P", ROLL L-R→"ROLL. S-D"). Web keeps full words (responsive).
 
