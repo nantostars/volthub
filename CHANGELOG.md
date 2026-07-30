@@ -10,6 +10,9 @@ of the web dashboard.
 
 ---
 
+## 0.47 — CYD: pin platform to arduino v2 (fix boot loop)
+- `[env:cyd]` `platform` was unpinned and resolved to espressif32 v3 (arduino-esp32 3.x / IDF5), where NimBLE 1.4.2 crashes at BT controller init → boot loop. Pinned to `espressif32@6.6.0` (v2), same as the Guition env.
+
 ## 0.46 — Overview: fix flow animation direction
 - All three flow lines animated backwards (phase advanced +2 instead of -2). Reversed so dashes flow in the physical direction: Solar→Battery, DC-DC→Battery, Battery→Loads.
 
