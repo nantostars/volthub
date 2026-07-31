@@ -430,7 +430,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 
 <script>
 var $=function(id){return document.getElementById(id)};
-var lastData=null, curView='overview';
+var lastData=null, curView='overview', _otaHasPass=false;
 
 // ── i18n (English key → Italian; English fallback) ──
 var I18N={ it:{
@@ -474,7 +474,8 @@ var I18N={ it:{
   "min 8 characters":"min 8 caratteri",
   "empty = AP only":"vuoto = solo AP",
   "network password":"password rete",
-  "32 hex characters":"32 caratteri hex"
+  "32 hex characters":"32 caratteri hex",
+  "OTA: username required":"OTA: serve un username","OTA: password required":"OTA: serve una password"
 }};
 var curLang='en';
 function TR(k){ return (curLang==='it'&&I18N.it[k]!==undefined)?I18N.it[k]:k; }
@@ -736,6 +737,7 @@ function loadSettings(){
     $('st-orion-key').value=d.orionKey||''; $('st-ntp-srv').value=d.ntpServer||'';
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
     $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
+    _otaHasPass=!!d.otaHasPass;
     $('st-ota-pass').placeholder=d.otaHasPass?'•••••• ('+TR('set')+')':'';
   }).catch(function(){ setMsg(TR('Could not load settings'),'err'); });
 }
@@ -750,6 +752,10 @@ function saveSettings(){
   if(solar&&!/^[0-9A-Fa-f]{32}$/.test(solar)){ setMsg(TR('Invalid MPPT key'),'err'); return; }
   if(orion&&!/^[0-9A-Fa-f]{32}$/.test(orion)){ setMsg(TR('Invalid DC-DC key'),'err'); return; }
   if(imuMac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(imuMac)){ setMsg(TR('Invalid IMU MAC'),'err'); return; }
+  if(otaEn){
+    if(!otaUser){ setMsg(TR('OTA: username required'),'err'); return; }
+    if(!otaPass && !_otaHasPass){ setMsg(TR('OTA: password required'),'err'); return; }
+  }
   $('st-save-btn').disabled=true; setMsg(TR('Saving...'),'info');
   var body=JSON.stringify({wifiSsid:ssid,wifiPass:pass,staSsid:staSsid,staPass:staPass,
     bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,

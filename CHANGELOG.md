@@ -10,6 +10,11 @@ of the web dashboard.
 
 ---
 
+## 0.56 — web: warn when enabling OTA without credentials
+- Enabling OTA now blocks the save with an explicit message if the username is empty, or the
+  password is empty and none is stored yet (instead of silently saving in an inactive OFF state).
+  If a password is already stored, leaving the field empty keeps it. Dual-language.
+
 ## 0.55 — web: force no-store on the dashboard (avoid stale cached page)
 - After a firmware update a browser could serve a cached older dashboard (e.g. an already-open
   tab from a previous flash), missing new fields/logic (seen as "OTA won't save" from a desktop
