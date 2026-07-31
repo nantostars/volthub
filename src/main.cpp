@@ -87,7 +87,11 @@ static void addFloat(JsonObject obj, const char* key, float v) {
 }
 
 static void handleRoot() {
-    server.sendHeader("Cache-Control", "no-cache");
+    // Force a fresh page: the embedded dashboard changes across firmware versions, and a
+    // stale cached copy (e.g. an old tab from a previous flash) can miss new fields/logic.
+    server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    server.sendHeader("Pragma", "no-cache");
+    server.sendHeader("Expires", "0");
     server.send_P(200, "text/html", DASHBOARD_HTML);
 }
 

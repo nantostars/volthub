@@ -10,6 +10,12 @@ of the web dashboard.
 
 ---
 
+## 0.55 — web: force no-store on the dashboard (avoid stale cached page)
+- After a firmware update a browser could serve a cached older dashboard (e.g. an already-open
+  tab from a previous flash), missing new fields/logic (seen as "OTA won't save" from a desktop
+  browser while it worked from a fresh phone). The root page is now sent with
+  `Cache-Control: no-store, no-cache, must-revalidate` + `Pragma`/`Expires`.
+
 ## 0.54 — web i18n: translate remaining Italian labels/states/messages
 - The System status (NTP time / waiting / not synced), the Solar "no hourly history" note, the
   Configuration form labels/placeholders/hints, and the save/validation messages were hardcoded
