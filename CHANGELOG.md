@@ -10,6 +10,16 @@ of the web dashboard.
 
 ---
 
+## 0.57 — web: fix polling that wedged the web server after a while
+- The dashboard polled `/api/data` with `setInterval(2s)`, which fires a new request even if the
+  previous one hasn't returned. When the ESP32 (single synchronous WebServer, busy with display +
+  BLE + WiFi) answered slowly, requests overlapped and TCP connections piled up until the web
+  server stopped responding (device otherwise fine; recovered only by a reboot; seen within ~1h).
+  Polling is now chained (next request only after the previous settles) with an 8s abort timeout,
+  so at most one request is in flight.
+- Added a heap monitor: `sys.heap` in `/api/data`, a "Free RAM" row in the web System tab, and a
+  60s `[heap]` serial log, to confirm memory stays flat.
+
 ## 0.56 — web: warn when enabling OTA without credentials
 - Enabling OTA now blocks the save with an explicit message if the username is empty, or the
   password is empty and none is stored yet (instead of silently saving in an inactive OFF state).

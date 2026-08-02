@@ -686,6 +686,7 @@ function updateSysInfo(sys){
   var rows='';
   if(sys.fw) rows+='<div class="st-status-row"><span class="st-status-lbl">Firmware</span><span class="st-status-val">v'+sys.fw+'</span></div>';
   if(sys.ota!==undefined) rows+='<div class="st-status-row"><span class="st-status-lbl">OTA</span><span class="st-status-val '+(sys.ota?'ok':'dim')+'">'+(sys.ota?'ON':'OFF')+'</span></div>';
+  if(sys.heap!==undefined) rows+='<div class="st-status-row"><span class="st-status-lbl">Free RAM</span><span class="st-status-val">'+Math.round(sys.heap/1024)+' KB</span></div>';
   var ol=$('ota-link'); if(ol) ol.style.display=sys.ota?'block':'none';
   rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
   if(sys.staIp) rows+='<div class="st-status-row"><span class="st-status-lbl">WiFi Client</span><span class="st-status-val ok">&#10003; '+sys.staIp+'</span></div>';
@@ -768,11 +769,20 @@ function waitReconnect(s){ if(s<=0){tryReconnect();return;} setMsg(TR('Rebooting
 function tryReconnect(){ setMsg(TR('Reconnecting…'),'info'); fetch('/api/data').then(function(){location.reload();}).catch(function(){setTimeout(tryReconnect,2000);}); }
 
 // ── poll ──
+// Chained polling: schedule the NEXT request only after the current one settles, so there is
+// at most one in-flight request. setInterval would overlap requests when the ESP32 (single
+// synchronous WebServer, busy with display + BLE + WiFi) is slow, piling up TCP connections
+// until the web server stops responding (recovered only by a reboot). An AbortController
+// timeout drops a hung request so a single stall can't wedge the loop.
 function poll(){
-  fetch('/api/data').then(function(r){return r.json();}).then(applyData).catch(function(){});
+  var ctrl=('AbortController' in window)?new AbortController():null;
+  var to=ctrl?setTimeout(function(){ctrl.abort();},8000):null;
+  fetch('/api/data',ctrl?{signal:ctrl.signal}:{}).then(function(r){return r.json();}).then(applyData)
+    .catch(function(){})
+    .then(function(){ if(to)clearTimeout(to); setTimeout(poll,2000); });
 }
 poll();
-setInterval(poll,2000);
+poll();
 </script>
 </body>
 </html>

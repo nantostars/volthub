@@ -164,6 +164,7 @@ static void handleApiData() {
     jsys["fw"]    = FW_VERSION;
     jsys["lang"]  = settings.getLang();
     jsys["ota"]   = settings.otaActive();
+    jsys["heap"]  = ESP.getFreeHeap();          // free RAM — watch for a downward trend (leak)
 
     String json; serializeJson(doc,json);
     server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -360,6 +361,14 @@ void setup() {
 
 void loop() {
     server.handleClient();
+
+    // Heap watchdog log (every 60s) — free heap should stay flat; a steady drop = leak.
+    static uint32_t heapAt = 0;
+    if (millis() - heapAt > 60000) {
+        heapAt = millis();
+        Serial.printf("[heap] free=%u minFree=%u maxBlock=%u\n",
+                      ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+    }
 
     // Re-init NTP only if SNTP daemon is not running at all (e.g. STA connected
     // after boot). SNTP_SYNC_STATUS_RESET is NOT a reliable "not running" check:
