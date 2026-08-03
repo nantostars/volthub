@@ -278,7 +278,7 @@ Mirrors the CYD overview: same box titles (SOLAR / BATTERY / DC-DC / LOADS), sam
 - Solar/Orion state: `(s.online && s.state) ? s.state : '--'`
 - Battery offline: ALL fields → `--`, fill bar → 0%, SOC → `val-dim`. No `|| 0` fallback.
 
-**Loads:** `loadsW = max(0, solarW + orionW - battW)` · `loadsA = loadsW / b.voltage`
+**Loads:** battery **discharge only**, straight from the BMS — `loadsW = max(0, -battW)` · `loadsA = max(0, -battCurrent)` (battW/battCurrent: + = charging, − = discharging). Loads shows what the loads pull **from the battery** (net of what solar/DC-DC already cover); it is 0 while charging or idle and never shows a charging value. This is the net battery draw, not the absolute total load (no dedicated load shunt exists). Battery→Loads flow line is active only when `battW < -2`.
 
 ### Level tab
 

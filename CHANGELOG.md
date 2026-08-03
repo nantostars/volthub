@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.59 — Overview: Loads = battery discharge only (from the BMS)
+- Loads was a derived energy balance (`solar + dcdc - batteryPower`). With solar producing and no
+  real load it read the solar power (the charge going into the battery), which is misleading —
+  Loads should never show a value that is *charging* the battery.
+- Loads is now the battery **discharge** straight from the BMS: `max(0, -batteryPower)` (and
+  `max(0, -batteryCurrent)` for A). It shows what the loads pull *from the battery* (net of what
+  solar/DC-DC already cover), is 0 while charging or idle, and the Battery→Loads flow line is active
+  only when the battery actually discharges. Device + web.
+
 ## 0.58 — BLE: stop the scan-results heap leak (web unreachable after hours)
 - The Victron passive scan left NimBLE's default result storage on, so a `NimBLEAdvertisedDevice`
   was kept for every unique MAC ever seen and never freed. On a multi-hour drive that is thousands

@@ -557,10 +557,12 @@ function updateOverview(d){
   $('ov-dcw').style.color=(dcW>0.5)?'var(--green)':'var(--muted)';
   $('ov-d-sol').style.background=(solW>0.5)?'var(--orange)':'var(--muted)';
   $('ov-d-dc').style.background=(dcW>0.5)?'var(--blue)':'var(--muted)';
+  // Loads = battery discharge only, straight from the BMS: what the loads pull FROM the
+  // battery. bp>0 = charging, bp<0 = discharging, so discharge power = max(0,-bp).
+  // Charging or idle -> 0 (Loads must never show a value that is charging the battery).
   var ldW=NaN, bp=on?(b.power||0):0;
-  if(on){ ldW=Math.max(0,(isNaN(solW)?0:solW)+(isNaN(dcW)?0:dcW)-bp); }
-  var batV=(on&&b.voltage)?b.voltage:12.8;
-  var ldA=isNaN(ldW)?NaN:ldW/batV;
+  if(on){ ldW=Math.max(0,-bp); }
+  var ldA=(on&&b.current!==undefined)?Math.max(0,-b.current):NaN;
   $('ov-ldw').textContent=fmt(ldW,0);
   $('ov-lda').textContent=fmt(ldA,1);
   // amber when battery is discharging (loads drawn from the battery)

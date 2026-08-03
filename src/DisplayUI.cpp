@@ -263,11 +263,9 @@ void DisplayUI::update(const BmsData& b, const SolarData& s, const OrionData& o,
     if (_screen == SCR_OVERVIEW && nowMs - _lastFlowMs >= 60) {
         _lastFlowMs = nowMs;
         _flowPhase = (_flowPhase + 12) % 14;   // = -2 mod 14: dashes flow x0->x1 (physical direction)
-        float solarW = (!isnan(_sd.solarPower) && _sd.chargeCurrent > 0.1f) ? _sd.solarPower : 0.0f;
-        float orionW = (!isnan(_od.outCurrent) && _od.outCurrent > 0.1f)
-                       ? _od.outCurrent * (_od.outVoltage > 0 ? _od.outVoltage : 13.0f) : 0.0f;
         float battW  = isnan(_bd.power) ? 0.0f : _bd.power;
-        drawFlow(_sd.chargeCurrent > 0.1f, _od.outCurrent > 0.1f, fmaxf(0.0f, solarW + orionW - battW) > 2.0f);
+        // Battery->Loads active only when the battery is actually discharging (loads pull from it).
+        drawFlow(_sd.chargeCurrent > 0.1f, _od.outCurrent > 0.1f, battW < -2.0f);
         drew = true;
     }
 
@@ -711,15 +709,14 @@ void DisplayUI::updateOverview() {
     // DC-DC W
     float ow = (_od.valid && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
     drawNodeVal(1, 20, CT_Y + 172, ow, ow > 0.5f ? C_GREEN : C_MUTED);  // green when producing
-    // Loads W (aggregate only — degraded). Amber when the battery is discharging (loads fed
-    // by the battery — "W drawn from the battery"); pale when covered by generation.
+    // Loads W = battery discharge only, straight from the BMS: what the loads pull FROM the
+    // battery. power>0 = charging, power<0 = discharging, so discharge power = max(0,-power).
+    // Charging or idle -> 0 (Loads must never show a value that is charging the battery).
     float loadsW = NAN;
     bool battDischarging = false;
     if (_bd.valid) {
-        float solW = (!isnan(_sd.solarPower)) ? _sd.solarPower : 0;
-        float dcW  = (!isnan(ow)) ? ow : 0;
         float batW = isnan(_bd.power) ? 0 : _bd.power;
-        loadsW = fmaxf(0.0f, solW + dcW - batW);
+        loadsW = fmaxf(0.0f, -batW);
         battDischarging = batW < -2.0f;
     }
     uint16_t loadsCol = battDischarging ? C_AMBER : (loadsW > 0.5f ? C_PALE : C_MUTED);
