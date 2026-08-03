@@ -10,6 +10,16 @@ of the web dashboard.
 
 ---
 
+## 0.58 — BLE: stop the scan-results heap leak (web unreachable after hours)
+- The Victron passive scan left NimBLE's default result storage on, so a `NimBLEAdvertisedDevice`
+  was kept for every unique MAC ever seen and never freed. On a multi-hour drive that is thousands
+  of foreign BLE devices (phones, cars, beacons), leaking heap (~160 KB → ~40 KB in 10 h) until the
+  synchronous web server could no longer allocate connections and became unreachable (~24 h). We
+  only read data in the `onResult` callback and never call `getResults()`, so the scan now runs in
+  callback-only mode (`setMaxResults(0)`), freeing each entry after its callback — heap stays flat.
+- Complements 0.57 (chained polling): 0.57 removed the request pile-up, this removes the underlying
+  leak that was the real cause of the long-run failure.
+
 ## 0.57 — web: fix polling that wedged the web server after a while
 - The dashboard polled `/api/data` with `setInterval(2s)`, which fires a new request even if the
   previous one hasn't returned. When the ESP32 (single synchronous WebServer, busy with display +

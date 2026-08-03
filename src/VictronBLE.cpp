@@ -127,6 +127,13 @@ void VictronBLE::startScan() {
     NimBLEScan* scan = NimBLEDevice::getScan();
     scan->setAdvertisedDeviceCallbacks(this, true);  // true = want duplicates (live data each advertisement)
     scan->setActiveScan(false);           // passive: no SCAN_REQ, saves power
+    // Callback-only mode: do NOT accumulate the discovered-device list. We only ever
+    // read data in onResult(); we never call getResults(). Without this, NimBLE stores a
+    // NimBLEAdvertisedDevice for every unique MAC it ever sees and never frees them — on a
+    // multi-hour drive that is thousands of foreign devices, leaking heap until the web
+    // server can no longer allocate connections. setMaxResults(0) frees each entry after
+    // its callback, keeping the heap flat.
+    scan->setMaxResults(0);
     scan->setInterval(160);              // 100 ms
     scan->setWindow(80);                 // 50 ms
     // Must call the 3-arg async overload (duration, completeCB, is_continue).
