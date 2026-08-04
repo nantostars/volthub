@@ -340,6 +340,8 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <div id="st-status"></div>
         <div class="st-status-row"><span class="st-status-lbl" data-i18n="Language">Language</span>
           <span class="lang-sel"><button class="lang-btn on" id="lang-en" onclick="setLang(0)">EN</button><button class="lang-btn" id="lang-it" onclick="setLang(1)">IT</button></span></div>
+        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Keep screen on">Keep screen on</span>
+          <span class="lang-sel"><button class="lang-btn" id="wake-btn" onclick="toggleWake()">OFF</button></span></div>
         <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
@@ -428,9 +430,43 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 
 </div><!-- /app -->
 
+<!-- Screen wake-lock (HTTP, so navigator.wakeLock is unavailable): a muted, inline,
+     looping 128x128 H.264 clip. Keeping a video "playing" stops the phone from sleeping.
+     Modern Chromium (incl. Android WebView / DuckDuckGo) ignores hidden/tiny videos for the
+     screen-wake heuristic, so the element must be genuinely visible in the viewport: it is
+     stretched full-screen on top but at ~2% opacity and non-interactive, so it satisfies the
+     visibility rule while staying imperceptible. src is assigned lazily on first enable. -->
+<video id="wake-vid" muted playsinline webkit-playsinline loop preload="none" title="" style="position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;opacity:0.02;pointer-events:none;z-index:2147483647"></video>
+
 <script>
 var $=function(id){return document.getElementById(id)};
 var lastData=null, curView='overview', _otaHasPass=false;
+
+// ── keep-screen-on ──────────────────────────────────────────────────────────
+// The dashboard is served over plain HTTP, so the Screen Wake Lock API is
+// unavailable (it needs a secure context). Instead we keep a muted, inline,
+// looping tiny H.264 clip "playing": a playing video prevents the phone from
+// sleeping, and this works over HTTP on any browser. State is a per-browser
+// preference in localStorage (default OFF) — nothing is stored on the device.
+var WAKE_MP4='data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAM0bW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAD6AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAl50cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAD6AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAIAAAACAAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAA+gAAAAAAABAAAAAAHWbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAABAABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABgW1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAUFzdGJsAAAAuXN0c2QAAAAAAAAAAQAAAKlhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAIAAgABIAAAASAAAAAAAAAABFUxhdmM2Mi4yOC4xMDAgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAL2F2Y0MBQsAe/+EAF2dCwB7ZAgRsBEAAAAMAQAAAAwCDxYuSAQAFaMuDyyAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAAFsAAAAAAAAAAYc3R0cwAAAAAAAAABAAAABAAAQAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAABAAAAAEAAAAkc3RzegAAAAAAAAAAAAAABAAAArcAAAALAAAACwAAAAsAAAAUc3RjbwAAAAAAAAABAAADZAAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjIuMTIuMTAwAAAACGZyZWUAAALgbWRhdAAAAnAGBf//bNxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjUgcjMyMjIgYjM1NjA1YSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjUgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0wIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDE6MHgxMTEgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTAgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz00IGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTI1MCBrZXlpbnRfbWluPTEgc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD00MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAA/ZYiEBf///w9FAAFXnycnJycnJyddddddddddddddddddddddddddddddddddddddddddddddddddddddddeAAAAAB0GaOAv4EGAAAAAHQZpUAt4EGAAAAAdBmmAV8CDA';
+var wantWake=false;
+function updateWakeBtn(){ var b=$('wake-btn'); if(b){ b.textContent=wantWake?'ON':'OFF'; b.classList.toggle('on',wantWake); } }
+function wakePlay(){ var v=$('wake-vid'); if(!v)return; if(!v.src)v.src=WAKE_MP4; var p=v.play(); if(p&&p.catch)p.catch(function(){}); }
+function wakeStop(){ var v=$('wake-vid'); if(v)v.pause(); }
+function toggleWake(){ wantWake=!wantWake; try{localStorage.setItem('wakeOn',wantWake?'1':'0');}catch(e){} updateWakeBtn(); if(wantWake)wakePlay(); else wakeStop(); }
+function initWake(){
+  var v=$('wake-vid');
+  if(v){
+    // Some browsers won't hold the wake on a short looped clip; force a re-seek near the end,
+    // and if anything pauses it (backgrounding, buffering), resume while the toggle is ON.
+    v.addEventListener('timeupdate',function(){ if(v.currentTime>3){ try{v.currentTime=0;}catch(e){} } });
+    v.addEventListener('pause',function(){ if(wantWake){ var q=v.play(); if(q&&q.catch)q.catch(function(){}); } });
+  }
+  try{wantWake=localStorage.getItem('wakeOn')==='1';}catch(e){wantWake=false;}
+  updateWakeBtn(); if(wantWake)wakePlay();
+}
+// The lock drops when the tab is backgrounded/screen off; re-assert on return.
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&wantWake)wakePlay(); });
 
 // ── i18n (English key → Italian; English fallback) ──
 var I18N={ it:{
@@ -443,7 +479,7 @@ var I18N={ it:{
   "Cell voltages":"Tensioni celle","Charge profile":"Profilo di carica","Bubble level":"Livella a bolla",
   "Production today":"Produzione oggi","Ramp / chock guidance":"Guida cunei / rampe",
   "No hourly history available on this firmware":"Nessuno storico orario disponibile sul firmware",
-  "No cell data":"Nessun dato cella","Language":"Lingua",
+  "No cell data":"Nessun dato cella","Language":"Lingua","Keep screen on":"Tieni schermo acceso",
   "WiFi Client (optional)":"WiFi Client (opzionale)","NTP / Time":"NTP / Orario",
   "Saving...":"Salvataggio...","Reboot in progress...":"Riavvio in corso...",
   "Tilt sensor":"Inclinometro",
@@ -783,7 +819,7 @@ function poll(){
     .catch(function(){})
     .then(function(){ if(to)clearTimeout(to); setTimeout(poll,2000); });
 }
-poll();
+initWake();
 poll();
 </script>
 </body>

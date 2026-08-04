@@ -286,6 +286,10 @@ Mirrors the CYD overview: same box titles (SOLAR / BATTERY / DC-DC / LOADS), sam
 - `.lv-grid`: `flex-direction: row` landscape, `column` portrait.
 - `.lv-svg`: `flex: 1; width: 100%; height: 100%` with SVG `preserveAspectRatio="xMidYMid meet"`.
 
+### System tab — "Keep screen on"
+
+Toggle (`#wake-btn`, `toggleWake()`) that stops the phone screen from sleeping while the dashboard is open. The device serves plain **HTTP**, so the Screen Wake Lock API (`navigator.wakeLock`) is unavailable — it needs a secure context. Instead a muted/inline/looping 128×128 H.264 clip (`#wake-vid`, ~1.6 KB, embedded as `WAKE_MP4` data URI) is kept **playing**; a playing video keeps the screen awake, over HTTP on any browser. **Modern Chromium (Android WebView / DuckDuckGo included) ignores hidden/tiny videos for this** — so `#wake-vid` is stretched **full-viewport on top at ~2% opacity, `pointer-events:none`** (genuinely visible to the browser, imperceptible to the user). `src` is assigned lazily on first enable; playback re-asserted on `pause` and `visibilitychange`, with a `timeupdate` re-seek to loop the short clip. State is a per-browser `localStorage` flag (`wakeOn`), **default OFF** — nothing stored on the device (no NVS / `/api/settings`).
+
 ---
 
 ## Known Risks / TODO

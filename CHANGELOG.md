@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.60 — web: "Keep screen on" toggle (stop the phone from sleeping)
+- New toggle in the System tab that prevents the phone screen from locking while the dashboard is
+  open. The Screen Wake Lock API needs a secure context (HTTPS), but the device serves plain HTTP,
+  so it is unavailable; instead a muted, inline, looping 128×128 H.264 clip (~1.6 KB, embedded as a
+  data URI) is kept "playing" — a playing video keeps the screen awake, over HTTP on any browser.
+- Modern Chromium (incl. Android WebView / DuckDuckGo) ignores hidden/tiny videos for this
+  heuristic, so the video element is stretched full-viewport on top at ~2% opacity and
+  non-interactive: genuinely "visible" to the browser yet imperceptible. Playback is re-asserted on
+  pause and on tab return (`visibilitychange`), with a re-seek to keep the short clip looping.
+- Default OFF; the choice is a per-browser preference in `localStorage` — nothing is stored on the
+  device (no NVS, no `/api/settings`, no firmware-side state). Dual-language.
+- Removed a duplicate `poll()` call at startup that was launching two polling loops.
+
 ## 0.59 — Overview: Loads = battery discharge only (from the BMS)
 - Loads was a derived energy balance (`solar + dcdc - batteryPower`). With solar producing and no
   real load it read the solar power (the charge going into the battery), which is misleading —
