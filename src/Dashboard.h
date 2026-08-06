@@ -210,6 +210,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="card-s">Battery</div>
           <div id="ov-bstate" style="font-size:20px;font-weight:600;margin:3px 0">--</div>
           <div class="num c-muted" id="ov-bvi" style="font-size:15px">--</div>
+          <div class="num c-muted" id="ov-beta" style="font-size:15px">--</div>
         </div>
       </div>
       <!-- loads -->
@@ -243,6 +244,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div class="stat"><div class="l">Current</div><div class="v" id="bt-a">--</div></div>
             <div class="stat"><div class="l">Charge</div><div class="v" id="bt-ah">--</div></div>
             <div class="stat"><div class="l">Capacity</div><div class="v c-muted" id="bt-cap">--</div></div>
+            <div class="stat" style="grid-column:1/-1"><div class="l" id="bt-eta-l">Runtime</div><div class="v" id="bt-eta">--</div></div>
           </div>
         </div>
       </div>
@@ -473,6 +475,7 @@ var I18N={ it:{
   "Overview":"Panoramica","Battery":"Batteria","Solar":"Solare","Level":"Livella","System":"Sistema",
   "Loads":"Carichi","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
+  "Runtime":"Autonomia","To full":"A pieno",
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
   "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
@@ -531,6 +534,9 @@ function setLang(l){
 
 function fmt(v,d){ if(v===undefined||v===null||isNaN(v))return '--'; return Number(v).toFixed(d); }
 function socColor(s){ return s>45?'var(--green)':s>18?'var(--amber)':'var(--red)'; }
+// Runtime estimate: minutes come from the device (battery.etaMin, 0 = not meaningful),
+// which derives them from the BMS coulomb counter and a smoothed current.
+function fmtEta(m){ if(!m||m<=0) return '--'; var h=Math.floor(m/60), mm=m%60; return h>0?(h+'h '+(mm<10?'0':'')+mm+'m'):(mm+'m'); }
 // SOC inside a ring: at 100% the third digit makes the text wider than the ring's inner
 // circle and it clips the stroke, so drop one size step for 3-digit values only (0..99 keep
 // the large size). bigPx/smallPx are the normal number/percent sizes for that ring.
@@ -585,6 +591,8 @@ function updateOverview(d){
   setSoc($('ov-soc'), soc, on, 52, 20);
   $('ov-soc').style.color=col;
   $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'';
+  $('ov-beta').textContent=on?fmtEta(b.etaMin):'';
+  $('ov-beta').style.color=(on&&b.etaFull)?'var(--green)':'var(--muted)';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
   $('ov-bstate').textContent=on?TR(st):TR('offline');
   $('ov-bstate').style.color=on?(p>8?'var(--green)':p<-8?'var(--amber)':'var(--muted)'):'var(--muted)';
@@ -627,6 +635,9 @@ function updateBattery(d){
   $('bt-a').textContent=on?fmt(b.current,1)+' A':'--';
   $('bt-a').style.color=on?signColor(b.current):'var(--muted)';
   $('bt-ah').textContent=on?fmt(b.remainingAh,0)+' Ah':'--';
+  $('bt-eta-l').textContent=TR((on&&b.etaFull)?'To full':'Runtime');
+  $('bt-eta').textContent=on?fmtEta(b.etaMin):'--';
+  $('bt-eta').style.color=(on&&b.etaFull)?'var(--green)':'var(--text)';
   $('bt-cap').textContent=on?fmt(b.fullAh,0)+' Ah':'--';
   $('bt-soh').textContent=on?fmt(b.soh,0)+'%':'--';
   $('bt-cyc').textContent=(on&&b.cycles!==undefined)?b.cycles:'--';

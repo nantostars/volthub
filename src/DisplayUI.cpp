@@ -96,6 +96,7 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     // battery detail
     {"Voltage","Tensione"}, {"Current","Corrente"}, {"Charge","Carica"}, {"Capacity","Capacita'"},
     {"Cycles","Cicli"}, {"Temp","Temp"},
+    {"Runtime","Autonomia"}, {"To full","A pieno"},
     {"Cell voltages   recommended 3.00 - 3.55 V","Tensioni celle   consigliato 3.00 - 3.55 V"},
     // solar detail
     {"To battery","Alla batteria"}, {"Yield today","Resa oggi"},
@@ -768,17 +769,21 @@ void DisplayUI::updateOverview() {
 #endif
         }
     }
-    // V / A stacked and centred below the ring
+    // V / A / runtime stacked and centred below the ring. Three 16px lines from cy+r+12 end at
+    // 259, still clear of the tab bar (264).
     if (_bd.valid) {
         char vb[8], ab[8]; fmtF(vb, _bd.voltage, 1); fmtF(ab, _bd.current, 1);
-        char l1[10], l2[10];
+        char l1[10], l2[10], l3[12];
         snprintf(l1, sizeof(l1), "%s V", vb);
         snprintf(l2, sizeof(l2), "%s A", ab);
-        centerFill(cx, cy + r + 16, 120, 16, l1, 2, C_MUTED, C_BG);
-        centerFill(cx, cy + r + 34, 120, 16, l2, 2, C_MUTED, C_BG);
+        bool etaFull = false;
+        bmsFmtEta(l3, sizeof(l3), bmsEtaMinutes(_bd, etaFull));
+        centerFill(cx, cy + r + 12, 120, 16, l1, 2, C_MUTED, C_BG);
+        centerFill(cx, cy + r + 28, 120, 16, l2, 2, C_MUTED, C_BG);
+        centerFill(cx, cy + r + 44, 120, 16, l3, 2, etaFull ? C_GREEN : C_MUTED, C_BG);
     } else {
-        centerFill(cx, cy + r + 16, 120, 16, t("offline"), 2, C_MUTED, C_BG);
-        _D.fillRect(cx - 60, cy + r + 34, 120, 16, C_BG);
+        centerFill(cx, cy + r + 12, 120, 16, t("offline"), 2, C_MUTED, C_BG);
+        _D.fillRect(cx - 60, cy + r + 28, 120, 32, C_BG);
     }
 }
 
@@ -857,6 +862,11 @@ void DisplayUI::updateBattery() {
     drawStat(120, CT_Y + 80, 120, "Charge", on ? buf : "--", C_TEXT);
     fmtF(ab, on ? _bd.fullCapacityAh : NAN, 0); snprintf(buf, sizeof(buf), "%s Ah", ab);
     drawStat(250, CT_Y + 80, 120, "Capacity", on ? buf : "--", C_MUTED);
+    // Runtime estimate — third column, in the free space under the BMS pill
+    bool etaFull = false;
+    char eb[12]; bmsFmtEta(eb, sizeof(eb), on ? bmsEtaMinutes(_bd, etaFull) : 0);
+    drawStat(376, CT_Y + 50, 88, etaFull ? "To full" : "Runtime", on ? eb : "--",
+             on ? (etaFull ? C_GREEN : C_TEXT) : C_MUTED);
 
     // 4 stats (card B)
     snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);

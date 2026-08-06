@@ -10,6 +10,21 @@ of the web dashboard.
 
 ---
 
+## 0.63 — Battery: runtime estimate (time to empty / time to full)
+- The BMS does not transmit a time-to-empty, but it does report a coulomb-counted `remainingAh`,
+  so the estimate is derived on the device: `remainingAh / |I|` while discharging, and
+  `(fullAh - remainingAh) / I` while charging (shown in green as "To full"). At rest (|I| below
+  0.3 A) it shows `--`, since the value would be infinite. Clamped to 99 h.
+- The raw current swings with every compressor/inverter start, which would make the number jump
+  between hours and days, so the estimate uses a smoothed current: a new `BmsData.avgCurrent`
+  (EMA, ~90 s time constant over the ~2 s poll), reset after a reconnect gap so a stale average
+  cannot leak in.
+- Shown on the device (Overview: third line under the ring · Battery: new "Runtime" stat in the
+  free third column) and on the web (Overview battery block · Battery tab, full-width row).
+  One shared implementation (`bmsEtaMinutes()`/`bmsFmtEta()` in `LitimeBMS.h`); the web reads the
+  already-computed `battery.etaMin` / `battery.etaFull` from `/api/data`. Dual-language
+  (Runtime → Autonomia, To full → A pieno).
+
 ## 0.62 — Battery ring: 100% no longer overflows onto the ring
 - At 100% the third digit made the `SOC %` text wider than the ring's usable inner circle, so it
   clipped/overlapped the stroke. Affected all four rings: device Overview (88 px of text vs ~81 px

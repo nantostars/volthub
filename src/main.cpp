@@ -111,6 +111,9 @@ static void handleApiData() {
         jb["soc"]=b.soc; jb["soh"]=b.soh; jb["cycles"]=b.dischargesCount;
         jb["remainingAh"]=b.remainingAh; jb["fullAh"]=b.fullCapacityAh;
         jb["cellTemp"]=b.cellTemp; jb["mosfetTemp"]=b.mosfetTemp;
+        // Runtime estimate (derived here, not sent by the BMS): minutes left, and whether that
+        // is time-to-full (charging) instead of time-to-empty. 0 = not meaningful.
+        bool etaFull=false; jb["etaMin"] = bmsEtaMinutes(b, etaFull); jb["etaFull"] = etaFull;
         JsonArray cells = jb["cells"].to<JsonArray>();
         for (int i=0;i<b.cellCount;i++) cells.add(b.cellVoltages[i]);
         if (b.cellCount > 0) {

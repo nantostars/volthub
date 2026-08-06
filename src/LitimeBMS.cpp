@@ -143,6 +143,16 @@ void LitimeBMS::handleNotify(const uint8_t* data, size_t len) {
     d.current  = readS32LE(&data[48]) / 1000.0f;
     d.power    = d.voltage * d.current;
 
+    // Smoothed current for the runtime estimate: EMA with a ~90s time constant over the ~2s
+    // poll cadence. The raw current swings with every load step, which would make the estimate
+    // jump between hours and days. Reset after a long gap (reconnect) so a stale average from
+    // before the outage can't leak into the new one.
+    const uint32_t nowMs = millis();
+    if (isnan(_iAvg) || (_lastNotifyMs && (nowMs - _lastNotifyMs) > 30000)) _iAvg = d.current;
+    else _iAvg += (2.0f / 90.0f) * (d.current - _iAvg);
+    _lastNotifyMs = nowMs;
+    d.avgCurrent  = _iAvg;
+
     d.cellCount = 0;
     for (int i = 0; i < LITIME_MAX_CELLS; i++) {
         uint16_t raw = readU16LE(&data[16 + i * 2]);
