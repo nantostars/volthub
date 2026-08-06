@@ -735,19 +735,23 @@ void DisplayUI::updateOverview() {
         if (_bd.valid) {
             char num[6]; snprintf(num, sizeof(num), "%d", (int)soc);
             const int gap = 3;
-            _setFont(6); int nw = _textWidth(num);
+            // At 100% the third digit makes [num %] ~88px wide, wider than the ring's usable
+            // inner span (~81px at digit height) → it would clip the stroke. Drop one font step
+            // for 3-digit values only; 0..99 keep the large font.
+            const uint8_t nf = ((int)soc >= 100) ? 4 : 6;
+            _setFont(nf); int nw = _textWidth(num);
             _setFont(2); int uw = _textWidth("%");
             int gl = cx - (nw + gap + uw) / 2;         // [num %] group centred at cx
 #ifdef BOARD_GUITION
-            _setFont(6);
+            _setFont(nf);
             int16_t x1, y1; uint16_t bw, bh; _gfx->getTextBounds(num, 0, 0, &x1, &y1, &bw, &bh);
             int topN = cy - (int)bh / 2;               // number vertically centred at cy
-            drawTextL(gl, topN, num, 6, rc);
+            drawTextL(gl, topN, num, nf, rc);
             drawTextL(gl + nw + gap, topN + (int)bh - 14, "%", 2, C_MUTED);
 #else
-            int hn = 34;                               // TFT free-font6 height (approx)
+            int hn = (nf == 6) ? 34 : 25;              // TFT free-font height (approx)
             int topN = cy - hn / 2;
-            drawTextL(gl, topN, num, 6, rc);
+            drawTextL(gl, topN, num, nf, rc);
             drawTextL(gl + nw + gap, topN + hn - 16, "%", 2, C_MUTED);
 #endif
         } else {
@@ -839,7 +843,10 @@ void DisplayUI::updateBattery() {
         uint16_t rc = on ? socColor(_bd.soc) : C_MUTED;
         drawRing(cx, cy, r, th, on ? _bd.soc / 100.0f : 0, rc, C_INSET);
         if (on) snprintf(buf, sizeof(buf), "%d%%", (int)_bd.soc); else strcpy(buf, "--");
-        centerText(cx, cy - 8, buf, 2, on ? rc : C_MUTED);
+        // "100%" is 4 chars (~48px) and does not fit this small ring (42px inner) at font2 →
+        // drop one step for 3-digit values only.
+        const uint8_t sf = (on && (int)_bd.soc >= 100) ? 1 : 2;
+        centerText(cx, cy - (sf == 2 ? 8 : 4), buf, sf, on ? rc : C_MUTED);
     }
     // 2x2 grid (card A, beside ring)
     fmtF(vb, on ? _bd.voltage : NAN, 2); snprintf(buf, sizeof(buf), "%s V", vb);

@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.62 — Battery ring: 100% no longer overflows onto the ring
+- At 100% the third digit made the `SOC %` text wider than the ring's usable inner circle, so it
+  clipped/overlapped the stroke. Affected all four rings: device Overview (88 px of text vs ~81 px
+  usable), device Battery (~48 vs 42), web Battery tab (~83 vs 78) and — marginally — web Overview
+  (~106 vs 109).
+- The number now drops one size step for **3-digit values only** (0..99 keep the large size):
+  device Overview font6→font4, device Battery font2→font1, web via a shared `setSoc()` helper
+  (52→42 px overview, 40→32 px battery tab, `%` scaled to match).
+
 ## 0.61 — DC-DC: show the real charge state + complete the official state table
 - The DC-DC detail tab showed a state *guessed* from the output current (`Charging` if
   `outCurrent > 0.1`, else `Standby`), even though the real state is decoded from the advert

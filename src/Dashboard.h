@@ -531,6 +531,15 @@ function setLang(l){
 
 function fmt(v,d){ if(v===undefined||v===null||isNaN(v))return '--'; return Number(v).toFixed(d); }
 function socColor(s){ return s>45?'var(--green)':s>18?'var(--amber)':'var(--red)'; }
+// SOC inside a ring: at 100% the third digit makes the text wider than the ring's inner
+// circle and it clips the stroke, so drop one size step for 3-digit values only (0..99 keep
+// the large size). bigPx/smallPx are the normal number/percent sizes for that ring.
+function setSoc(el, v, on, bigPx, smallPx){
+  if(!el) return;
+  var three = on && Math.round(v) >= 100;
+  el.style.fontSize = (three ? Math.round(bigPx*0.8) : bigPx) + 'px';
+  el.innerHTML = on ? (Math.round(v)+'<span style="font-size:'+(three?Math.round(smallPx*0.85):smallPx)+'px;color:var(--muted)">%</span>') : '--';
+}
 function signColor(v){ return v>0.05?'var(--green)':v<-0.05?'var(--amber)':'var(--text)'; }
 
 var VIEWS=['overview','battery','solar','dcdc','level','system'];
@@ -573,7 +582,7 @@ function updateOverview(d){
   var b=d.battery||{}, on=b.online;
   var soc=on?b.soc:NaN, col=on?socColor(soc):'var(--muted)';
   setRing($('ov-ring'), on?soc/100:1, col);   // offline: full grey ring (visible footprint)
-  $('ov-soc').innerHTML= on ? (Math.round(soc)+'<span style="font-size:20px;color:var(--muted)">%</span>') : '--';
+  setSoc($('ov-soc'), soc, on, 52, 20);
   $('ov-soc').style.color=col;
   $('ov-bvi').textContent=on?(fmt(b.voltage,1)+'V · '+fmt(b.current,1)+'A'):'';
   var p=on?b.power:0, st=p>8?'Charging':p<-8?'Discharging':'Idle';
@@ -612,7 +621,7 @@ function updateBattery(d){
   $('bt-title').textContent=on?(b.model||'Battery'):'Battery';
   var col=on?socColor(b.soc):'var(--muted)';
   setRing($('bt-ring'), on?b.soc/100:1, col);   // offline: full grey ring
-  $('bt-soc').innerHTML= on ? (Math.round(b.soc)+'<span style="font-size:18px;color:var(--muted)">%</span>') : '--';
+  setSoc($('bt-soc'), b.soc, on, 40, 18);
   $('bt-soc').style.color=col;
   $('bt-v').textContent=on?fmt(b.voltage,2)+' V':'--';
   $('bt-a').textContent=on?fmt(b.current,1)+' A':'--';

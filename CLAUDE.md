@@ -156,6 +156,8 @@ x=8          x=171        x=334
 | Labels (PITCH, ROLL, box titles) | font1 | 8px |
 | Large values (Level screen) | font6 | 48px |
 
+**SOC inside a ring — 3-digit rule:** at 100% the extra digit makes `SOC %` wider than the ring's usable inner span and it would clip the stroke, so the number drops **one font step for 3-digit values only** (0..99 keep the large size): Overview `font6→font4`, Battery screen `font2→font1`. Same rule on the web via `setSoc(el, v, on, bigPx, smallPx)` (number ×0.8, `%` ×0.85). Usable width is not the full inner diameter: at the digits' top/bottom the circle narrows to `2·√(rᵢ² − (h/2)²)`.
+
 ### Color palette (RGB565)
 
 | Name | Hex | Usage |
