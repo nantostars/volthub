@@ -10,6 +10,16 @@ of the web dashboard.
 
 ---
 
+## 0.64 — docs: bring README and CLAUDE.md up to date
+- `README.md`: features now cover what the firmware actually does — runtime estimate, the real
+  Victron charge state on both MPPT and DC-DC, the "Keep screen on" toggle, the BMS-based
+  definition of *Loads*, and long-run stability. Added a `GET /api/data` field table (per-source
+  blocks and their keys) so the JSON can be consumed by a logger / Home Assistant.
+- `CLAUDE.md`: documented the long-run findings that were only in the changelog — the mandatory
+  `setMaxResults(0)` on the Victron scan (without it NimBLE stores every MAC ever seen and the
+  web server dies after hours), chained polling instead of `setInterval`, `no-store` on the root
+  page, AP-only fallback on STA failure, and the heap diagnostics with their healthy baseline.
+
 ## 0.63 — Battery: runtime estimate (time to empty / time to full)
 - The BMS does not transmit a time-to-empty, but it does report a coulomb-counted `remainingAh`,
   so the estimate is derived on the device: `remainingAh / |I|` while discharging, and

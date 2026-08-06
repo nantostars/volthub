@@ -15,15 +15,27 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
 
 - **Live overview** — solar, DC‑DC and loads power, battery ring (SOC), voltage/current,
   animated energy‑flow lines, colour‑coded by state (producing / discharging).
+  *Loads* is the battery **discharge** reported by the BMS, i.e. what the loads actually draw
+  from the battery (net of what solar/DC‑DC already cover); it reads 0 while charging or idle.
+- **Runtime estimate** — time to empty while discharging, time to full while charging, derived
+  from the BMS coulomb counter (`remainingAh`) and a smoothed current, so it does not jump on
+  every compressor start. Shown on the overview and the Battery screen.
 - **Detail screens** — Battery (per‑cell voltages, SOH, cycles, temperature, balance
   delta with alarm thresholds), Solar, DC‑DC, and a **spirit‑level** tab using the IMU.
+- **Real charge state** — the actual Victron mode (Bulk / Absorption / Float / Storage /
+  BatterySafe …) for both the MPPT and the DC‑DC, decoded from the advertisement and named
+  after the official VE.Direct state table — not guessed from the current.
 - **Web dashboard** — same data on any phone/browser over Wi‑Fi; live polling of a JSON API.
+  Includes a **"Keep screen on"** toggle so the phone does not lock while you watch the dashboard
+  (works over plain HTTP, where the Screen Wake Lock API is unavailable).
 - **Exact device models** — Victron model name resolved from the BLE Product ID
   (official VE.Direct product‑id table).
 - **Dual language** — English / Italian, switchable from the web System tab.
 - **OTA updates** — disabled by default; enable it and set the credentials from the web
   System page (nothing hardcoded, no credentials in the repo).
 - **NTP clock**, configurable Wi‑Fi (AP + optional client), persisted settings (NVS).
+- **Built to run for days** — no‑leak BLE scanning, non‑overlapping web polling and a free‑RAM
+  readout in the System tab, so the dashboard stays reachable on long trips.
 
 ## Hardware
 
@@ -83,6 +95,21 @@ pio run -e cyd     -t upload --upload-port /dev/cu.usbserial-XXXX # CYD
 
 The dashboard is embedded in the firmware (`src/Dashboard.h`) and served over Wi‑Fi. It
 polls `GET /api/data` (JSON) every 2 s. Settings are read/written via `/api/settings`.
+
+`GET /api/data` returns one object per source — handy if you want to feed the data somewhere
+else (logger, Home Assistant, …). Every block has an `online` flag; when it is `false` the
+other fields are omitted rather than zeroed.
+
+| Block | Fields |
+|---|---|
+| `battery` | `online`, `voltage`, `current` (+ = charging), `power`, `soc`, `soh`, `cycles`, `remainingAh`, `fullAh`, `cellTemp`, `mosfetTemp`, `cells[]`, `model`, `etaMin`, `etaFull` |
+| `solar` | `online`, `state`, `stateCode`, `battVoltage`, `chargeCurrent`, `solarPower`, `yieldToday`, `loadCurrent`, `pid`, `model` |
+| `orion` | `online`, `state`, `stateCode`, `inVoltage`, `inCurrent`, `outVoltage`, `outCurrent`, `pid`, `model` |
+| `imu` | `online`, `pitch`, `roll`, `yaw`, `temp` |
+| `sys` | `fw`, `lang`, `ota`, `heap`, `apIp`, `staIp`, `date`, `time` |
+
+`etaMin` is the runtime estimate in minutes (`0` = not meaningful: at rest, offline or already
+full); `etaFull` tells whether it counts down to full (charging) or to empty (discharging).
 
 ## Versioning & changelog
 
