@@ -3,20 +3,27 @@
 #include <NimBLEDevice.h>
 
 // ─── Victron charge-state enum (solar charger + Orion XS share these codes) ──
-// These come from the Victron GX Protocol manual / victron-ble Python library
+// Verbatim from the OFFICIAL source: Victron "VE.Direct Protocol" 3.33, field CS
+// ("State of operation"). Columns in that table mark which states apply to MPPT vs
+// Charger: 6/11/246/248 are Charger-only, i.e. exactly the ones the Orion XS DC-DC can
+// report. Names are shortened where needed to fit the 96px device pill (~13 chars).
 static inline const char* victronStateName(uint8_t s) {
     switch (s) {
         case 0:   return "OFF";
-        case 1:   return "STANDBY";
+        case 1:   return "LOW POWER";      // official: Low power (inverter load search)
         case 2:   return "FAULT";
         case 3:   return "BULK";
         case 4:   return "ABSORPTION";
         case 5:   return "FLOAT";
-        case 6:   return "STORAGE";
-        case 7:   return "EQUALIZE";
-        case 245: return "WAKE-UP";
-        case 247: return "AUTO EQUALIZE";
-        case 252: return "EXTERNAL CTRL";
+        case 6:   return "STORAGE";        // charger
+        case 7:   return "EQUALIZE";       // official: Equalize (manual)
+        case 9:   return "INVERTING";
+        case 11:  return "POWER SUPPLY";   // charger
+        case 245: return "STARTING UP";    // official: Starting-up
+        case 246: return "REPEAT. ABS.";   // charger: Repeated absorption
+        case 247: return "AUTO EQUALIZE";  // official: Auto equalize / Recondition
+        case 248: return "BATTERYSAFE";    // charger
+        case 252: return "EXTERNAL CTRL";  // official: External Control
         default:  return "UNKNOWN";
     }
 }

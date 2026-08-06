@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.61 — DC-DC: show the real charge state + complete the official state table
+- The DC-DC detail tab showed a state *guessed* from the output current (`Charging` if
+  `outCurrent > 0.1`, else `Standby`), even though the real state is decoded from the advert
+  (`OrionData.deviceState`) and already exposed on `/api/data` as `orion.state`. It now shows the
+  actual mode (BULK / ABSORPTION / FLOAT / STORAGE / …), symmetric with Solar. Device + web.
+- `victronStateName()` completed from the **official** source (VE.Direct Protocol 3.33, field CS):
+  added the missing codes 9 Inverting, 11 Power supply, 246 Repeated absorption, 248 BatterySafe —
+  note 11/246/248 (and 6 Storage) are *charger* states, i.e. exactly what the Orion XS can report
+  and what would previously have shown as UNKNOWN. Corrected two names to the official wording:
+  1 = LOW POWER (was STANDBY) and 245 = STARTING UP (was WAKE-UP). Long names are shortened to fit
+  the 96px device pill (246 → "REPEAT. ABS.").
+- Removed the now-unused `Standby` entry from the web i18n dictionary.
+
 ## 0.60 — web: "Keep screen on" toggle (stop the phone from sleeping)
 - New toggle in the System tab that prevents the phone screen from locking while the dashboard is
   open. The Screen Wake Lock API needs a secure context (HTTPS), but the device serves plain HTTP,

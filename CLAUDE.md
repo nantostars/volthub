@@ -95,6 +95,8 @@ Offsets are in the raw NimBLE `getManufacturerData()` buffer, **including** the 
 [10+]   Encrypted payload (AES-128-CTR)
 ```
 
+**Charge state (SmartSolar + Orion XS):** both decode a state byte from the decrypted payload (`SolarData.chargeState` / `OrionData.deviceState` = `dec[0]`), mapped by `victronStateName()` in `VictronBLE.h`. That table is verbatim from the **official** VE.Direct Protocol 3.33, field CS ("State of operation"): 0 Off · 1 Low power · 2 Fault · 3 Bulk · 4 Absorption · 5 Float · 6 Storage · 7 Equalize · 9 Inverting · 11 Power supply · 245 Starting-up · 246 Repeated absorption · 247 Auto equalize · 248 BatterySafe · 252 External control. Codes 6/11/246/248 are **charger-only** (Orion XS); unlisted codes and `0xFF` (no data) → `UNKNOWN`. Both detail screens (device pill + web pill) show this real state — never a value derived from current. Names are kept ≤13 chars for the 96px device pill.
+
 ### WiFi / Web server
 
 - **Library:** standard Arduino `WebServer.h`

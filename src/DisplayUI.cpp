@@ -1001,7 +1001,9 @@ void DisplayUI::updateDcdc() {
     _dcdcSig = sig;
     fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : t("DC-DC"), 2, C_TEXT, C_CARD);
     float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
-    const char* state = !on ? t("offline") : (_od.outCurrent > 0.1f ? t("Charging") : t("Standby"));
+    // Real charge state from the advert (BULK/ABSORPTION/FLOAT/...), same as Solar — not a
+    // Charging/Standby guess derived from the output current.
+    const char* state = on ? victronStateName(_od.deviceState) : t("offline");
     pillCached(2, 360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
     fmtF(buf, w, 0);
     centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_BLUE : C_MUTED, C_CARD);

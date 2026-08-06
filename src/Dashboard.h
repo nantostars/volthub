@@ -472,7 +472,7 @@ document.addEventListener('visibilitychange',function(){ if(document.visibilityS
 var I18N={ it:{
   "Overview":"Panoramica","Battery":"Batteria","Solar":"Solare","Level":"Livella","System":"Sistema",
   "Loads":"Carichi","offline":"offline","online":"online",
-  "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo","Standby":"Standby",
+  "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
   "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
@@ -663,8 +663,8 @@ function updateDcdc(d){
   var o=d.orion||{}, on=o.online;
   $('dc-title').textContent=on?(o.model||'DC-DC'):'DC-DC';
   var w=(on&&o.outVoltage!==undefined&&o.outCurrent!==undefined)?o.outVoltage*o.outCurrent:NaN;
-  var st=!on?TR('offline'):(o.outCurrent>0.1?TR('Charging'):TR('Standby'));
-  pill($('dc-state'), st, on?'var(--blue)':'var(--muted)', on?'rgba(90,165,245,.16)':'var(--inset)');
+  // Real charge state from the advert (BULK/ABSORPTION/FLOAT/...), same as Solar.
+  pill($('dc-state'), on?(o.state||'--'):TR('offline'), on?'var(--blue)':'var(--muted)', on?'rgba(90,165,245,.16)':'var(--inset)');
   $('dc-w').textContent=fmt(w,0);
   $('dc-iv').textContent=on?fmt(o.inVoltage,1)+' V':'--';
   $('dc-a').textContent=on?fmt(o.outCurrent,1)+' A':'--';
