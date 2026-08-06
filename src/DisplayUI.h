@@ -61,7 +61,11 @@ public:
     // Update system info shown on the System screen (call periodically from main)
     void updateSysInfo(const char* apSsid, const char* apIp,
                        const char* staSsid, const char* staIp,
-                       const char* ntpTime, bool otaOn);
+                       const char* ntpTime, bool otaOn, bool apOn);
+
+    // Escape hatch: true once if the AP pill was tapped since the last call. main.cpp owns the
+    // WiFi state, so the UI only reports the tap.
+    bool consumeApToggle() { bool t = _apTogglePending; _apTogglePending = false; return t; }
 
 private:
     // ── Screens (order == tab order) ──────────────────────────────────────────
@@ -148,7 +152,7 @@ private:
     char     _lastClock[8] = "";
     int      _lastChargeState = -2;    // -1 discharge, 0 idle, 1 charge
     int      _lastDevs = -1;           // status-bar BLE count
-    char     _pill[5][14] = {{0}};     // last drawn pill text (0=bms 1=solar 2=dcdc 3=level 4=sys)
+    char     _pill[6][14] = {{0}};     // last drawn pill text (0=bms 1=solar 2=dcdc 3=level 4=screen 5=ap)
     char     _nodeTxt[3][12] = {{0}};  // overview node last value (0=solar 1=dcdc 2=loads) anti-flicker
     uint16_t _nodeCol[3]  = {0, 0, 0}; // overview node last colour
     long     _cellSig = -1;            // battery cell-bars change signature
@@ -168,4 +172,6 @@ private:
     char _syStaIp[16]   = "";
     char _syNtpTime[20] = "--";
     bool _syOta = false;   // OTA effective status (enabled + credentials set)
+    bool _syApOn = true;   // softAP currently up (shown as the AP pill)
+    bool _apTogglePending = false;
 };

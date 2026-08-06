@@ -49,6 +49,64 @@ static void ntpSetup() {
 
 // ─── WiFi ─────────────────────────────────────────────────────────────────────
 
+// AP auto-off (Settings::getApOffWhenSta, default off). The AP is dropped only while the STA
+// is up and stable, because the phone otherwise keeps auto-joining CamperEnergy and loses
+// internet. The device CANNOT tell whether your phone can actually reach it over the client
+// network (client isolation and captive portals are invisible from here), so the protection
+// is not clever network logic but two physical escape hatches:
+//   1. the AP pill on the device System screen forces it back on;
+//   2. the AP is unconditionally on for AP_GRACE_MS after every boot, so a power cycle always
+//      gets you back in — even if the touch panel is unresponsive.
+static const uint32_t AP_GRACE_MS   = 10UL * 60 * 1000;  // AP forced on after boot / re-entry
+static const uint32_t STA_STABLE_MS =  2UL * 60 * 1000;  // STA must hold this long before AP off
+static const uint32_t STA_LOST_MS   = 60UL * 1000;       // STA down this long → AP back on
+
+static bool     apOn           = true;    // current softAP state
+static bool     apManualOn     = false;   // device toggle override (never turns the AP off)
+static uint32_t apGraceUntilMs = 0;
+static uint32_t staOkSinceMs   = 0;
+static uint32_t staLostSinceMs = 0;
+
+static void apSet(bool on) {
+    if (on == apOn) return;
+    apOn = on;
+    if (on) {
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.softAP(settings.getWifiSsid().c_str(), settings.getWifiPassword().c_str());
+        Serial.printf("[WiFi] AP ON – http://%s\n", WiFi.softAPIP().toString().c_str());
+    } else {
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        Serial.println("[WiFi] AP OFF (STA connected and stable)");
+    }
+}
+
+static void apAutoUpdate() {
+    // No client configured → the AP is the only way in, never touch it.
+    if (settings.getStaSsid().length() == 0 || !settings.getApOffWhenSta() || apManualOn) {
+        apSet(true);
+        return;
+    }
+    const uint32_t now = millis();
+    const bool staUp = (WiFi.status() == WL_CONNECTED) && (WiFi.localIP() != IPAddress(0, 0, 0, 0));
+    if (staUp) { if (!staOkSinceMs) staOkSinceMs = now; staLostSinceMs = 0; }
+    else       { staOkSinceMs = 0; if (!staLostSinceMs) staLostSinceMs = now; }
+
+    // Wrap-safe deadline compare (millis() rolls over after ~49 days): a plain `now < deadline`
+    // would keep the AP forced on for a long time after the rollover.
+    if ((int32_t)(now - apGraceUntilMs) < 0) { apSet(true); return; }   // boot / re-entry grace
+    if (!apOn) {
+        // Bring the AP back after a sustained STA loss (not immediately: avoids flapping
+        // the AP on a network that drops for a few seconds).
+        if (!staUp && staLostSinceMs && (now - staLostSinceMs) >= STA_LOST_MS) {
+            apSet(true);
+            apGraceUntilMs = now + AP_GRACE_MS;
+        }
+        return;
+    }
+    if (staUp && staOkSinceMs && (now - staOkSinceMs) >= STA_STABLE_MS) apSet(false);
+}
+
 static void wifiSetup() {
     String apSsid  = settings.getWifiSsid();
     String apPass  = settings.getWifiPassword();
@@ -56,6 +114,8 @@ static void wifiSetup() {
 
     WiFi.mode(staSsid.length() > 0 ? WIFI_AP_STA : WIFI_AP);
     bool ok = WiFi.softAP(apSsid.c_str(), apPass.c_str());
+    apOn = true;
+    apGraceUntilMs = millis() + AP_GRACE_MS;   // always reachable right after a (re)boot
     Serial.printf("[WiFi] AP %s – SSID \"%s\"  http://%s\n",
                   ok ? "OK" : "FAILED", apSsid.c_str(),
                   WiFi.softAPIP().toString().c_str());
@@ -167,6 +227,8 @@ static void handleApiData() {
     jsys["fw"]    = FW_VERSION;
     jsys["lang"]  = settings.getLang();
     jsys["ota"]   = settings.otaActive();
+    jsys["apOn"]  = apOn;                       // softAP currently up?
+    jsys["apAuto"]= settings.getApOffWhenSta(); // "drop the AP while the client is connected"
     jsys["heap"]  = ESP.getFreeHeap();          // free RAM — watch for a downward trend (leak)
 
     String json; serializeJson(doc,json);
@@ -192,6 +254,7 @@ static void handleGetSettings() {
     doc["otaUser"]    = settings.getOtaUser();
     doc["otaHasPass"] = settings.getOtaPass().length() > 0;   // never echo the password itself
     doc["otaActive"]  = settings.otaActive();
+    doc["apOffWhenSta"] = settings.getApOffWhenSta();
     String json; serializeJson(doc,json);
     server.send(200,"application/json",json);
 }
@@ -212,6 +275,7 @@ static void handlePostSettings() {
     if (doc["imuMac"].is<const char*>()    && strlen(doc["imuMac"])>0)    settings.setWitmotionMac(doc["imuMac"].as<String>());
     if (doc["lang"].is<int>()) { int lg = doc["lang"].as<int>(); settings.setLang(lg); display.setLanguage(lg); }
     if (doc["otaEnabled"].is<bool>())       settings.setOtaEnabled(doc["otaEnabled"].as<bool>());
+    if (doc["apOffWhenSta"].is<bool>())     settings.setApOffWhenSta(doc["apOffWhenSta"].as<bool>());
     if (doc["otaUser"].is<const char*>())   settings.setOtaUser(doc["otaUser"].as<String>());
     if (doc["otaPass"].is<const char*>() && strlen(doc["otaPass"]) > 0) settings.setOtaPass(doc["otaPass"].as<String>());
     server.send(200,"application/json","{\"status\":\"ok\",\"rebooting\":true}");
@@ -401,7 +465,21 @@ void loop() {
             strftime(ntpBuf, sizeof(ntpBuf), "%Y-%m-%d %H:%M:%S", &ti);
         }
         display.updateSysInfo(apSsid.c_str(), apIp.c_str(),
-                              staSsid.c_str(), staIp.c_str(), ntpBuf, settings.otaActive());
+                              staSsid.c_str(), staIp.c_str(), ntpBuf, settings.otaActive(), apOn);
+    }
+
+    // AP auto-off state machine (cheap; the checks are all in-memory)
+    static uint32_t apAt = 0;
+    if (millis() - apAt > 2000) { apAt = millis(); apAutoUpdate(); }
+
+    // Escape hatch: the AP pill on the device System screen. It can only force the AP ON or
+    // release the override — never switch it off — so a tap can never lock you out.
+    if (display.consumeApToggle()) {
+        apManualOn = !apManualOn;
+        Serial.printf("[WiFi] AP manual override %s\n", apManualOn ? "ON" : "released");
+        apAutoUpdate();
+        display.updateSysInfo(nullptr, nullptr, nullptr, nullptr, nullptr,
+                              settings.otaActive(), apOn);
     }
 
     BmsData   b = bms.getData();

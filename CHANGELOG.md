@@ -10,6 +10,22 @@ of the web dashboard.
 
 ---
 
+## 0.65 — WiFi: optionally drop the AP while the client is connected
+- New setting (web **System → WiFi Client**, NVS `ap_off_sta`, **default OFF**): turn the softAP off
+  while the STA is connected, so the phone stops auto-joining `CamperEnergy` and losing internet.
+- The device **cannot** detect whether your phone can actually reach it over the client network
+  (client isolation and captive portals are invisible from the ESP32 side), so the safety net is
+  not network logic but two physical escape hatches:
+  1. an **AP pill on the device System screen** — a tap forces the AP back on (it can only force it
+     ON or release the override, never switch it off, so a tap can't lock you out);
+  2. the AP is **unconditionally on for 10 min after every boot**, so a power cycle always gets you
+     back in, even if the touch panel is unresponsive.
+- Automatic behaviour: the AP drops only after the STA has been up **2 min** continuously, and comes
+  back after the STA has been down **60 s** (not immediately, so it doesn't flap on a shaky network),
+  restarting the 10 min grace window. Never applies when no client network is configured.
+- `sys.apOn` / `sys.apAuto` on `/api/data`; the web System status row shows the AP as its URL or
+  "off (client connected)". Saving with the option on but no client SSID is rejected. Dual-language.
+
 ## 0.64 — docs: bring README and CLAUDE.md up to date
 - `README.md`: features now cover what the firmware actually does — runtime estimate, the real
   Victron charge state on both MPPT and DC-DC, the "Keep screen on" toggle, the BMS-based

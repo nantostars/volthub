@@ -23,6 +23,13 @@ public:
     String getWitmotionMac()  { return _prefs.getString("imu_mac",   WITMOTION_MAC);     }
     int    getLang()          { return _prefs.getInt("lang", 0); }   // 0 = English, 1 = Italiano
     // OTA — disabled by default, no credentials on first boot (nothing hardcoded/in git)
+    // Turn the AP off while the WiFi client (STA) is connected, so the phone stops
+    // auto-joining CamperEnergy and losing internet. Default OFF: with it on there are
+    // situations the device cannot detect (client isolation, captive portal) where the AP
+    // is the only way in — see the escape hatches in main.cpp (boot grace + device toggle).
+    bool   getApOffWhenSta()  { return _prefs.getBool("ap_off_sta", false); }
+    void   setApOffWhenSta(bool v) { _prefs.putBool("ap_off_sta", v); }
+
     bool   getOtaEnabled()    { return _prefs.getBool("ota_en", false); }
     String getOtaUser()       { return _prefs.getString("ota_user", ""); }
     String getOtaPass()       { return _prefs.getString("ota_pass", ""); }

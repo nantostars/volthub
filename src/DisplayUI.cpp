@@ -325,11 +325,13 @@ void DisplayUI::handleTouch() {
         return;
     }
 
-    // System screen: tap the "screen timeout" pill toggles always-on
-    if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 168, 40)) {
+    // System screen toggles: left half = screen timeout, right half = AP (escape hatch).
+    if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 116, 40)) {
         _alwaysOn = !_alwaysOn;
         drawSystem();
         present();
+    } else if (_screen == SCR_SYSTEM && hitTest(sx, sy, 416, CT_Y + 8, 52, 40)) {
+        _apTogglePending = true;   // main.cpp owns the WiFi state and will redraw
     }
 }
 
@@ -508,7 +510,7 @@ void DisplayUI::centerFill(int cx, int y, int w, int h, const char* txt, uint8_t
 
 // Pill drawn only when its text changes (rounded bg repaint each cycle would flicker).
 void DisplayUI::pillCached(int slot, int x, int y, int w, int h, const char* txt, uint16_t fg, uint16_t bg) {
-    if (slot >= 0 && slot < 5) {
+    if (slot >= 0 && slot < 6) {
         if (strcmp(_pill[slot], txt) == 0) return;
         strncpy(_pill[slot], txt, 13); _pill[slot][13] = 0;
     }
@@ -1115,8 +1117,9 @@ void DisplayUI::updateLevel() {
 void DisplayUI::drawSystem() {
     drawCard(12, CT_Y + 8, 280, 214, C_CARD, true);
     fillText(24, CT_Y + 16, 200, 14, t("Connected devices"), 1, C_MUTED, C_CARD);
-    drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // screen-timeout toggle pill area
-    fillText(312, CT_Y + 14, 90, 14, t("Screen"), 1, C_MUTED, C_INSET);
+    drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // toggles: screen timeout | AP
+    fillText(312, CT_Y + 14, 48, 14, t("Screen"), 1, C_MUTED, C_INSET);
+    fillText(418, CT_Y + 14, 18, 14, "AP", 1, C_MUTED, C_INSET);
     drawCard(300, CT_Y + 56, 168, 166, C_CARD, true);
     fillText(312, CT_Y + 64, 150, 14, t("Network"), 1, C_MUTED, C_CARD);
     updateSystem();
@@ -1136,8 +1139,9 @@ void DisplayUI::updateSystem() {
         fillText(44, y + 22, 236, 12, t(devs[i].on ? "online" : "offline"), 1, devs[i].on ? C_GREEN : C_MUTED, C_CARD);
     }
 
-    // screen-timeout toggle (label drawn once in drawSystem)
-    pillCached(4, 400, CT_Y + 16, 60, 22, _alwaysOn ? t("ALWAYS") : t("AUTO"), _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+    // screen-timeout toggle + AP state/escape hatch (labels drawn once in drawSystem)
+    pillCached(4, 362, CT_Y + 16, 52, 22, _alwaysOn ? t("ALWAYS") : t("AUTO"), _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+    pillCached(5, 438, CT_Y + 16, 28, 22, _syApOn ? "ON" : "OFF", _syApOn ? C_GREEN : C_MUTED, _syApOn ? C_INSET : C_BG);
 
     // network info
     int ny = CT_Y + 82;
@@ -1163,12 +1167,13 @@ void DisplayUI::updateSystem() {
 // ─── updateSysInfo ────────────────────────────────────────────────────────────
 void DisplayUI::updateSysInfo(const char* apSsid, const char* apIp,
                               const char* staSsid, const char* staIp,
-                              const char* ntpTime, bool otaOn) {
+                              const char* ntpTime, bool otaOn, bool apOn) {
     if (apSsid)  strncpy(_syApSsid,  apSsid,  sizeof(_syApSsid) - 1);
     if (apIp)    strncpy(_syApIp,    apIp,    sizeof(_syApIp) - 1);
     if (staSsid) strncpy(_syStaSsid, staSsid, sizeof(_syStaSsid) - 1);
     if (staIp)   strncpy(_syStaIp,   staIp,   sizeof(_syStaIp) - 1);
     if (ntpTime) strncpy(_syNtpTime, ntpTime, sizeof(_syNtpTime) - 1);
-    _syOta = otaOn;
+    _syOta  = otaOn;
+    _syApOn = apOn;
     if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) { updateSystem(); present(); }
 }

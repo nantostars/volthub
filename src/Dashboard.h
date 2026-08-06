@@ -364,6 +364,8 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div class="st-input-wrap"><input id="st-sta-ssid" class="st-input" type="text" placeholder="empty = AP only" data-i18n-ph="empty = AP only" maxlength="32" autocomplete="off"></div></div>
           <div class="st-field"><label class="st-label" for="st-sta-pass">Password</label>
             <div class="st-input-wrap"><input id="st-sta-pass" class="st-input" type="password" placeholder="network password" data-i18n-ph="network password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-sta-pass',this)">&#128065;</button></div></div>
+          <div class="st-field"><label class="st-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="st-ap-off" type="checkbox"><span data-i18n="Turn the AP off while the client is connected">Turn the AP off while the client is connected</span></label>
+            <div class="st-hint" data-i18n="Stops the phone auto-joining the AP. It comes back if the client drops, for 10 min after every boot, and from the AP button on the device screen.">Stops the phone auto-joining the AP. It comes back if the client drops, for 10 min after every boot, and from the AP button on the device screen.</div></div>
         </div>
 
         <div class="st-group"><div class="st-gt">LiTime BMS</div>
@@ -514,7 +516,11 @@ var I18N={ it:{
   "empty = AP only":"vuoto = solo AP",
   "network password":"password rete",
   "32 hex characters":"32 caratteri hex",
-  "OTA: username required":"OTA: serve un username","OTA: password required":"OTA: serve una password"
+  "OTA: username required":"OTA: serve un username","OTA: password required":"OTA: serve una password",
+  "Turn the AP off while the client is connected":"Spegni l'AP quando il client e' connesso",
+  "Stops the phone auto-joining the AP. It comes back if the client drops, for 10 min after every boot, and from the AP button on the device screen.":"Evita che il telefono si agganci da solo all'AP. Torna se il client cade, per 10 min dopo ogni avvio, e dal pulsante AP sullo schermo del device.",
+  "off (client connected)":"spento (client connesso)",
+  "AP off needs a WiFi client network":"Per spegnere l'AP serve una rete client"
 }};
 var curLang='en';
 function TR(k){ return (curLang==='it'&&I18N.it[k]!==undefined)?I18N.it[k]:k; }
@@ -746,7 +752,8 @@ function updateSysInfo(sys){
   if(sys.ota!==undefined) rows+='<div class="st-status-row"><span class="st-status-lbl">OTA</span><span class="st-status-val '+(sys.ota?'ok':'dim')+'">'+(sys.ota?'ON':'OFF')+'</span></div>';
   if(sys.heap!==undefined) rows+='<div class="st-status-row"><span class="st-status-lbl">Free RAM</span><span class="st-status-val">'+Math.round(sys.heap/1024)+' KB</span></div>';
   var ol=$('ota-link'); if(ol) ol.style.display=sys.ota?'block':'none';
-  rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
+  if(sys.apOn===false) rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val dim">'+TR('off (client connected)')+'</span></div>';
+  else rows+='<div class="st-status-row"><span class="st-status-lbl">AP</span><span class="st-status-val">http://'+(sys.apIp||'192.168.4.1')+'</span></div>';
   if(sys.staIp) rows+='<div class="st-status-row"><span class="st-status-lbl">WiFi Client</span><span class="st-status-val ok">&#10003; '+sys.staIp+'</span></div>';
   if(sys.time&&sys.date) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('NTP time')+'</span><span class="st-status-val">'+sys.date+'&nbsp;&nbsp;'+sys.time+'</span></div>';
   else { var m=(sys.staIp&&sys.staIp.length>0)?TR('waiting...'):TR('not synced');
@@ -796,6 +803,7 @@ function loadSettings(){
     $('st-orion-key').value=d.orionKey||''; $('st-ntp-srv').value=d.ntpServer||'';
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
     $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
+    $('st-ap-off').checked=!!d.apOffWhenSta;
     _otaHasPass=!!d.otaHasPass;
     $('st-ota-pass').placeholder=d.otaHasPass?'•••••• ('+TR('set')+')':'';
   }).catch(function(){ setMsg(TR('Could not load settings'),'err'); });
@@ -805,12 +813,14 @@ function saveSettings(){
   var ssid=g('st-wifi-ssid'),pass=g('st-wifi-pass'),staSsid=g('st-sta-ssid'),staPass=g('st-sta-pass'),
       mac=g('st-bms-mac'),solar=g('st-solar-key'),orion=g('st-orion-key'),
       ntpSrv=g('st-ntp-srv'),ntpTZ=g('st-ntp-tz'),imuMac=g('st-imu-mac'),
-      otaUser=g('st-ota-user'),otaPass=g('st-ota-pass'),otaEn=$('st-ota-en').checked;
+      otaUser=g('st-ota-user'),otaPass=g('st-ota-pass'),otaEn=$('st-ota-en').checked,
+      apOff=$('st-ap-off').checked;
   if(pass&&pass.length<8){ setMsg(TR('AP password: minimum 8 characters'),'err'); return; }
   if(mac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)){ setMsg(TR('Invalid BMS MAC'),'err'); return; }
   if(solar&&!/^[0-9A-Fa-f]{32}$/.test(solar)){ setMsg(TR('Invalid MPPT key'),'err'); return; }
   if(orion&&!/^[0-9A-Fa-f]{32}$/.test(orion)){ setMsg(TR('Invalid DC-DC key'),'err'); return; }
   if(imuMac&&!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(imuMac)){ setMsg(TR('Invalid IMU MAC'),'err'); return; }
+  if(apOff && !staSsid){ setMsg(TR('AP off needs a WiFi client network'),'err'); return; }
   if(otaEn){
     if(!otaUser){ setMsg(TR('OTA: username required'),'err'); return; }
     if(!otaPass && !_otaHasPass){ setMsg(TR('OTA: password required'),'err'); return; }
@@ -818,7 +828,7 @@ function saveSettings(){
   $('st-save-btn').disabled=true; setMsg(TR('Saving...'),'info');
   var body=JSON.stringify({wifiSsid:ssid,wifiPass:pass,staSsid:staSsid,staPass:staPass,
     bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,
-    otaEnabled:otaEn,otaUser:otaUser,otaPass:otaPass});
+    otaEnabled:otaEn,otaUser:otaUser,otaPass:otaPass,apOffWhenSta:apOff});
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(){ setMsg(TR('Saved! Rebooting...'),'ok'); waitReconnect(12); })
     .catch(function(){ setMsg(TR('Reboot in progress...'),'ok'); waitReconnect(12); });
