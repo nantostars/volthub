@@ -81,6 +81,14 @@ static void apSet(bool on) {
     }
 }
 
+// What the device AP pill should show. AUTO only when the automation is actually in play,
+// so with the option disabled the pill honestly reads a permanent ON instead of a misleading AUTO.
+static uint8_t apPillMode() {
+    if (!apOn) return DisplayUI::AP_MODE_OFF;
+    const bool autoActive = settings.getApOffWhenSta() && settings.getStaSsid().length() > 0;
+    return (!autoActive || apManualOn) ? DisplayUI::AP_MODE_ON : DisplayUI::AP_MODE_AUTO;
+}
+
 static void apAutoUpdate() {
     // No client configured → the AP is the only way in, never touch it.
     if (settings.getStaSsid().length() == 0 || !settings.getApOffWhenSta() || apManualOn) {
@@ -465,7 +473,7 @@ void loop() {
             strftime(ntpBuf, sizeof(ntpBuf), "%Y-%m-%d %H:%M:%S", &ti);
         }
         display.updateSysInfo(apSsid.c_str(), apIp.c_str(),
-                              staSsid.c_str(), staIp.c_str(), ntpBuf, settings.otaActive(), apOn);
+                              staSsid.c_str(), staIp.c_str(), ntpBuf, settings.otaActive(), apPillMode());
     }
 
     // AP auto-off state machine (cheap; the checks are all in-memory)
@@ -479,7 +487,7 @@ void loop() {
         Serial.printf("[WiFi] AP manual override %s\n", apManualOn ? "ON" : "released");
         apAutoUpdate();
         display.updateSysInfo(nullptr, nullptr, nullptr, nullptr, nullptr,
-                              settings.otaActive(), apOn);
+                              settings.otaActive(), apPillMode());
     }
 
     BmsData   b = bms.getData();

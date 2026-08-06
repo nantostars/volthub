@@ -59,9 +59,14 @@ public:
     void setLanguage(uint8_t lang);
 
     // Update system info shown on the System screen (call periodically from main)
+    // What the AP pill shows. Computed in main.cpp (it owns the WiFi state) so the UI does not
+    // duplicate the logic: OFF = AP down · ON = up and cannot go down (pinned by the user, or the
+    // auto-off option is not in play) · AUTO = up but the automation may drop it.
+    enum ApMode : uint8_t { AP_MODE_OFF = 0, AP_MODE_ON = 1, AP_MODE_AUTO = 2 };
+
     void updateSysInfo(const char* apSsid, const char* apIp,
                        const char* staSsid, const char* staIp,
-                       const char* ntpTime, bool otaOn, bool apOn);
+                       const char* ntpTime, bool otaOn, uint8_t apMode);
 
     // Escape hatch: true once if the AP pill was tapped since the last call. main.cpp owns the
     // WiFi state, so the UI only reports the tap.
@@ -172,6 +177,6 @@ private:
     char _syStaIp[16]   = "";
     char _syNtpTime[20] = "--";
     bool _syOta = false;   // OTA effective status (enabled + credentials set)
-    bool _syApOn = true;   // softAP currently up (shown as the AP pill)
+    uint8_t _syApMode = AP_MODE_ON;   // what the AP pill shows
     bool _apTogglePending = false;
 };

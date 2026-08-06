@@ -33,7 +33,10 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
 - **Dual language** — English / Italian, switchable from the web System tab.
 - **OTA updates** — disabled by default; enable it and set the credentials from the web
   System page (nothing hardcoded, no credentials in the repo).
-- **NTP clock**, configurable Wi‑Fi (AP + optional client), persisted settings (NVS).
+- **NTP clock**, configurable Wi‑Fi (AP + optional client), persisted settings (NVS). The AP can
+  optionally [switch itself off while the client is connected](#turning-the-ap-off-while-the-client-is-connected),
+  so your phone stops auto‑joining it — with an on‑screen button and a boot grace window so you
+  can never be locked out.
 - **Built to run for days** — no‑leak BLE scanning, non‑overlapping web polling and a free‑RAM
   readout in the System tab, so the dashboard stays reachable on long trips.
 
@@ -91,6 +94,42 @@ pio run -e cyd     -t upload --upload-port /dev/cu.usbserial-XXXX # CYD
 - **Default Wi‑Fi:** Access Point `CamperEnergy` / `camper1234`; the dashboard is at
   `http://192.168.4.1`.
 
+### Turning the AP off while the client is connected
+
+Optional, **off by default** (web **System → Configuration → WiFi Client**). When enabled, the
+device drops its own access point while it is connected to an existing Wi‑Fi network, so your
+phone stops auto‑joining `CamperEnergy` and losing its internet connection.
+
+The device **cannot** know whether your phone can actually reach it over that network — client
+isolation and captive portals, both common on campsite Wi‑Fi, are invisible from the ESP32 side.
+So the safety net is not network logic but two physical ways back in:
+
+1. **The `AP` button on the device System screen.** It shows the current mode and a tap always
+   changes it — it can only switch the AP **on** or hand control back to the automation, never
+   turn it off, so a stray tap cannot lock you out.
+
+   | Button | Meaning | A tap… |
+   |---|---|---|
+   | `OFF` (grey) | AP is down | turns it on → `ON` |
+   | `ON` (green) | AP is up and pinned on | hands back to the automation → `AUTO` |
+   | `AUTO` (green) | AP is up, the automation may drop it | pins it on → `ON` |
+
+   With the option disabled the button reads a permanent `ON`: there is no automation to hand
+   control to, and the AP never goes down.
+
+2. **A power cycle.** The AP is unconditionally on for **10 minutes after every boot**, so
+   switching the device off and on always gets you back in, even if the touchscreen is
+   unresponsive.
+
+Automatic behaviour: the AP is dropped only after the client link has been up for **2 minutes**
+continuously, and comes back **60 seconds** after the link is lost (not instantly, so it does not
+flap on a shaky network), restarting the 10‑minute grace window. It never applies if no client
+network is configured.
+
+**Known limitation:** if you are away from the vehicle and the client network isolates its
+clients, the AP stays off until you are physically back at the device. That trade‑off is why the
+option ships disabled.
+
 ## Web dashboard & API
 
 The dashboard is embedded in the firmware (`src/Dashboard.h`) and served over Wi‑Fi. It
@@ -106,7 +145,7 @@ other fields are omitted rather than zeroed.
 | `solar` | `online`, `state`, `stateCode`, `battVoltage`, `chargeCurrent`, `solarPower`, `yieldToday`, `loadCurrent`, `pid`, `model` |
 | `orion` | `online`, `state`, `stateCode`, `inVoltage`, `inCurrent`, `outVoltage`, `outCurrent`, `pid`, `model` |
 | `imu` | `online`, `pitch`, `roll`, `yaw`, `temp` |
-| `sys` | `fw`, `lang`, `ota`, `heap`, `apIp`, `staIp`, `date`, `time` |
+| `sys` | `fw`, `lang`, `ota`, `heap`, `apIp`, `staIp`, `date`, `time`, `apOn`, `apAuto` |
 
 `etaMin` is the runtime estimate in minutes (`0` = not meaningful: at rest, offline or already
 full); `etaFull` tells whether it counts down to full (charging) or to empty (discharging).

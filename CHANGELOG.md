@@ -10,6 +10,23 @@ of the web dashboard.
 
 ---
 
+## 0.66 — AP pill: show the mode (AUTO / ON / OFF) + fix a pill vanishing on tap
+- The AP pill showed only whether the AP was up, but a tap changes the *mode*, not the state — so
+  tapping while the AP was already on produced no visible change and looked broken. It now shows
+  the mode: **AUTO** (up, the automation may drop it) · **ON** (up and pinned, or the auto-off
+  option is not in play) · **OFF** (down, a tap brings it back). Every tap changes the text; the
+  colour still answers "can I reach it right now?". With the option disabled the pill reads a
+  permanent ON rather than a misleading AUTO. The mode is computed in `main.cpp` (which owns the
+  WiFi state) and passed as `DisplayUI::ApMode`, so the UI does not duplicate the logic.
+- Fixed the AP pill disappearing after tapping the Screen toggle: `drawSystem()`'s card fill erases
+  **both** pills, and the AP pill text had not changed, so `pillCached()` skipped its redraw and it
+  stayed blank until the next screen change. `drawSystem()` now drops the cached text of the pills
+  it erases — it is called directly on tap, i.e. outside `selectScreen()`'s cache reset.
+- `selectScreen()` still cleared only the first 5 pill slots after the array grew to 6 in 0.65, so
+  the new AP pill was never invalidated on screen change. Now sized from the array itself.
+- Documented the whole AP auto-off feature in `README.md` (modes table, escape hatches, timings and
+  the known limitation) and added `apOn`/`apAuto` to the documented `sys` API fields.
+
 ## 0.65 — WiFi: optionally drop the AP while the client is connected
 - New setting (web **System → WiFi Client**, NVS `ap_off_sta`, **default OFF**): turn the softAP off
   while the STA is connected, so the phone stops auto-joining `CamperEnergy` and losing internet.

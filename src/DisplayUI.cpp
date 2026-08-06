@@ -326,11 +326,11 @@ void DisplayUI::handleTouch() {
     }
 
     // System screen toggles: left half = screen timeout, right half = AP (escape hatch).
-    if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 116, 40)) {
+    if (_screen == SCR_SYSTEM && hitTest(sx, sy, 300, CT_Y + 8, 112, 40)) {
         _alwaysOn = !_alwaysOn;
         drawSystem();
         present();
-    } else if (_screen == SCR_SYSTEM && hitTest(sx, sy, 416, CT_Y + 8, 52, 40)) {
+    } else if (_screen == SCR_SYSTEM && hitTest(sx, sy, 412, CT_Y + 8, 56, 40)) {
         _apTogglePending = true;   // main.cpp owns the WiFi state and will redraw
     }
 }
@@ -355,7 +355,7 @@ void DisplayUI::selectScreen(Screen s) {
     // reset anti-flicker caches so the new screen fully repaints its values
     _lastSocBucket = -999; _lastPitch = 99.0f; _lastRoll = 99.0f; _lastImuValid = false;
     _cellSig = -1;
-    for (int i = 0; i < 5; i++) _pill[i][0] = 0;
+    for (size_t i = 0; i < sizeof(_pill) / sizeof(_pill[0]); i++) _pill[i][0] = 0;
     clearContent();
     drawTabBar();
     switch (_screen) {
@@ -1118,8 +1118,13 @@ void DisplayUI::drawSystem() {
     drawCard(12, CT_Y + 8, 280, 214, C_CARD, true);
     fillText(24, CT_Y + 16, 200, 14, t("Connected devices"), 1, C_MUTED, C_CARD);
     drawCard(300, CT_Y + 8, 168, 40, C_INSET, true);   // toggles: screen timeout | AP
-    fillText(312, CT_Y + 14, 48, 14, t("Screen"), 1, C_MUTED, C_INSET);
-    fillText(418, CT_Y + 14, 18, 14, "AP", 1, C_MUTED, C_INSET);
+    fillText(312, CT_Y + 14, 44, 14, t("Screen"), 1, C_MUTED, C_INSET);
+    fillText(414, CT_Y + 14, 16, 14, "AP", 1, C_MUTED, C_INSET);
+    // The card fill just erased both pills; drop their cached text so updateSystem() repaints
+    // them. Without this, tapping one toggle wipes the other pill (its text didn't change, so
+    // pillCached would skip the redraw) and it stays blank. drawSystem() is called directly on
+    // tap, i.e. outside selectScreen()'s cache reset.
+    _pill[4][0] = 0; _pill[5][0] = 0;
     drawCard(300, CT_Y + 56, 168, 166, C_CARD, true);
     fillText(312, CT_Y + 64, 150, 14, t("Network"), 1, C_MUTED, C_CARD);
     updateSystem();
@@ -1140,8 +1145,13 @@ void DisplayUI::updateSystem() {
     }
 
     // screen-timeout toggle + AP state/escape hatch (labels drawn once in drawSystem)
-    pillCached(4, 362, CT_Y + 16, 52, 22, _alwaysOn ? t("ALWAYS") : t("AUTO"), _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
-    pillCached(5, 438, CT_Y + 16, 28, 22, _syApOn ? "ON" : "OFF", _syApOn ? C_GREEN : C_MUTED, _syApOn ? C_INSET : C_BG);
+    pillCached(4, 358, CT_Y + 16, 52, 22, _alwaysOn ? t("ALWAYS") : t("AUTO"), _alwaysOn ? C_GREEN : C_MUTED, _alwaysOn ? C_INSET : C_BG);
+    // AP pill shows the MODE, not just up/down: every tap changes the text, so the tap always
+    // has visible feedback. Colour still answers "can I reach it right now?".
+    const bool apUp = (_syApMode != AP_MODE_OFF);
+    pillCached(5, 432, CT_Y + 16, 34, 22,
+               _syApMode == AP_MODE_OFF ? "OFF" : (_syApMode == AP_MODE_ON ? "ON" : t("AUTO")),
+               apUp ? C_GREEN : C_MUTED, apUp ? C_INSET : C_BG);
 
     // network info
     int ny = CT_Y + 82;
@@ -1167,13 +1177,13 @@ void DisplayUI::updateSystem() {
 // ─── updateSysInfo ────────────────────────────────────────────────────────────
 void DisplayUI::updateSysInfo(const char* apSsid, const char* apIp,
                               const char* staSsid, const char* staIp,
-                              const char* ntpTime, bool otaOn, bool apOn) {
+                              const char* ntpTime, bool otaOn, uint8_t apMode) {
     if (apSsid)  strncpy(_syApSsid,  apSsid,  sizeof(_syApSsid) - 1);
     if (apIp)    strncpy(_syApIp,    apIp,    sizeof(_syApIp) - 1);
     if (staSsid) strncpy(_syStaSsid, staSsid, sizeof(_syStaSsid) - 1);
     if (staIp)   strncpy(_syStaIp,   staIp,   sizeof(_syStaIp) - 1);
     if (ntpTime) strncpy(_syNtpTime, ntpTime, sizeof(_syNtpTime) - 1);
-    _syOta  = otaOn;
-    _syApOn = apOn;
+    _syOta    = otaOn;
+    _syApMode = apMode;
     if (_screen == SCR_SYSTEM && _screenOn && !_firstDraw) { updateSystem(); present(); }
 }
