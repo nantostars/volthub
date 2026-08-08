@@ -8,7 +8,7 @@
 // Empty field = value not available (kept empty on purpose so Excel/pandas read it as missing
 // instead of a real 0 that would poison averages).
 static const char* CSV_HEADER =
-    "datetime,batt_soc,batt_v,batt_a,batt_temp,batt_st,"
+    "datetime,batt_soc,batt_ah,batt_v,batt_a,batt_temp,batt_st,"
     "sol_batt_v,sol_batt_a,sol_st,"
     "dc_alt_v,dc_alt_a,dc_batt_v,dc_batt_a,dc_st\n";
 
@@ -98,6 +98,17 @@ void DataLogger::prune() {
     }
 }
 
+// True when the file's first line is exactly the current header, i.e. same column set.
+static bool headerMatches(const char* path) {
+    File f = LittleFS.open(path, FILE_READ);
+    if (!f) return false;
+    String first = f.readStringUntil('\n');
+    f.close();
+    first.trim();
+    String want(CSV_HEADER); want.trim();
+    return first == want;
+}
+
 void DataLogger::rotateIfNeeded() {
     time_t now = time(nullptr);
     struct tm ti; localtime_r(&now, &ti);
@@ -107,11 +118,20 @@ void DataLogger::rotateIfNeeded() {
 
     flush();                                          // close out the previous day cleanly
     strncpy(_day, day, sizeof(_day) - 1);
-    snprintf(_file, sizeof(_file), "/volthub_%s.csv", day);
-    if (!LittleFS.exists(_file)) {
-        File f = LittleFS.open(_file, FILE_WRITE);
-        if (f) { f.print(CSV_HEADER); f.close(); }
-        Serial.printf("[log] new file %s\n", _file);
+    // Pick a name whose existing header matches the current column set. After a firmware update
+    // that changes the columns, appending to a file written with the old layout would silently
+    // corrupt it, so we move to a suffixed name instead of mixing two schemas in one file.
+    for (int i = 0; i < 10; i++) {
+        if (i == 0) snprintf(_file, sizeof(_file), "/volthub_%s.csv", day);
+        else        snprintf(_file, sizeof(_file), "/volthub_%s_%d.csv", day, i);
+        if (!LittleFS.exists(_file)) {
+            File f = LittleFS.open(_file, FILE_WRITE);
+            if (f) { f.print(CSV_HEADER); f.close(); }
+            Serial.printf("[log] new file %s\n", _file);
+            break;
+        }
+        if (headerMatches(_file)) break;                 // same schema → keep appending
+        Serial.printf("[log] %s has a different column set, trying next name\n", _file);
     }
     prune();
 }
@@ -125,6 +145,9 @@ void DataLogger::buildRow(char* dst, size_t n, const BmsData& b,
 
     // battery
     addI(dst, n, len, (long)b.soc, b.valid);
+    // Coulomb-counted charge left. Worth the 5 bytes: the current reading is quantised in
+    // ~0.5 A steps, so integrating it for energy is far less accurate than this counter.
+    addF(dst, n, len, b.valid ? b.remainingAh : NAN, 1);
     addF(dst, n, len, b.valid ? b.voltage : NAN, 2);
     addF(dst, n, len, b.valid ? b.current : NAN, 1);
     addI(dst, n, len, (long)b.cellTemp, b.valid);

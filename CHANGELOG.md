@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.76 — Data log: add the BMS charge counter (`batt_ah`)
+- Added `batt_ah` (`remainingAh`) right after `batt_soc`. It is the BMS coulomb counter, and it is
+  what you want for energy maths: the logged current is quantised by the BMS in ~0.5 A steps, so
+  integrating it carries a ~25% error at the small currents a parked camper actually draws.
+- Cost measured on a real row: 74 → 79 bytes, i.e. 52 → 55 KB/day and 2.1 → 2.0 days of history.
+- Changing the columns would have silently corrupted a file already written with the old header,
+  so rotation now checks that the existing file's first line matches the current column set and
+  otherwise moves to a suffixed name (`volthub_YYYYMMDD_1.csv`). No mixed schemas, no data loss.
+
 ## 0.75 — DC-DC tab: symmetric input/output layout (device + web)
 - The top card mixed the two sides of the converter: a big output-power headline plus three boxes
   labelled "Alternator in" (a voltage), "To battery" (a current) and "Output" (a voltage) — same

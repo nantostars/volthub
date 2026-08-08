@@ -127,7 +127,8 @@ Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PER
 - **The clock gates everything**: no RTC on the board, so without a valid time there is no filename and no usable timestamp — the logger sits in `LOG_WAIT_TIME`. `POST /api/time` lets the dashboard hand over the phone's clock (works offline); it is refused once `time(nullptr)` shows a real date, so NTP always wins.
 - **Live-apply endpoints:** `/api/settings` **reboots the device on every POST**, so anything that only needs to take effect immediately gets its own endpoint — `POST /api/logs` (log toggle, file delete) and `POST /api/lang` (UI language). Keep new instant settings out of `/api/settings`.
 - **The log toggle is NOT in `/api/settings`** — that handler reboots on every save. It lives on `POST /api/logs` (`{enabled:bool}`) and applies live. Same endpoint deletes a file (`{file:name}`); `GET /api/logs` returns status + listing, `GET /logdl?f=` streams a file.
-- Statuses are numeric to keep rows ~85 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
+- **Changing the column set is a breaking change for files already on disk**: `rotateIfNeeded()` compares the existing file's first line with `CSV_HEADER` and falls back to `volthub_YYYYMMDD_<n>.csv` when they differ, so two schemas never end up in one file. Keep that check working when adding columns.
+- Statuses are numeric to keep rows ~80 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
 
 ### NimBLE GATT quirks (IMU)
 

@@ -139,14 +139,16 @@ Optional, **off by default**, enabled from the web **System → Data log** card.
 2 minutes is appended to `volthub_YYYYMMDD.csv` on the device's internal flash; the same card
 lists the files with a download link and a delete button.
 
-Columns: `datetime, batt_soc, batt_v, batt_a, batt_temp, batt_st, sol_batt_v, sol_batt_a, sol_st,
-dc_alt_v, dc_alt_a, dc_batt_v, dc_batt_a, dc_st`. Statuses are numeric codes — battery
+Columns: `datetime, batt_soc, batt_ah, batt_v, batt_a, batt_temp, batt_st, sol_batt_v,
+sol_batt_a, sol_st, dc_alt_v, dc_alt_a, dc_batt_v, dc_batt_a, dc_st`. `batt_ah` is the BMS
+coulomb counter — use it for energy maths rather than integrating `batt_a`, which the BMS
+quantises in ~0.5 A steps. Statuses are numeric codes — battery
 `1` charging / `0` idle / `-1` discharging; solar and DC‑DC use the official VE.Direct state codes
 (3 bulk, 4 absorption, 5 float, …). An empty field means the reading was unavailable, so
 spreadsheets treat it as missing rather than a real zero. PV voltage and current are not logged
 because the Victron advertisement does not carry them.
 
-Storage is the 128 KB internal partition (LittleFS): about **60 KB a day**, so roughly **1.8 days**
+Storage is the 128 KB internal partition (LittleFS): about **55 KB a day**, so roughly **1.8 days**
 fit — in practice today's file plus part of yesterday's. One file is written per day and the oldest
 is pruned whenever free space drops below 15 KB; that free-space rule *is* the retention policy.
 (A 3-file cap also exists, but only as a guard in case a wrong clock spawns several small files —
