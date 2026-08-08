@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Update.h>
+#include <LittleFS.h>
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
 #include <time.h>
@@ -14,6 +15,7 @@
 #include "LitimeBMS.h"
 #include "WitmotionIMU.h"
 #include "DisplayUI.h"
+#include "DataLogger.h"
 #include "Dashboard.h"   // kept for web access from phone (settings etc.)
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
@@ -24,6 +26,7 @@ VictronBLE      victron;
 LitimeBMS       bms;
 WitmotionIMU    imu;
 DisplayUI       display;
+DataLogger      logger;
 
 // ─── NTP ──────────────────────────────────────────────────────────────────────
 
@@ -239,6 +242,8 @@ static void handleApiData() {
     jsys["fw"]    = FW_VERSION;
     jsys["lang"]  = settings.getLang();
     jsys["ota"]   = settings.otaActive();
+    jsys["log"]   = logger.stateName();
+    jsys["logOn"] = logger.enabled();
     jsys["apOn"]  = apOn;                       // softAP currently up?
     jsys["apAuto"]= settings.getApOffWhenSta(); // "drop the AP while the client is connected"
     jsys["heap"]  = ESP.getFreeHeap();          // free RAM — watch for a downward trend (leak)
@@ -267,6 +272,7 @@ static void handleGetSettings() {
     doc["otaHasPass"] = settings.getOtaPass().length() > 0;   // never echo the password itself
     doc["otaActive"]  = settings.otaActive();
     doc["apOffWhenSta"] = settings.getApOffWhenSta();
+    doc["logEnabled"]   = settings.getLogEnabled();
     String json; serializeJson(doc,json);
     server.send(200,"application/json",json);
 }
@@ -291,6 +297,7 @@ static void handlePostSettings() {
     if (doc["otaUser"].is<const char*>())   settings.setOtaUser(doc["otaUser"].as<String>());
     if (doc["otaPass"].is<const char*>() && strlen(doc["otaPass"]) > 0) settings.setOtaPass(doc["otaPass"].as<String>());
     server.send(200,"application/json","{\"status\":\"ok\",\"rebooting\":true}");
+    logger.flush();            // don't lose buffered rows across the reboot
     delay(300); ESP.restart();
 }
 
@@ -374,6 +381,75 @@ static void handleOtaChunk() {
     }
 }
 
+// The dashboard pushes the phone's clock here on load. The device has no RTC and often no
+// internet in a camper, so without this the logger would sit in "waiting for clock" forever.
+// Only accepted while our own clock is unset, so a real NTP sync is never overwritten.
+static void handleSetTime() {
+    JsonDocument doc;
+    if (deserializeJson(doc, server.arg("plain"))) { server.send(400,"application/json","{\"error\":\"bad json\"}"); return; }
+    long epoch = doc["epoch"] | 0L;
+    if (epoch < 1600000000L) { server.send(400,"application/json","{\"error\":\"bad epoch\"}"); return; }
+    if (time(nullptr) > 1600000000L) { server.send(200,"application/json","{\"ok\":true,\"kept\":true}"); return; }
+    struct timeval tv = { .tv_sec = (time_t)epoch, .tv_usec = 0 };
+    settimeofday(&tv, nullptr);
+    Serial.printf("[time] set from browser: %ld\n", epoch);
+    server.send(200,"application/json","{\"ok\":true}");
+}
+
+// List the CSV files plus logger/storage status (web System tab).
+static void handleLogsList() {
+    JsonDocument doc;
+    doc["enabled"] = logger.enabled();
+    doc["state"]   = logger.stateName();
+    doc["rows"]    = logger.rowsWritten();
+    doc["file"]    = logger.currentFile();
+    doc["free"]    = (uint32_t)logger.freeBytes();
+    doc["total"]   = (uint32_t)logger.totalBytes();
+    JsonArray arr  = doc["files"].to<JsonArray>();
+    File dir = LittleFS.open("/");
+    for (File f = dir.openNextFile(); f; f = dir.openNextFile()) {
+        const char* n = f.name(); const char* bare = (n[0]=='/') ? n+1 : n;
+        if (strncmp(bare, "volthub_", 8) != 0) continue;
+        JsonObject jo = arr.add<JsonObject>();
+        jo["n"] = bare; jo["s"] = (uint32_t)f.size();
+    }
+    dir.close();
+    String json; serializeJson(doc,json);
+    server.send(200,"application/json",json);
+}
+
+// Download one CSV. streamFile keeps RAM flat regardless of file size.
+static void handleLogDownload() {
+    String n = server.arg("f");
+    if (!n.startsWith("volthub_") || n.indexOf('/') >= 0) { server.send(400,"text/plain","bad name"); return; }
+    String path = "/" + n;
+    File f = LittleFS.open(path, FILE_READ);
+    if (!f) { server.send(404,"text/plain","not found"); return; }
+    server.sendHeader("Content-Disposition", "attachment; filename=" + n);
+    server.streamFile(f, "text/csv");
+    f.close();
+}
+
+// POST /api/logs — toggle the logger and delete files. Deliberately NOT part of /api/settings:
+// that handler reboots the device on every save, which would be absurd for a log switch.
+static void handleLogsPost() {
+    JsonDocument doc;
+    if (deserializeJson(doc, server.arg("plain"))) { server.send(400,"application/json","{\"error\":\"bad json\"}"); return; }
+    if (doc["enabled"].is<bool>()) {
+        bool le = doc["enabled"].as<bool>();
+        settings.setLogEnabled(le);
+        logger.setEnabled(le);
+        server.send(200,"application/json","{\"ok\":true}");
+        return;
+    }
+    const char* n = doc["file"] | "";
+    if (strncmp(n, "volthub_", 8) != 0 || strchr(n, '/')) { server.send(400,"application/json","{\"error\":\"bad name\"}"); return; }
+    logger.flush();
+    String path = String("/") + n;
+    LittleFS.remove(path);
+    server.send(200,"application/json","{\"ok\":true}");
+}
+
 static void handle204()     { server.send(204,"text/plain",""); }
 static void handleHotspot() { server.send(200,"text/html","<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>"); }
 static void handleNotFound(){ server.send(404,"text/plain","Not found"); }
@@ -429,12 +505,18 @@ void setup() {
     xTaskCreate(imuTask,          "IMU",    4096, nullptr, 1, nullptr);
     xTaskCreate(scanWatchdogTask, "ScanWD", 2048, nullptr, 1, nullptr);
 
+    logger.begin(settings.getLogEnabled());
+
     server.on("/",                    handleRoot);
     server.on("/api/data",            handleApiData);
     server.on("/api/settings",        HTTP_GET,  handleGetSettings);
     server.on("/api/settings",        HTTP_POST, handlePostSettings);
     server.on("/update",              HTTP_GET,  handleOtaPage);
     server.on("/update",              HTTP_POST, handleOtaDone, handleOtaChunk);
+    server.on("/api/time",            HTTP_POST, handleSetTime);
+    server.on("/api/logs",            HTTP_GET,  handleLogsList);
+    server.on("/api/logs",            HTTP_POST, handleLogsPost);
+    server.on("/logdl",               HTTP_GET,  handleLogDownload);
     server.on("/generate_204",        handle204);
     server.on("/hotspot-detect.html", handleHotspot);
     server.onNotFound(handleNotFound);
@@ -502,6 +584,8 @@ void loop() {
     BmsData   b = bms.getData();
     SolarData s = victron.getSolar();
     OrionData o = victron.getOrion();
+
+    logger.update(millis(), b, s, o);
 
     display.update(b, s, o, imu.getData(), millis());
     display.handleTouch();

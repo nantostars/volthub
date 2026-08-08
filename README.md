@@ -37,6 +37,9 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
   optionally [switch itself off while the client is connected](#turning-the-ap-off-while-the-client-is-connected),
   so your phone stops auto‑joining it — with an on‑screen button and a boot grace window so you
   can never be locked out.
+- **CSV data log** — optional, off by default: one row every 2 minutes to internal flash
+  (`volthub_YYYYMMDD.csv`), with battery, solar and DC-DC readings. Enable it and download the
+  files from the web System tab. See [Data log](#data-log-csv).
 - **Built to run for days** — no‑leak BLE scanning, non‑overlapping web polling and a free‑RAM
   readout in the System tab, so the dashboard stays reachable on long trips.
 
@@ -129,6 +132,29 @@ network is configured.
 **Known limitation:** if you are away from the vehicle and the client network isolates its
 clients, the AP stays off until you are physically back at the device. That trade‑off is why the
 option ships disabled.
+
+### Data log (CSV)
+
+Optional, **off by default**, enabled from the web **System → Data log** card. One row every
+2 minutes is appended to `volthub_YYYYMMDD.csv` on the device's internal flash; the same card
+lists the files with a download link and a delete button.
+
+Columns: `datetime, batt_soc, batt_v, batt_a, batt_temp, batt_st, sol_batt_v, sol_batt_a, sol_st,
+dc_alt_v, dc_alt_a, dc_batt_v, dc_batt_a, dc_st`. Statuses are numeric codes — battery
+`1` charging / `0` idle / `-1` discharging; solar and DC‑DC use the official VE.Direct state codes
+(3 bulk, 4 absorption, 5 float, …). An empty field means the reading was unavailable, so
+spreadsheets treat it as missing rather than a real zero. PV voltage and current are not logged
+because the Victron advertisement does not carry them.
+
+Storage is the 128 KB internal partition (LittleFS): about **60 KB a day**, so roughly 1.8 days
+fit. One file per day is kept, capped at 7 files, and the oldest is pruned whenever free space
+drops below 15 KB. Rows are buffered and written once every 10 minutes, so the log costs one small
+flash write per 10 min — no perceptible impact, and flash wear is negligible.
+
+**Clock:** the board has no battery-backed RTC, so without a date there is no filename and no
+usable timestamp — logging waits in *"waiting for clock"*. Opening the dashboard fixes this even
+with no internet: the page hands the device your phone's clock (`POST /api/time`), which is
+ignored once NTP has synced.
 
 ## Web dashboard & API
 

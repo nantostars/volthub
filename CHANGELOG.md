@@ -10,6 +10,31 @@ of the web dashboard.
 
 ---
 
+## 0.71 — CSV data log to internal flash (off by default)
+- Logs one row every **2 minutes** to `/volthub_YYYYMMDD.csv`: datetime, battery SOC/V/A/temp and
+  charge state, solar battery-side V/A and state, DC-DC alternator-side and service-side V/A and
+  state. Statuses are numeric codes (battery 1/0/-1; solar and DC-DC use the VE.Direct CS codes).
+  PV voltage/current are absent because the Victron advertisement does not carry them, and the
+  power columns are omitted as they are just V×A.
+- **LittleFS on the existing `spiffs` partition** (128 KB): no repartitioning, no USB flash — the
+  library mounts that label by default and formats it on first use. LittleFS rather than SPIFFS on
+  purpose: SPIFFS garbage collection on a nearly-full filesystem (the normal state of a rotating
+  log) can stall the device for seconds.
+- Rows are buffered in RAM and flushed every 5 samples → **one flash write every 10 minutes**
+  instead of 720 a day. ~85 B/row ≈ 60 KB/day against ~110 KB usable, so about 1.8 days fit.
+  Retention: one file per day, capped at 7, plus a free-space rule that prunes the oldest below
+  15 KB — the space rule is the one that actually fires here, and it keeps working when the clock
+  is wrong (date-based names alone would not).
+- **Clock**: rows and filenames need a date the ESP32 cannot keep (no RTC, often no internet), so
+  logging idles in "waiting for clock". The dashboard now pushes the phone's time to
+  `POST /api/time` on load — works offline, and is ignored once NTP has synced.
+- Web System tab: live ON/OFF toggle, state, rows, free space, and the file list with download and
+  delete. The toggle uses its own `/api/logs` endpoint because every `/api/settings` POST reboots
+  the device, which would be absurd for a log switch. Buffered rows are flushed before any reboot.
+- Impact: writes are ~450 B every 10 min (page write <1 ms, occasional 20-40 ms sector erase), so
+  no perceptible effect on BLE, web or display; wear works out to ~180 erase cycles a year against
+  ~100k rated. Firmware grows ~64 KB (62% of the app slot).
+
 ## 0.70 — Solar/DC-DC: show everything the telemetry already carries
 - Four fields were being decoded and thrown away. The DC-DC **off reason** and the **charger error**
   were not even reaching the API; the DC-DC **input current** and the solar **load output** were on

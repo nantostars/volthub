@@ -30,6 +30,10 @@ public:
     bool   getApOffWhenSta()  { return _prefs.getBool("ap_off_sta", false); }
     void   setApOffWhenSta(bool v) { _prefs.putBool("ap_off_sta", v); }
 
+    // CSV data logger (LittleFS on the existing spiffs partition). Default OFF.
+    bool   getLogEnabled()    { return _prefs.getBool("log_en", false); }
+    void   setLogEnabled(bool v) { _prefs.putBool("log_en", v); }
+
     bool   getOtaEnabled()    { return _prefs.getBool("ota_en", false); }
     String getOtaUser()       { return _prefs.getString("ota_user", ""); }
     String getOtaPass()       { return _prefs.getString("ota_pass", ""); }

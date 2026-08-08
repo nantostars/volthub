@@ -117,6 +117,17 @@ The pill shows the **mode**, not just up/down, so every tap has visible feedback
 - **STA failure must not degrade the AP.** On a failed client join, leaving `WIFI_AP_STA` with auto-reconnect made the driver retry in the background and each attempt disrupted the shared-radio softAP (AP "comes and goes", pages served truncated). `wifiSetup()` now stops the STA and drops to stable AP-only until the next reboot (v0.53).
 - **Heap diagnostics** (kept after the v0.58 leak hunt): `sys.heap` in `/api/data`, a "Free RAM" row in the web System tab, and a 60s `[heap]` serial log. Healthy = flat (~174 KB free after 24 h); a steady decline means something is leaking.
 
+### CSV data log (`DataLogger`)
+
+Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PERIOD_MS` (2 min) to `/volthub_YYYYMMDD.csv`.
+
+- **Filesystem: LittleFS on the existing `spiffs` partition** (128 KB from `min_spiffs.csv`). The Arduino LittleFS library mounts the partition *labelled* `spiffs` by default, so this needs **no repartitioning and no USB flash** — it formats on first mount. Use LittleFS, **not SPIFFS**: SPIFFS garbage collection on a nearly-full filesystem (a rotating log's normal state) can stall the device for seconds; the flash cache is disabled during erases, so that stall hits both cores.
+- **Buffered**: rows accumulate in RAM and flush every `LOG_FLUSH_ROWS` (5) → one write per 10 min, not 720/day. `flush()` must be called before any reboot (it already is in `handlePostSettings`).
+- **Retention**: one file per day, `LOG_MAX_FILES` (7) cap **plus** a free-space rule (`LOG_MIN_FREE`, 15 KB). The space rule is the one that fires on 128 KB (~60 KB/day ⇒ ~1.8 days) and, unlike date-based names, still works when the clock is wrong.
+- **The clock gates everything**: no RTC on the board, so without a valid time there is no filename and no usable timestamp — the logger sits in `LOG_WAIT_TIME`. `POST /api/time` lets the dashboard hand over the phone's clock (works offline); it is refused once `time(nullptr)` shows a real date, so NTP always wins.
+- **The log toggle is NOT in `/api/settings`** — that handler reboots on every save. It lives on `POST /api/logs` (`{enabled:bool}`) and applies live. Same endpoint deletes a file (`{file:name}`); `GET /api/logs` returns status + listing, `GET /logdl?f=` streams a file.
+- Statuses are numeric to keep rows ~85 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
+
 ### NimBLE GATT quirks (IMU)
 
 - Must call `getServices(true)` then iterate the returned vector directly. `getService(uuid)` returns null even after forced discovery — same for `getCharacteristics(true)`.

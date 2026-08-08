@@ -354,6 +354,15 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
+      <div class="card">
+        <div class="card-s" style="margin-bottom:6px" data-i18n="Data log (CSV)">Data log (CSV)</div>
+        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
+          <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
+        <div id="log-status"></div>
+        <div id="log-files"></div>
+        <div class="st-hint" data-i18n="One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
+      </div>
+
       <!-- settings form -->
       <div class="card">
         <div class="card-s" style="margin-bottom:10px" data-i18n="Configuration">Configuration</div>
@@ -485,6 +494,15 @@ var I18N={ it:{
   "Loads":"Carichi","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Runtime":"Autonomia","To full":"A pieno",
+  "Data log (CSV)":"Log dati (CSV)",
+  "Logging":"Registrazione",
+  "Rows":"Righe",
+  "Free space":"Spazio libero",
+  "off":"spento",
+  "waiting for clock":"in attesa di orario",
+  "logging":"in registrazione",
+  "storage error":"errore memoria",
+  "One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga ogni 2 minuti. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
   "Load output":"Uscita carichi",
   "Error":"Errore",
   "Input & efficiency":"Ingresso e rendimento",
@@ -603,7 +621,7 @@ function setView(v){
     $('v-'+x).classList.toggle('active', x===v);
     $('t-'+x).classList.toggle('active', x===v);
   });
-  if(v==='system') loadSettings();
+  if(v==='system'){ loadSettings(); refreshLogs(); }
   if(lastData) applyData(lastData);
 }
 
@@ -851,6 +869,41 @@ function validateKey(el,hintId){
   var h=$(hintId); if(h){ h.className='st-hint'+(el.value.length===0?'':ok?' ok':' err');
     h.textContent=el.value.length===0?'VictronConnect → Product info → Advertising key':ok?TR('✓ Valid key'):TR('Must be 32 hex characters'); }
 }
+// ── data log ──────────────────────────────────────────────────────────────
+function fmtKB(b){ return (b>=1024)?(Math.round(b/1024)+' KB'):(b+' B'); }
+function refreshLogs(){
+  fetch('/api/logs').then(function(r){return r.json();}).then(function(d){
+    var b=$('log-btn');
+    if(b){ b.textContent=d.enabled?'ON':'OFF'; b.classList.toggle('on',!!d.enabled); }
+    var rows='';
+    rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Status')+'</span><span class="st-status-val '+(d.state==='logging'?'ok':'dim')+'">'+TR(d.state)+'</span></div>';
+    if(d.enabled) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Rows')+'</span><span class="st-status-val">'+(d.rows||0)+'</span></div>';
+    if(d.total) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Free space')+'</span><span class="st-status-val">'+fmtKB(d.free)+' / '+fmtKB(d.total)+'</span></div>';
+    $('log-status').innerHTML=rows;
+    var fl='';
+    (d.files||[]).sort(function(a,b){return a.n<b.n?1:-1;}).forEach(function(f){
+      fl+='<div class="st-status-row"><span class="st-status-lbl"><a class="ota-link" style="display:inline" href="/logdl?f='+f.n+'" download>'+f.n+'</a></span>'+
+          '<span class="st-status-val">'+fmtKB(f.s)+' <button class="lang-btn" onclick="delLog(\''+f.n+'\')">&#10005;</button></span></div>';
+    });
+    $('log-files').innerHTML=fl;
+  }).catch(function(){});
+}
+function toggleLog(){
+  var on=$('log-btn').textContent==='ON';
+  fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!on})})
+    .then(function(){ refreshLogs(); }).catch(function(){});
+}
+function delLog(n){
+  fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:n})})
+    .then(function(){ refreshLogs(); }).catch(function(){});
+}
+// The device has no RTC and often no internet: hand it the phone's clock so the logger can
+// start (and the on-screen clock is right). The device ignores it if already NTP-synced.
+function pushTime(){
+  fetch('/api/time',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({epoch:Math.floor(Date.now()/1000)})}).catch(function(){});
+}
+
 function toggleEye(id,btn){ var i=$(id); if(!i)return; if(i.type==='password'){i.type='text';btn.style.opacity='1';}else{i.type='password';btn.style.opacity='.5';} }
 function validateWifiPass(el){
   var ok=el.value.length===0||el.value.length>=8;
@@ -914,6 +967,7 @@ function poll(){
     .then(function(){ if(to)clearTimeout(to); setTimeout(poll,2000); });
 }
 initWake();
+pushTime();
 poll();
 </script>
 </body>
