@@ -595,7 +595,8 @@ function applyLang(){
 }
 function setLang(l){
   curLang=l?'it':'en'; applyLang();
-  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:l})});
+  // /api/lang applies live; /api/settings would reboot the device on every save.
+  fetch('/api/lang',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:l})}).catch(function(){});
 }
 
 function fmt(v,d){ if(v===undefined||v===null||isNaN(v))return '--'; return Number(v).toFixed(d); }

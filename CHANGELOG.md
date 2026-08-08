@@ -10,6 +10,14 @@ of the web dashboard.
 
 ---
 
+## 0.72 — Language: switch it live instead of rebooting
+- Changing the UI language went through `POST /api/settings`, whose handler saves and then
+  **restarts the device** — so every language switch rebooted the whole thing (BLE reconnects,
+  page reload, ~10 s of downtime) for a change that only needs a repaint.
+- It now uses its own `POST /api/lang`, the same pattern as the log toggle in 0.71: it stores the
+  choice in NVS, calls `display.setLanguage()` and returns. The device repaints and the web page
+  re-runs `applyLang()`. `/api/settings` still accepts `lang` for API completeness.
+
 ## 0.71 — CSV data log to internal flash (off by default)
 - Logs one row every **2 minutes** to `/volthub_YYYYMMDD.csv`: datetime, battery SOC/V/A/temp and
   charge state, solar battery-side V/A and state, DC-DC alternator-side and service-side V/A and

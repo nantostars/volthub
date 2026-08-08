@@ -125,6 +125,7 @@ Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PER
 - **Buffered**: rows accumulate in RAM and flush every `LOG_FLUSH_ROWS` (5) → one write per 10 min, not 720/day. `flush()` must be called before any reboot (it already is in `handlePostSettings`).
 - **Retention**: one file per day, `LOG_MAX_FILES` (7) cap **plus** a free-space rule (`LOG_MIN_FREE`, 15 KB). The space rule is the one that fires on 128 KB (~60 KB/day ⇒ ~1.8 days) and, unlike date-based names, still works when the clock is wrong.
 - **The clock gates everything**: no RTC on the board, so without a valid time there is no filename and no usable timestamp — the logger sits in `LOG_WAIT_TIME`. `POST /api/time` lets the dashboard hand over the phone's clock (works offline); it is refused once `time(nullptr)` shows a real date, so NTP always wins.
+- **Live-apply endpoints:** `/api/settings` **reboots the device on every POST**, so anything that only needs to take effect immediately gets its own endpoint — `POST /api/logs` (log toggle, file delete) and `POST /api/lang` (UI language). Keep new instant settings out of `/api/settings`.
 - **The log toggle is NOT in `/api/settings`** — that handler reboots on every save. It lives on `POST /api/logs` (`{enabled:bool}`) and applies live. Same endpoint deletes a file (`{file:name}`); `GET /api/logs` returns status + listing, `GET /logdl?f=` streams a file.
 - Statuses are numeric to keep rows ~85 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
 

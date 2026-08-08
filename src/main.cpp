@@ -291,6 +291,8 @@ static void handlePostSettings() {
     if (doc["ntpServer"].is<const char*>() && strlen(doc["ntpServer"])>0) settings.setNtpServer(doc["ntpServer"].as<String>());
     if (doc["ntpTZ"].is<const char*>()     && strlen(doc["ntpTZ"])>0)     settings.setNtpTZ(doc["ntpTZ"].as<String>());
     if (doc["imuMac"].is<const char*>()    && strlen(doc["imuMac"])>0)    settings.setWitmotionMac(doc["imuMac"].as<String>());
+    // Kept for API completeness, but the dashboard uses POST /api/lang so switching language
+    // does not reboot the device (this handler always restarts at the end).
     if (doc["lang"].is<int>()) { int lg = doc["lang"].as<int>(); settings.setLang(lg); display.setLanguage(lg); }
     if (doc["otaEnabled"].is<bool>())       settings.setOtaEnabled(doc["otaEnabled"].as<bool>());
     if (doc["apOffWhenSta"].is<bool>())     settings.setApOffWhenSta(doc["apOffWhenSta"].as<bool>());
@@ -430,6 +432,19 @@ static void handleLogDownload() {
     f.close();
 }
 
+// POST /api/lang — switch the UI language live. Deliberately NOT part of /api/settings: that
+// handler reboots on every save, and a language switch has no reason to restart the device
+// (the display just repaints and the web page re-runs applyLang()).
+static void handleSetLang() {
+    JsonDocument doc;
+    if (deserializeJson(doc, server.arg("plain"))) { server.send(400,"application/json","{\"error\":\"bad json\"}"); return; }
+    if (!doc["lang"].is<int>()) { server.send(400,"application/json","{\"error\":\"missing lang\"}"); return; }
+    int lg = doc["lang"].as<int>() ? 1 : 0;
+    settings.setLang(lg);
+    display.setLanguage(lg);
+    server.send(200,"application/json","{\"ok\":true}");
+}
+
 // POST /api/logs — toggle the logger and delete files. Deliberately NOT part of /api/settings:
 // that handler reboots the device on every save, which would be absurd for a log switch.
 static void handleLogsPost() {
@@ -513,6 +528,7 @@ void setup() {
     server.on("/api/settings",        HTTP_POST, handlePostSettings);
     server.on("/update",              HTTP_GET,  handleOtaPage);
     server.on("/update",              HTTP_POST, handleOtaDone, handleOtaChunk);
+    server.on("/api/lang",            HTTP_POST, handleSetLang);
     server.on("/api/time",            HTTP_POST, handleSetTime);
     server.on("/api/logs",            HTTP_GET,  handleLogsList);
     server.on("/api/logs",            HTTP_POST, handleLogsPost);
