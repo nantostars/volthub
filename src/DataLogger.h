@@ -21,8 +21,13 @@
 
 #define LOG_PERIOD_MS     120000UL   // one sample every 2 minutes
 #define LOG_FLUSH_ROWS    5          // → one flash write every 10 minutes
-#define LOG_MAX_FILES     7          // retention cap by count…
-#define LOG_MIN_FREE      15000UL    // …and by free space: prune below this many bytes
+// Retention is decided by FREE SPACE, not by file count: ~60 KB/day against ~110 KB usable
+// means roughly 1.8 days fit, so at most 2 files ever coexist and a count cap can never fire in
+// normal operation. LOG_MAX_FILES is only a guard against a pathological case — a clock that
+// jumps between dates creates several SMALL files, which stay under the free-space threshold for
+// a while and would otherwise clutter the list.
+#define LOG_MAX_FILES     3          // clutter guard, NOT the retention policy
+#define LOG_MIN_FREE      15000UL    // real retention rule: prune the oldest below this
 #define LOG_ROW_MAX       160        // generous upper bound for one CSV row
 
 class DataLogger {

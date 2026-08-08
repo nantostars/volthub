@@ -146,9 +146,11 @@ dc_alt_v, dc_alt_a, dc_batt_v, dc_batt_a, dc_st`. Statuses are numeric codes —
 spreadsheets treat it as missing rather than a real zero. PV voltage and current are not logged
 because the Victron advertisement does not carry them.
 
-Storage is the 128 KB internal partition (LittleFS): about **60 KB a day**, so roughly 1.8 days
-fit. One file per day is kept, capped at 7 files, and the oldest is pruned whenever free space
-drops below 15 KB. Rows are buffered and written once every 10 minutes, so the log costs one small
+Storage is the 128 KB internal partition (LittleFS): about **60 KB a day**, so roughly **1.8 days**
+fit — in practice today's file plus part of yesterday's. One file is written per day and the oldest
+is pruned whenever free space drops below 15 KB; that free-space rule *is* the retention policy.
+(A 3-file cap also exists, but only as a guard in case a wrong clock spawns several small files —
+space runs out long before the count matters.) Rows are buffered and written once every 10 minutes, so the log costs one small
 flash write per 10 min — no perceptible impact, and flash wear is negligible.
 
 **Clock:** the board has no battery-backed RTC, so without a date there is no filename and no

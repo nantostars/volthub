@@ -70,9 +70,10 @@ const char* DataLogger::stateName() const {
     }
 }
 
-// Keep at most LOG_MAX_FILES files, and always leave LOG_MIN_FREE bytes free. The space rule is
-// the one that actually fires on a 128 KB partition; the count cap is the belt-and-braces limit
-// (and the only one that still works when the clock is wrong, since names are date-based).
+// Retention = keep LOG_MIN_FREE bytes free. That is the rule that actually runs: ~60 KB/day on a
+// 128 KB partition means about 1.8 days, so only ~2 files ever coexist. LOG_MAX_FILES is not a
+// retention policy, it is a guard for the case where a wrong/jumping clock spawns several small
+// files that individually would not trip the space rule.
 void DataLogger::prune() {
     if (!_mounted) return;
     for (int guard = 0; guard < 16; guard++) {

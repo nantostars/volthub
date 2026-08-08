@@ -10,6 +10,14 @@ of the web dashboard.
 
 ---
 
+## 0.73 — Data log: honest retention (the 7-file cap could never fire)
+- The 7-file cap was a leftover from the original request, written before the capacity was worked
+  out. At ~60 KB/day against ~110 KB usable only about **2 files** ever coexist, so the count cap
+  was unreachable and the docs promised a 7-day retention the device cannot deliver.
+- Lowered to 3 and re-labelled for what it actually is: a guard against a jumping clock spawning
+  several small files, which individually would not trip the free-space rule. **Retention is the
+  free-space rule**; README and comments now say so instead of implying a 7-day history.
+
 ## 0.72 — Language: switch it live instead of rebooting
 - Changing the UI language went through `POST /api/settings`, whose handler saves and then
   **restarts the device** — so every language switch rebooted the whole thing (BLE reconnects,
