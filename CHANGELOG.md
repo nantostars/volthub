@@ -10,6 +10,17 @@ of the web dashboard.
 
 ---
 
+## 0.68 — IMU: evaluate the MAC check once, not 10x/second
+- 0.67 added a placeholder-MAC guard to `WitmotionIMU::update()`, which `imuTask` calls every
+  100 ms — so with no IMU connected it built a temporary `String` ten times a second, forever.
+  Not a leak (it is freed immediately), but ~864k needless allocations a day is exactly the kind
+  of heap churn that fragments an ESP32 heap on a device meant to run for days. The check now runs
+  **once** in `begin()` and is cached in `_macOk`; the boot log says when the IMU is disabled
+  because the MAC is still the placeholder.
+- Audited 0.67 for regressions on the 0.58 leak fix: `VictronBLE.cpp` is untouched, so
+  `setMaxResults(0)` is intact, and all five exit paths of the IMU connect clear `_connecting`
+  (a stuck flag would have left the scan watchdog permanently disabled).
+
 ## 0.67 — BLE: stop GATT reconnect attempts from blinding the Victron scan
 - The Victron devices are **not connected** — they are decoded from passive advertisements — so what
   looked like them "disconnecting and reconnecting" was the `online` flag flapping because the scan

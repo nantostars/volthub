@@ -19,6 +19,17 @@ static const BleProfile PROFILES[] = {
 ImuData       WitmotionIMU::_data;
 WitmotionIMU* WitmotionIMU::_instance = nullptr;
 
+// The default MAC in Config.h is a placeholder: with no IMU configured there is nothing to
+// connect to, and every attempt would stop the Victron scan for seconds. Skip entirely.
+// Evaluated ONCE in begin(): update() runs every 100ms, and building a temporary String there
+// would churn the heap ~10x/s forever (no leak, but needless fragmentation on a device that
+// must stay up for days).
+static bool macIsUsable(const String& mac) {
+    if (mac.length() < 17) return false;
+    String m = mac; m.toUpperCase();
+    return m != "AA:BB:CC:DD:EE:FF" && m != "00:00:00:00:00:00";
+}
+
 void WitmotionIMU::begin(const char* mac) {
     _mac         = mac;
     _instance    = this;
@@ -26,15 +37,8 @@ void WitmotionIMU::begin(const char* mac) {
     // Formula: _lastAttempt = now - (RETRY - 15000) → first fire at now+15000.
     // uint32 wrap is intentional and correct here.
     _lastAttempt = (uint32_t)(millis() - (BMS_RECONNECT_DELAY_MS - 15000UL));
-    Serial.printf("[IMU] target: %s\n", mac);
-}
-
-// The default MAC in Config.h is a placeholder: with no IMU configured there is nothing to
-// connect to, and every attempt would stop the Victron scan for seconds. Skip entirely.
-bool WitmotionIMU::macConfigured() const {
-    if (_mac.length() < 17) return false;
-    String m = _mac; m.toUpperCase();
-    return m != "AA:BB:CC:DD:EE:FF" && m != "00:00:00:00:00:00";
+    _macOk       = macIsUsable(_mac);
+    Serial.printf("[IMU] target: %s%s\n", mac, _macOk ? "" : "  (placeholder/unset - IMU disabled)");
 }
 
 // Back off on consecutive failures (30s, 60s, 120s … capped): a missing/powered-off IMU
@@ -47,7 +51,7 @@ uint32_t WitmotionIMU::retryDelayMs() const {
 
 void WitmotionIMU::update() {
     if (_connected) return;
-    if (!macConfigured()) return;
+    if (!_macOk) return;   // nothing to connect to: never disturb the BLE scan
     uint32_t now = millis();
     if (now - _lastAttempt < retryDelayMs()) return;
     _lastAttempt = now;

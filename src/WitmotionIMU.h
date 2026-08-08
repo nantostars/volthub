@@ -31,13 +31,13 @@ private:
     static void notifyCB(NimBLERemoteCharacteristic* pChar,
                          uint8_t* pData, size_t length, bool isNotify);
     void parsePackets(const uint8_t* data, size_t len);
-    bool     macConfigured() const;   // false for the placeholder/unset MAC
     uint32_t retryDelayMs() const;    // exponential backoff on consecutive failures
 
     String        _mac;
     NimBLEClient* _client      = nullptr;
     bool          _connected   = false;
     bool          _connecting  = false;
+    bool          _macOk       = false;   // MAC is real (not the Config.h placeholder)
     uint8_t       _failCount   = 0;
     uint32_t      _lastAttempt = 0;
 
