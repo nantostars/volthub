@@ -295,15 +295,11 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="inset"><div class="l c-muted" style="font-size:11px">Output</div><div class="v num" id="dc-ov" style="font-size:23px;font-weight:600">--</div></div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-s" style="margin-bottom:10px" data-i18n="Charge profile">Charge profile</div>
-        <div class="grid2">
-          <div class="st-status-row"><span class="st-status-lbl">Current limit</span><span class="st-status-val">50 A</span></div>
-          <div class="st-status-row"><span class="st-status-lbl">Input range</span><span class="st-status-val">9-17 V</span></div>
-          <div class="st-status-row"><span class="st-status-lbl">Mode</span><span class="st-status-val">Adaptive</span></div>
-          <div class="st-status-row"><span class="st-status-lbl">Engine detect</span><span class="st-status-val">Auto</span></div>
-        </div>
-      </div>
+      <!-- A "Charge profile" card used to sit here with hardcoded values (50 A / 9-17 V /
+           Adaptive / Auto) from the design mockup: no id, no JS, never read from the charger.
+           Current limits, input lock-out and absorption/float/storage voltages are CONFIGURATION
+           parameters; the Victron advertisement carries live telemetry only, so they cannot be
+           shown as live data. Removed rather than displayed as if measured. -->
     </div>
 
     <!-- ═════ LEVEL ═════ -->
@@ -481,7 +477,7 @@ var I18N={ it:{
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
   "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
-  "Cell voltages":"Tensioni celle","Charge profile":"Profilo di carica","Bubble level":"Livella a bolla",
+  "Cell voltages":"Tensioni celle","Bubble level":"Livella a bolla",
   "Production today":"Produzione oggi","Ramp / chock guidance":"Guida cunei / rampe",
   "No hourly history available on this firmware":"Nessuno storico orario disponibile sul firmware",
   "No cell data":"Nessun dato cella","Language":"Lingua","Keep screen on":"Tieni schermo acceso",

@@ -10,6 +10,20 @@ of the web dashboard.
 
 ---
 
+## 0.69 — DC-DC: remove the fake "Charge profile" values
+- The DC-DC detail screen and web tab showed a "Charge profile" card with **hardcoded** values
+  (Current limit 50 A · Input range 9-17 V · Mode Adaptive · Engine detect Auto) left over from the
+  design mockup: no id, no JS, never read from the charger — they would have kept reading 50 A after
+  changing the real limit. Removed from both surfaces rather than shown as if measured; the device
+  card now fills the content area.
+- Why they cannot be shown for real: current limits, input lock-out thresholds and the
+  absorption/float/storage voltages are **configuration parameters**. The Victron instant-readout
+  advertisement carries live telemetry only — state, error, in/out voltage and current, off reason
+  (16-byte record, we already decode bytes 0-13). Those settings are reachable only through
+  VictronConnect's proprietary GATT protocol or a wired VE.Direct link (HEX protocol).
+- Dropped the now-orphaned i18n entries (Charge profile, Current limit, Input range, Mode,
+  Engine detect, Adaptive).
+
 ## 0.68 — IMU: evaluate the MAC check once, not 10x/second
 - 0.67 added a placeholder-MAC guard to `WitmotionIMU::update()`, which `imuTask` calls every
   100 ms — so with no IMU connected it built a temporary `String` ten times a second, forever.

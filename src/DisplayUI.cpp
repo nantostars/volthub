@@ -102,9 +102,7 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"To battery","Alla batteria"}, {"Yield today","Resa oggi"},
     {"Production today","Produzione oggi"}, {"energy today","energia oggi"},
     // dc-dc detail
-    {"Alternator in","Alternatore"}, {"Output","Uscita"}, {"Charge profile","Profilo di carica"},
-    {"Current limit","Limite corrente"}, {"Input range","Range ingresso"}, {"Mode","Modo"},
-    {"Engine detect","Rileva motore"}, {"Adaptive","Adattivo"}, {"Auto","Auto"},
+    {"Alternator in","Alternatore"}, {"Output","Uscita"},
     // level
     {"PITCH F-R","BECC. A-P"}, {"ROLL L-R","ROLL. S-D"},
     // system
@@ -979,14 +977,13 @@ void DisplayUI::updateSolar() {
 
 // ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
 void DisplayUI::drawDcdc() {
-    drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
-    drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
-    fillText(26, CT_Y + 144, 300, 14, t("Charge profile"), 1, C_MUTED, C_CARD);
-    // static charge profile
-    fillText(26, CT_Y + 164, 210, 14, t("Current limit"), 1, C_MUTED, C_CARD);  fillText(180, CT_Y + 164, 56, 14, "50 A", 1, C_TEXT, C_CARD);
-    fillText(26, CT_Y + 182, 210, 14, t("Input range"), 1, C_MUTED, C_CARD);    fillText(180, CT_Y + 182, 70, 14, "9-17 V", 1, C_TEXT, C_CARD);
-    fillText(250, CT_Y + 164, 150, 14, t("Mode"), 1, C_MUTED, C_CARD);          fillText(360, CT_Y + 164, 90, 14, t("Adaptive"), 1, C_TEXT, C_CARD);
-    fillText(250, CT_Y + 182, 150, 14, t("Engine detect"), 1, C_MUTED, C_CARD); fillText(360, CT_Y + 182, 90, 14, t("Auto"), 1, C_TEXT, C_CARD);
+    // One card filling the content area. There used to be a second "Charge profile" card here
+    // with hardcoded values (50 A / 9-17 V / Adaptive / Auto) left over from the design mockup:
+    // they were never read from the charger. Current limits, input lock-out and the
+    // absorption/float/storage voltages are CONFIGURATION parameters — the Victron instant-readout
+    // advertisement carries live telemetry only (state, error, in/out V and A, off reason), so
+    // they cannot be shown as live data. Removed rather than displayed as if measured.
+    drawCard(12, CT_Y + 8, 456, 214, C_CARD, true);
     // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
 #ifdef BOARD_GUITION
     fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
