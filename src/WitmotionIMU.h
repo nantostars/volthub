@@ -20,6 +20,9 @@ public:
     void    begin(const char* mac);
     void    update();           // call from FreeRTOS task every 100 ms
     ImuData getData() const;
+    // True while a connect attempt is in flight: the scan watchdog must not restart the
+    // scan underneath it (the controller cannot scan and open a connection at once).
+    bool    isConnecting() const { return _connecting; }
 
     void onConnect   (NimBLEClient* pClient) override;
     void onDisconnect(NimBLEClient* pClient) override;
@@ -28,10 +31,14 @@ private:
     static void notifyCB(NimBLERemoteCharacteristic* pChar,
                          uint8_t* pData, size_t length, bool isNotify);
     void parsePackets(const uint8_t* data, size_t len);
+    bool     macConfigured() const;   // false for the placeholder/unset MAC
+    uint32_t retryDelayMs() const;    // exponential backoff on consecutive failures
 
     String        _mac;
     NimBLEClient* _client      = nullptr;
     bool          _connected   = false;
+    bool          _connecting  = false;
+    uint8_t       _failCount   = 0;
     uint32_t      _lastAttempt = 0;
 
     static ImuData       _data;

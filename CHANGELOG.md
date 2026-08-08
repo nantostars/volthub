@@ -10,6 +10,23 @@ of the web dashboard.
 
 ---
 
+## 0.67 — BLE: stop GATT reconnect attempts from blinding the Victron scan
+- The Victron devices are **not connected** — they are decoded from passive advertisements — so what
+  looked like them "disconnecting and reconnecting" was the `online` flag flapping because the scan
+  was repeatedly stopped. Every GATT connect attempt stops the scan (NimBLE does it on
+  `BLE_HS_EBUSY`, `NimBLEClient.cpp`), and the scan was only restarted by a watchdog ticking every 3s.
+- Worst case, and the likely trigger: the IMU MAC defaults to the **placeholder** `AA:BB:CC:DD:EE:FF`,
+  so with no tilt sensor configured (or one that is off/out of range) the IMU retried every 30s with
+  **two** connect attempts of 5s each → up to ~13s with no scanning, against a 10s staleness window.
+- Fixes: skip the IMU connect entirely when the MAC is unset/placeholder; exponential backoff on
+  consecutive failures for both IMU and BMS (30s → 60s → … capped at 5 min); only probe the
+  alternate BLE address type on the first attempts; connect timeout 5s → 3s; scan watchdog now polls
+  every 1s (but never restarts the scan while a connect is in flight, which would fight the
+  controller for the radio).
+- Victron staleness moved to its own `VICTRON_STALE_MS` = 30s: an advertisement-based device must not
+  be declared offline just because we briefly were not listening. `DEVICE_STALE_MS` (10s) still
+  applies to the 2s-polled BMS and the IMU.
+
 ## 0.66 — AP pill: show the mode (AUTO / ON / OFF) + fix a pill vanishing on tap
 - The AP pill showed only whether the AP was up, but a tap changes the *mode*, not the state — so
   tapping while the AP was already on produced no visible change and looked broken. It now shows

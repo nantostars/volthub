@@ -29,11 +29,30 @@ void WitmotionIMU::begin(const char* mac) {
     Serial.printf("[IMU] target: %s\n", mac);
 }
 
+// The default MAC in Config.h is a placeholder: with no IMU configured there is nothing to
+// connect to, and every attempt would stop the Victron scan for seconds. Skip entirely.
+bool WitmotionIMU::macConfigured() const {
+    if (_mac.length() < 17) return false;
+    String m = _mac; m.toUpperCase();
+    return m != "AA:BB:CC:DD:EE:FF" && m != "00:00:00:00:00:00";
+}
+
+// Back off on consecutive failures (30s, 60s, 120s … capped): a missing/powered-off IMU
+// must not blind the passive Victron scan every 30s forever.
+uint32_t WitmotionIMU::retryDelayMs() const {
+    uint32_t d = BMS_RECONNECT_DELAY_MS;
+    for (uint8_t i = 0; i < _failCount && d < BLE_RECONNECT_MAX_MS; i++) d *= 2;
+    return d > BLE_RECONNECT_MAX_MS ? (uint32_t)BLE_RECONNECT_MAX_MS : d;
+}
+
 void WitmotionIMU::update() {
     if (_connected) return;
+    if (!macConfigured()) return;
     uint32_t now = millis();
-    if (now - _lastAttempt < BMS_RECONNECT_DELAY_MS) return;
+    if (now - _lastAttempt < retryDelayMs()) return;
     _lastAttempt = now;
+    _connecting  = true;
+    auto failedAttempt = [&]() { _connecting = false; if (_failCount < 8) _failCount++; };
 
     // Infer address type from MAC first byte: top-2 bits=11 → Random Static
     uint8_t firstByte = (uint8_t)strtol(_mac.c_str(), nullptr, 16);
@@ -45,7 +64,7 @@ void WitmotionIMU::update() {
     auto tryConnect = [&](uint8_t type) -> bool {
         _client = NimBLEDevice::createClient();
         _client->setClientCallbacks(this, false);
-        _client->setConnectTimeout(5);
+        _client->setConnectTimeout(3);   // shorter: the scan is stopped meanwhile
         if (_client->connect(NimBLEAddress(_mac.c_str(), type))) return true;
         NimBLEDevice::deleteClient(_client);
         _client = nullptr;
@@ -53,10 +72,17 @@ void WitmotionIMU::update() {
     };
 
     if (!tryConnect(addrType)) {
-        uint8_t altType = (addrType == BLE_ADDR_RANDOM) ? BLE_ADDR_PUBLIC : BLE_ADDR_RANDOM;
-        Serial.printf("[IMU] Retry with type=%s\n", altType == BLE_ADDR_RANDOM ? "random" : "public");
-        if (!tryConnect(altType)) {
+        // Only probe the alternate address type on the first attempts: it doubles the time
+        // the radio spends connecting (and therefore not scanning for Victron adverts).
+        bool ok = false;
+        if (_failCount < 2) {
+            uint8_t altType = (addrType == BLE_ADDR_RANDOM) ? BLE_ADDR_PUBLIC : BLE_ADDR_RANDOM;
+            Serial.printf("[IMU] Retry with type=%s\n", altType == BLE_ADDR_RANDOM ? "random" : "public");
+            ok = tryConnect(altType);
+        }
+        if (!ok) {
             Serial.println("[IMU] Connect failed");
+            failedAttempt();
             return;
         }
     }
@@ -81,6 +107,7 @@ void WitmotionIMU::update() {
             for (NimBLERemoteService* s : *allSvcs)
                 Serial.printf("[IMU]  svc: %s\n", s->getUUID().toString().c_str());
         _client->disconnect();
+        failedAttempt();
         return;
     }
     Serial.printf("[IMU] Using service %s\n", prof->svc);
@@ -102,12 +129,14 @@ void WitmotionIMU::update() {
             for (NimBLERemoteCharacteristic* c : *allChars)
                 Serial.printf("[IMU]  char: %s\n", c->getUUID().toString().c_str());
         _client->disconnect();
+        failedAttempt();
         return;
     }
 
     if (!nc->subscribe(true, notifyCB)) {
         Serial.println("[IMU] Subscribe failed");
         _client->disconnect();
+        failedAttempt();
         return;
     }
 
@@ -117,7 +146,9 @@ void WitmotionIMU::update() {
     }
 
     Serial.println("[IMU] Connected, subscribed");
-    _connected = true;
+    _connected  = true;
+    _connecting = false;
+    _failCount  = 0;
 }
 
 void WitmotionIMU::onConnect(NimBLEClient*) {}

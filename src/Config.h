@@ -25,6 +25,13 @@
 #define BMS_QUERY_INTERVAL_MS     2000
 #define BMS_RECONNECT_DELAY_MS   30000
 #define DEVICE_STALE_MS          10000
+// A GATT connect attempt STOPS the BLE scan (NimBLE does it on BLE_HS_EBUSY), so an
+// unreachable BMS/IMU retried on a fixed short period keeps blinding the Victron scan.
+// Consecutive failures back off up to this cap.
+#define BLE_RECONNECT_MAX_MS    300000
+// Victron are passive advertisements, not a connection: a short scan gap must not be
+// reported as "offline". Longer than DEVICE_STALE_MS (which suits the 2s-polled BMS).
+#define VICTRON_STALE_MS         30000
 
 // ─── OTA update ──────────────────────────────────────────────────────────────
 // No credentials here (keeps them out of git). OTA is DISABLED by default and is

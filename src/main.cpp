@@ -193,7 +193,7 @@ static void handleApiData() {
         }
     }
     JsonObject js = doc["solar"].to<JsonObject>();
-    js["online"] = s.valid && (now - s.lastSeen < DEVICE_STALE_MS);
+    js["online"] = s.valid && (now - s.lastSeen < VICTRON_STALE_MS);
     if (js["online"].as<bool>()) {
         js["stateCode"]=s.chargeState; js["state"]=victronStateName(s.chargeState);
         addFloat(js,"battVoltage",s.battVoltage); addFloat(js,"chargeCurrent",s.chargeCurrent);
@@ -202,7 +202,7 @@ static void handleApiData() {
         js["model"]=victronModelName(s.productId,false); js["pid"]=s.productId;
     }
     JsonObject jo = doc["orion"].to<JsonObject>();
-    jo["online"] = o.valid && (now - o.lastSeen < DEVICE_STALE_MS);
+    jo["online"] = o.valid && (now - o.lastSeen < VICTRON_STALE_MS);
     if (jo["online"].as<bool>()) {
         jo["stateCode"]=o.deviceState; jo["state"]=victronStateName(o.deviceState);
         addFloat(jo,"outVoltage",o.outVoltage); addFloat(jo,"outCurrent",o.outCurrent);
@@ -384,9 +384,14 @@ static void imuTask(void*) {
     for (;;) { imu.update(); vTaskDelay(pdMS_TO_TICKS(100)); }
 }
 
+// Every GATT connect attempt stops the scan (NimBLE does it on BLE_HS_EBUSY), and Victron are
+// passive advertisements: the longer the scan stays down, the longer they look "offline".
+// Poll fast so the scan comes back right after a connect attempt ends — but never restart it
+// while a connect is in flight, or we would fight the controller for the radio.
 static void scanWatchdogTask(void*) {
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        if (bms.isConnecting() || imu.isConnecting()) continue;
         if (!NimBLEDevice::getScan()->isScanning()) {
             Serial.println("[BLE] Scan watchdog: restarting");
             victron.startScan();

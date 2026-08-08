@@ -76,6 +76,9 @@ public:
     void update();
 
     bool isConnected() const;
+    // True while a connect attempt is in flight — the scan watchdog must not restart the
+    // scan underneath it (the controller cannot scan and open a connection at once).
+    bool isConnecting() const { return _connecting; }
 
     // Thread-safe read — copies current snapshot
     BmsData getData() const;
@@ -121,6 +124,8 @@ private:
     uint32_t    _lastQuery;
     uint32_t    _lastConnectAttempt;
     bool        _connecting;
+    uint8_t     _failCount = 0;
+    uint32_t    retryDelayMs() const;
 
     // Singleton so the static callback can reach the instance
     static LitimeBMS* _instance;

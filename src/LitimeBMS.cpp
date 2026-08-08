@@ -56,7 +56,7 @@ BmsData LitimeBMS::getData() const {
 void LitimeBMS::update() {
     if (!isConnected()) {
         uint32_t now = millis();
-        if (!_connecting && (now - _lastConnectAttempt > BMS_RECONNECT_DELAY_MS)) {
+        if (!_connecting && (now - _lastConnectAttempt > retryDelayMs())) {
             _lastConnectAttempt = now;
             connect();  // blocking — caller (bmsTask) runs this off the main loop
         }
@@ -71,18 +71,27 @@ void LitimeBMS::update() {
     vTaskDelay(pdMS_TO_TICKS(10));  // yield to other tasks between queries
 }
 
+// Back off on consecutive failures. A GATT connect attempt stops the BLE scan, so retrying an
+// unreachable BMS on a fixed 30s period would keep blinding the passive Victron scan.
+uint32_t LitimeBMS::retryDelayMs() const {
+    uint32_t d = BMS_RECONNECT_DELAY_MS;
+    for (uint8_t i = 0; i < _failCount && d < BLE_RECONNECT_MAX_MS; i++) d *= 2;
+    return d > BLE_RECONNECT_MAX_MS ? (uint32_t)BLE_RECONNECT_MAX_MS : d;
+}
+
 void LitimeBMS::connect() {
     _connecting = true;
     Serial.printf("[BMS] Connecting to %s\n", _addr.toString().c_str());
 
     if (_client == nullptr) {
         _client = NimBLEDevice::createClient();
-        _client->setConnectTimeout(5);   // 5s — shorter window reduces radio contention
+        _client->setConnectTimeout(3);   // the BLE scan is stopped while connecting
     }
 
     if (!_client->connect(_addr)) {
         Serial.println("[BMS] Connection failed");
         _connecting = false;
+        if (_failCount < 8) _failCount++;
         return;
     }
 
@@ -91,6 +100,7 @@ void LitimeBMS::connect() {
         Serial.println("[BMS] Service not found");
         _client->disconnect();
         _connecting = false;
+        if (_failCount < 8) _failCount++;
         return;
     }
 
@@ -101,6 +111,7 @@ void LitimeBMS::connect() {
         Serial.println("[BMS] Characteristics not found");
         _client->disconnect();
         _connecting = false;
+        if (_failCount < 8) _failCount++;
         return;
     }
 
@@ -108,11 +119,13 @@ void LitimeBMS::connect() {
         Serial.println("[BMS] Subscribe failed");
         _client->disconnect();
         _connecting = false;
+        if (_failCount < 8) _failCount++;
         return;
     }
 
     Serial.println("[BMS] Connected and subscribed");
     _connecting = false;
+    _failCount  = 0;
     _lastQuery  = 0;  // trigger immediate first query
 }
 
