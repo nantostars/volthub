@@ -254,6 +254,16 @@ void VictronBLE::parseOrion(const uint8_t* dec, uint16_t pid) {
     o.inVoltage   = (rawInV  != 0xFFFF) ? rawInV  / 100.0f : NAN;
     o.inCurrent   = (rawInC  != 0xFFFF) ? rawInC  / 10.0f  : NAN;
     o.offReason   = readU32LE(&dec[10]);
+    // The Orion XS record layout is not in the public VE.Direct doc: the byte offsets here come
+    // from the existing decoder. Voltages/currents check out on real hardware, but offReason had
+    // never been read — log it once per change so a wrong offset shows up as nonsense bits.
+    static uint32_t lastOff = 0xFFFFFFFF;
+    if (o.offReason != lastOff) {
+        lastOff = o.offReason;
+        Serial.printf("[Orion] offReason=0x%08X (%s) state=%u err=%u\n",
+                      (unsigned)o.offReason, victronOffReasonName(o.offReason),
+                      o.deviceState, o.error);
+    }
     o.productId   = pid;
     o.lastSeen    = millis();
     o.valid       = true;

@@ -103,6 +103,42 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"Production today","Produzione oggi"}, {"energy today","energia oggi"},
     // dc-dc detail
     {"Alternator in","Alternatore"}, {"Output","Uscita"},
+    // Victron error / off-reason names (official VE.Direct tables) + new detail labels
+    {"Load output","Uscita carichi"},
+    {"Error","Errore"},
+    {"Input & efficiency","Ingresso e rendimento"},
+    {"Input current","Corrente ingresso"},
+    {"Input power","Potenza ingresso"},
+    {"Efficiency","Rendimento"},
+    {"Status","Stato"},
+    {"Battery voltage high","Tensione batteria alta"},
+    {"Charger temp. high","Temp. caricatore alta"},
+    {"Charger over current","Sovracorrente caricatore"},
+    {"Current reversed","Corrente invertita"},
+    {"Bulk time limit","Limite tempo bulk"},
+    {"Current sensor issue","Problema sensore corrente"},
+    {"Terminals overheated","Morsetti surriscaldati"},
+    {"Converter issue","Problema convertitore"},
+    {"PV voltage too high","Tensione PV troppo alta"},
+    {"PV current too high","Corrente PV troppo alta"},
+    {"Input shutdown (V batt)","Blocco ingresso (V batt)"},
+    {"Input shutdown (I)","Blocco ingresso (I)"},
+    {"Communication lost","Comunicazione persa"},
+    {"Sync config issue","Problema config. sync"},
+    {"BMS connection lost","Connessione BMS persa"},
+    {"Network misconfigured","Rete mal configurata"},
+    {"Calibration data lost","Dati calibrazione persi"},
+    {"Invalid firmware","Firmware non valido"},
+    {"User settings invalid","Impostazioni non valide"},
+    {"Unknown error","Errore sconosciuto"},
+    {"No input power","Nessuna alimentazione"},
+    {"Engine off","Motore spento"},
+    {"Analysing input","Analisi ingresso"},
+    {"Protection active","Protezione attiva"},
+    {"Remote input","Ingresso remoto"},
+    {"Switched off (switch)","Spento (interruttore)"},
+    {"Switched off (mode)","Spento (modo)"},
+    {"Off","Spento"},
     // level
     {"PITCH F-R","BECC. A-P"}, {"ROLL L-R","ROLL. S-D"},
     // system
@@ -936,7 +972,7 @@ void DisplayUI::drawSolar() {
     fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, t("Yield today"), 1, C_MUTED, C_INSET);
     drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
     fillText(26, CT_Y + 144, 300, 14, t("Production today"), 1, C_MUTED, C_CARD);
-    fillText(300, CT_Y + 170, 160, 14, t("energy today"), 1, C_MUTED, C_CARD);
+    fillText(250, CT_Y + 162, 200, 12, t("Load output"), 1, C_MUTED, C_CARD);
     _solarSig = -1;   // force value redraw on screen entry
     updateSolar();
 }
@@ -953,6 +989,7 @@ void DisplayUI::updateSolar() {
         sig = sig*8191 + ri(_sd.battVoltage, 100);
         sig = sig*8191 + ri(_sd.chargeCurrent, 10);
         sig = sig*8191 + ri(_sd.yieldToday, 1);
+        sig = sig*8191 + ri(_sd.loadCurrent, 10) + _sd.error;
     }
     if (sig == _solarSig) return;
     _solarSig = sig;
@@ -970,9 +1007,15 @@ void DisplayUI::updateSolar() {
     fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(tb, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", tb);
     fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    // card B: yield today big
+    // card B: yield today big + load output + error line
     fmtF(tb, on ? _sd.yieldToday : NAN, 0); snprintf(buf, sizeof(buf), "%s Wh", tb);
-    centerFill(120, CT_Y + 162, 200, 28, buf, 4, on ? C_TEXT : C_MUTED, C_CARD);
+    centerFill(110, CT_Y + 162, 180, 28, buf, 4, on ? C_TEXT : C_MUTED, C_CARD);
+    // Load output only exists on MPPT models with a load terminal; NAN elsewhere → "--".
+    fmtF(tb, on ? _sd.loadCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
+    fillText(250, CT_Y + 176, 200, 16, on ? buf : "--", 2, C_TEXT, C_CARD);
+    // Error row: silent while everything is fine (victronErrorName returns "" for code 0).
+    const char* serr = on ? victronErrorName(_sd.error) : "";
+    fillText(26, CT_Y + 200, 430, 14, serr[0] ? t(serr) : "", 1, C_RED, C_CARD);
 }
 
 // ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
@@ -983,7 +1026,13 @@ void DisplayUI::drawDcdc() {
     // absorption/float/storage voltages are CONFIGURATION parameters — the Victron instant-readout
     // advertisement carries live telemetry only (state, error, in/out V and A, off reason), so
     // they cannot be shown as live data. Removed rather than displayed as if measured.
-    drawCard(12, CT_Y + 8, 456, 214, C_CARD, true);
+    drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
+    drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
+    fillText(26, CT_Y + 144, 300, 14, t("Input & efficiency"), 1, C_MUTED, C_CARD);
+    fillText(26,  CT_Y + 164, 150, 14, t("Input current"), 1, C_MUTED, C_CARD);
+    fillText(26,  CT_Y + 182, 150, 14, t("Input power"),   1, C_MUTED, C_CARD);
+    fillText(250, CT_Y + 164, 100, 14, t("Efficiency"),    1, C_MUTED, C_CARD);
+    fillText(26,  CT_Y + 200, 70,  14, t("Status"),        1, C_MUTED, C_CARD);
     // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
 #ifdef BOARD_GUITION
     fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
@@ -1012,6 +1061,7 @@ void DisplayUI::updateDcdc() {
         sig = sig*8191 + ri(_od.outVoltage, 100) + _od.deviceState;
         sig = sig*8191 + ri(_od.outCurrent, 10);
         sig = sig*8191 + ri(_od.inVoltage, 100);
+        sig = sig*8191 + ri(_od.inCurrent, 10) + _od.error + (long)(_od.offReason & 0x1FF);
     }
     if (sig == _dcdcSig) return;
     _dcdcSig = sig;
@@ -1030,6 +1080,25 @@ void DisplayUI::updateDcdc() {
     fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
     fmtF(tb, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", tb);
     fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+
+    // card B — input side and efficiency, all from data we already receive
+    float inW  = (on && !isnan(_od.inVoltage) && !isnan(_od.inCurrent))
+                 ? _od.inVoltage * _od.inCurrent : NAN;
+    // Efficiency is only meaningful under real load; below that it is noise on tiny numbers.
+    float eff  = (!isnan(inW) && inW > 5.0f && !isnan(w) && w > 0.0f) ? (w / inW * 100.0f) : NAN;
+    fmtF(tb, on ? _od.inCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
+    fillText(180, CT_Y + 164, 64, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
+    fmtF(tb, inW, 0); snprintf(buf, sizeof(buf), "%s W", tb);
+    fillText(180, CT_Y + 182, 64, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
+    fmtF(tb, eff, 0); snprintf(buf, sizeof(buf), "%s %%", tb);
+    fillText(360, CT_Y + 164, 90, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
+    // Status line: the error wins when present, otherwise why the charger is off. Both are
+    // empty strings while it is simply running, so the row stays quiet.
+    const char* oerr = on ? victronErrorName(_od.error) : "";
+    const char* ooff = on ? victronOffReasonName(_od.offReason) : "";
+    const char* stx  = oerr[0] ? oerr : (ooff[0] ? ooff : "");
+    fillText(100, CT_Y + 200, 350, 14, on ? (stx[0] ? t(stx) : "-") : "--", 1,
+             oerr[0] ? C_RED : C_TEXT, C_CARD);
 }
 
 // ─── Level ────────────────────────────────────────────────────────────────────

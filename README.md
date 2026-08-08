@@ -142,8 +142,8 @@ other fields are omitted rather than zeroed.
 | Block | Fields |
 |---|---|
 | `battery` | `online`, `voltage`, `current` (+ = charging), `power`, `soc`, `soh`, `cycles`, `remainingAh`, `fullAh`, `cellTemp`, `mosfetTemp`, `cells[]`, `model`, `etaMin`, `etaFull` |
-| `solar` | `online`, `state`, `stateCode`, `battVoltage`, `chargeCurrent`, `solarPower`, `yieldToday`, `loadCurrent`, `pid`, `model` |
-| `orion` | `online`, `state`, `stateCode`, `inVoltage`, `inCurrent`, `outVoltage`, `outCurrent`, `pid`, `model` |
+| `solar` | `online`, `state`, `stateCode`, `error`, `errCode`, `battVoltage`, `chargeCurrent`, `solarPower`, `yieldToday`, `loadCurrent`, `pid`, `model` |
+| `orion` | `online`, `state`, `stateCode`, `error`, `errCode`, `offReason`, `offMask`, `inVoltage`, `inCurrent`, `outVoltage`, `outCurrent`, `pid`, `model` |
 | `imu` | `online`, `pitch`, `roll`, `yaw`, `temp` |
 | `sys` | `fw`, `lang`, `ota`, `heap`, `apIp`, `staIp`, `date`, `time`, `apOn`, `apAuto` |
 

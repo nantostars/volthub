@@ -10,6 +10,23 @@ of the web dashboard.
 
 ---
 
+## 0.70 — Solar/DC-DC: show everything the telemetry already carries
+- Four fields were being decoded and thrown away. The DC-DC **off reason** and the **charger error**
+  were not even reaching the API; the DC-DC **input current** and the solar **load output** were on
+  `/api/data` but displayed nowhere.
+- **DC-DC** detail (device + web) gains a real "Input & efficiency" card — input current, input power
+  (V×A) and efficiency (W out / W in, only above 5 W input where it is meaningful) — plus a Status
+  line with the **off reason**: why the charger is not charging (No input power · Engine off ·
+  Analysing input · Protection active · BMS · Remote input · Switched off …). This is the card that
+  0.69 emptied, now filled with measured data instead of mockup values.
+- **Solar** detail gains the load output (hidden on models without a load terminal, rather than a
+  permanent "--") and the error row.
+- Error and off-reason names come from the **official** VE.Direct Protocol 3.33 tables (fields ERR
+  and OR, the latter a bitmask — the raw mask is published as `orion.offMask`). Both stay silent
+  while the device is fine, so the new rows add no noise. Dual-language (35 new strings).
+- `offReason` had never been read before, so `parseOrion()` logs it on change: a wrong byte offset
+  would show up immediately as nonsense flags on real hardware.
+
 ## 0.69 — DC-DC: remove the fake "Charge profile" values
 - The DC-DC detail screen and web tab showed a "Charge profile" card with **hardcoded** values
   (Current limit 50 A · Input range 9-17 V · Mode Adaptive · Engine detect Auto) left over from the

@@ -28,6 +28,55 @@ static inline const char* victronStateName(uint8_t s) {
     }
 }
 
+// ─── Charger error codes ─────────────────────────────────────────────────────
+// Verbatim from the OFFICIAL source: VE.Direct Protocol 3.33, field ERR ("error code of the
+// device, relevant when it is in the fault state"). Shared by the MPPT and the Orion XS.
+// Wording shortened to fit the device rows; 0 returns an empty string so callers can hide
+// the field entirely while everything is fine.
+static inline const char* victronErrorName(uint8_t e) {
+    switch (e) {
+        case 0:   return "";                       // no error → nothing to show
+        case 2:   return "Battery voltage high";
+        case 17:  return "Charger temp. high";
+        case 18:  return "Charger over current";
+        case 19:  return "Current reversed";
+        case 20:  return "Bulk time limit";
+        case 21:  return "Current sensor issue";
+        case 26:  return "Terminals overheated";
+        case 28:  return "Converter issue";
+        case 33:  return "PV voltage too high";
+        case 34:  return "PV current too high";
+        case 38:  return "Input shutdown (V batt)";
+        case 39:  return "Input shutdown (I)";
+        case 65:  return "Communication lost";
+        case 66:  return "Sync config issue";
+        case 67:  return "BMS connection lost";
+        case 68:  return "Network misconfigured";
+        case 116: return "Calibration data lost";
+        case 117: return "Invalid firmware";
+        case 119: return "User settings invalid";
+        default:  return "Unknown error";
+    }
+}
+
+// ─── Off reason (DC-DC) ──────────────────────────────────────────────────────
+// Official VE.Direct 3.33 field OR — a BITMASK ("why a unit is switched off"). Several bits
+// can be set at once, so report the most informative one; the raw mask is also published on
+// the API for anyone who wants the full picture. Empty string = running (nothing to report).
+static inline const char* victronOffReasonName(uint32_t m) {
+    if (m == 0)             return "";
+    if (m & 0x00000001)     return "No input power";
+    if (m & 0x00000080)     return "Engine off";            // engine shutdown detection
+    if (m & 0x00000100)     return "Analysing input";
+    if (m & 0x00000010)     return "Protection active";
+    if (m & 0x00000040)     return "BMS";
+    if (m & 0x00000008)     return "Remote input";
+    if (m & 0x00000002)     return "Switched off (switch)";
+    if (m & 0x00000004)     return "Switched off (mode)";
+    if (m & 0x00000020)     return "Paygo";
+    return "Off";
+}
+
 // ─── Data structs ─────────────────────────────────────────────────────────────
 
 struct SolarData {

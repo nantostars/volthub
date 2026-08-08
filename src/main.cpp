@@ -196,6 +196,7 @@ static void handleApiData() {
     js["online"] = s.valid && (now - s.lastSeen < VICTRON_STALE_MS);
     if (js["online"].as<bool>()) {
         js["stateCode"]=s.chargeState; js["state"]=victronStateName(s.chargeState);
+        js["errCode"]=s.error; js["error"]=victronErrorName(s.error);
         addFloat(js,"battVoltage",s.battVoltage); addFloat(js,"chargeCurrent",s.chargeCurrent);
         addFloat(js,"solarPower",s.solarPower);   addFloat(js,"yieldToday",s.yieldToday);
         addFloat(js,"loadCurrent",s.loadCurrent);
@@ -205,6 +206,9 @@ static void handleApiData() {
     jo["online"] = o.valid && (now - o.lastSeen < VICTRON_STALE_MS);
     if (jo["online"].as<bool>()) {
         jo["stateCode"]=o.deviceState; jo["state"]=victronStateName(o.deviceState);
+        jo["errCode"]=o.error; jo["error"]=victronErrorName(o.error);
+        // Off reason: raw bitmask + the most informative bit as text (official VE.Direct OR field)
+        jo["offMask"]=o.offReason; jo["offReason"]=victronOffReasonName(o.offReason);
         addFloat(jo,"outVoltage",o.outVoltage); addFloat(jo,"outCurrent",o.outCurrent);
         addFloat(jo,"inVoltage",o.inVoltage);   addFloat(jo,"inCurrent",o.inCurrent);
         jo["model"]=victronModelName(o.productId,true); jo["pid"]=o.productId;

@@ -277,6 +277,8 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
       <div class="card">
         <div class="card-s" style="margin-bottom:6px" data-i18n="Production today">Production today</div>
         <div class="bigw"><div class="n" id="so-y2" style="font-size:40px">--</div><div class="u">Wh</div></div>
+        <div class="st-status-row" id="so-load-row" style="display:none"><span class="st-status-lbl" data-i18n="Load output">Load output</span><span class="st-status-val" id="so-load">--</span></div>
+        <div class="st-status-row" id="so-err-row" style="display:none"><span class="st-status-lbl" data-i18n="Error">Error</span><span class="st-status-val" id="so-err" style="color:var(--red)">--</span></div>
         <div class="card-s" style="margin-top:6px" data-i18n="No hourly history available on this firmware">No hourly history available on this firmware</div>
       </div>
     </div>
@@ -293,6 +295,15 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="inset"><div class="l c-muted" style="font-size:11px">Alternator in</div><div class="v num" id="dc-iv" style="font-size:23px;font-weight:600">--</div></div>
           <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="dc-a" style="font-size:23px;font-weight:600">--</div></div>
           <div class="inset"><div class="l c-muted" style="font-size:11px">Output</div><div class="v num" id="dc-ov" style="font-size:23px;font-weight:600">--</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-s" style="margin-bottom:10px" data-i18n="Input &amp; efficiency">Input &amp; efficiency</div>
+        <div class="grid2">
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Input current">Input current</span><span class="st-status-val" id="dc-ia">--</span></div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Input power">Input power</span><span class="st-status-val" id="dc-iw">--</span></div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Efficiency">Efficiency</span><span class="st-status-val" id="dc-eff">--</span></div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Status">Status</span><span class="st-status-val" id="dc-status">--</span></div>
         </div>
       </div>
       <!-- A "Charge profile" card used to sit here with hardcoded values (50 A / 9-17 V /
@@ -474,6 +485,41 @@ var I18N={ it:{
   "Loads":"Carichi","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Runtime":"Autonomia","To full":"A pieno",
+  "Load output":"Uscita carichi",
+  "Error":"Errore",
+  "Input & efficiency":"Ingresso e rendimento",
+  "Input current":"Corrente ingresso",
+  "Input power":"Potenza ingresso",
+  "Efficiency":"Rendimento",
+  "Status":"Stato",
+  "Battery voltage high":"Tensione batteria alta",
+  "Charger temp. high":"Temp. caricatore alta",
+  "Charger over current":"Sovracorrente caricatore",
+  "Current reversed":"Corrente invertita",
+  "Bulk time limit":"Limite tempo bulk",
+  "Current sensor issue":"Problema sensore corrente",
+  "Terminals overheated":"Morsetti surriscaldati",
+  "Converter issue":"Problema convertitore",
+  "PV voltage too high":"Tensione PV troppo alta",
+  "PV current too high":"Corrente PV troppo alta",
+  "Input shutdown (V batt)":"Blocco ingresso (V batt)",
+  "Input shutdown (I)":"Blocco ingresso (I)",
+  "Communication lost":"Comunicazione persa",
+  "Sync config issue":"Problema config. sync",
+  "BMS connection lost":"Connessione BMS persa",
+  "Network misconfigured":"Rete mal configurata",
+  "Calibration data lost":"Dati calibrazione persi",
+  "Invalid firmware":"Firmware non valido",
+  "User settings invalid":"Impostazioni non valide",
+  "Unknown error":"Errore sconosciuto",
+  "No input power":"Nessuna alimentazione",
+  "Engine off":"Motore spento",
+  "Analysing input":"Analisi ingresso",
+  "Protection active":"Protezione attiva",
+  "Remote input":"Ingresso remoto",
+  "Switched off (switch)":"Spento (interruttore)",
+  "Switched off (mode)":"Spento (modo)",
+  "Off":"Spento",
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
   "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
@@ -678,6 +724,14 @@ function updateSolar(d){
   $('so-a').textContent=on?fmt(s.chargeCurrent,1)+' A':'--';
   $('so-y').textContent=on?fmt(s.yieldToday,0)+' Wh':'--';
   $('so-y2').textContent=on?fmt(s.yieldToday,0):'--';
+  // Load output exists only on MPPT models with a load terminal (null otherwise) → hide the row.
+  var hasLoad=on&&s.loadCurrent!==undefined&&s.loadCurrent!==null;
+  $('so-load-row').style.display=hasLoad?'flex':'none';
+  if(hasLoad) $('so-load').textContent=fmt(s.loadCurrent,1)+' A';
+  // Error row stays hidden while the charger is fine (the API sends "" for code 0).
+  var hasErr=on&&s.error&&s.error.length>0;
+  $('so-err-row').style.display=hasErr?'flex':'none';
+  if(hasErr) $('so-err').textContent=TR(s.error);
 }
 
 // ── dc-dc ──
@@ -691,6 +745,20 @@ function updateDcdc(d){
   $('dc-iv').textContent=on?fmt(o.inVoltage,1)+' V':'--';
   $('dc-a').textContent=on?fmt(o.outCurrent,1)+' A':'--';
   $('dc-ov').textContent=on?fmt(o.outVoltage,1)+' V':'--';
+  // Input side + efficiency, all derived from data already in the advertisement.
+  var iA=(on&&o.inCurrent!==undefined&&o.inCurrent!==null)?o.inCurrent:NaN;
+  var iV=(on&&o.inVoltage!==undefined&&o.inVoltage!==null)?o.inVoltage:NaN;
+  var iW=(!isNaN(iA)&&!isNaN(iV))?iA*iV:NaN;
+  $('dc-ia').textContent=isNaN(iA)?'--':fmt(iA,1)+' A';
+  $('dc-iw').textContent=isNaN(iW)?'--':fmt(iW,0)+' W';
+  // Only meaningful under real load; below that it is noise on tiny numbers.
+  var eff=(!isNaN(iW)&&iW>5&&!isNaN(w)&&w>0)?(w/iW*100):NaN;
+  $('dc-eff').textContent=isNaN(eff)?'--':fmt(eff,0)+' %';
+  // Error wins over off-reason; both empty while it is simply running.
+  var oe=(on&&o.error&&o.error.length>0)?o.error:'';
+  var or=(on&&o.offReason&&o.offReason.length>0)?o.offReason:'';
+  $('dc-status').textContent=on?(oe?TR(oe):(or?TR(or):'\u2014')):'--';
+  $('dc-status').style.color=oe?'var(--red)':'var(--text)';
 }
 
 // ── level ──
