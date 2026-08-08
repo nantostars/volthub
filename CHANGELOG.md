@@ -10,6 +10,13 @@ of the web dashboard.
 
 ---
 
+## 0.74 — web System: move the data-log block to the bottom
+- The Data log card sat right under Network, in the middle of the page. It is now the last block
+  of the Configuration card, after the OTA group and immediately above "Save and reboot".
+- Since it now lives inside the settings form — whose fields do need a save + reboot — the hint
+  states that the log toggle, downloads and deletes **apply immediately, no save needed**, so the
+  new position cannot suggest otherwise.
+
 ## 0.73 — Data log: honest retention (the 7-file cap could never fire)
 - The 7-file cap was a leftover from the original request, written before the capacity was worked
   out. At ~60 KB/day against ~110 KB usable only about **2 files** ever coexist, so the count cap

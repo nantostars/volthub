@@ -354,14 +354,6 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
-      <div class="card">
-        <div class="card-s" style="margin-bottom:6px" data-i18n="Data log (CSV)">Data log (CSV)</div>
-        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
-          <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
-        <div id="log-status"></div>
-        <div id="log-files"></div>
-        <div class="st-hint" data-i18n="One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
-      </div>
 
       <!-- settings form -->
       <div class="card">
@@ -423,6 +415,14 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="st-field"><label class="st-label" for="st-ota-pass" data-i18n="Password">Password</label>
             <div class="st-input-wrap"><input id="st-ota-pass" class="st-input" type="password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-ota-pass',this)">&#128065;</button></div>
             <div class="st-hint" data-i18n="OTA active only with enable + username + password">OTA active only with enable + username + password</div></div>
+        </div>
+
+        <div class="st-group"><div class="st-gt" data-i18n="Data log (CSV)">Data log (CSV)</div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
+            <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
+          <div id="log-status"></div>
+          <div id="log-files"></div>
+          <div class="st-hint" data-i18n="One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
         </div>
 
         <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
@@ -502,7 +502,7 @@ var I18N={ it:{
   "waiting for clock":"in attesa di orario",
   "logging":"in registrazione",
   "storage error":"errore memoria",
-  "One row every 2 minutes. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga ogni 2 minuti. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
+  "One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga ogni 2 minuti. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
   "Load output":"Uscita carichi",
   "Error":"Errore",
   "Input & efficiency":"Ingresso e rendimento",
