@@ -102,13 +102,11 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"To battery","Alla batteria"}, {"Yield today","Resa oggi"},
     {"Production today","Produzione oggi"}, {"energy today","energia oggi"},
     // dc-dc detail
-    {"Alternator in","Alternatore"}, {"Output","Uscita"},
+    {"Input (alternator)","Ingresso (alternatore)"}, {"Output (battery)","Uscita (batteria)"},
+    {"Power","Potenza"}, {"Efficiency & status","Rendimento e stato"},
     // Victron error / off-reason names (official VE.Direct tables) + new detail labels
     {"Load output","Uscita carichi"},
     {"Error","Errore"},
-    {"Input & efficiency","Ingresso e rendimento"},
-    {"Input current","Corrente ingresso"},
-    {"Input power","Potenza ingresso"},
     {"Efficiency","Rendimento"},
     {"Status","Stato"},
     {"Battery voltage high","Tensione batteria alta"},
@@ -1020,41 +1018,33 @@ void DisplayUI::updateSolar() {
 
 // ─── DC-DC (degraded: no converter temp) ──────────────────────────────────────
 void DisplayUI::drawDcdc() {
-    // One card filling the content area. There used to be a second "Charge profile" card here
-    // with hardcoded values (50 A / 9-17 V / Adaptive / Auto) left over from the design mockup:
-    // they were never read from the charger. Current limits, input lock-out and the
-    // absorption/float/storage voltages are CONFIGURATION parameters — the Victron instant-readout
-    // advertisement carries live telemetry only (state, error, in/out V and A, off reason), so
-    // they cannot be shown as live data. Removed rather than displayed as if measured.
-    drawCard(12, CT_Y + 8, 456, 118, C_CARD, true);
-    drawCard(12, CT_Y + 134, 456, 88, C_CARD, true);
-    fillText(26, CT_Y + 144, 300, 14, t("Input & efficiency"), 1, C_MUTED, C_CARD);
-    fillText(26,  CT_Y + 164, 150, 14, t("Input current"), 1, C_MUTED, C_CARD);
-    fillText(26,  CT_Y + 182, 150, 14, t("Input power"),   1, C_MUTED, C_CARD);
-    fillText(250, CT_Y + 164, 100, 14, t("Efficiency"),    1, C_MUTED, C_CARD);
-    fillText(26,  CT_Y + 200, 70,  14, t("Status"),        1, C_MUTED, C_CARD);
-    // "W" bottom-aligned to the font4 value. GFX (Guition) metrics differ from TFT (CYD).
-#ifdef BOARD_GUITION
-    fillText(150, CT_Y + 49, 40, 16, "W", 2, C_MUTED, C_CARD);
-#else
-    fillText(150, CT_Y + 52, 40, 16, "W", 2, C_MUTED, C_CARD);
-#endif
-    // inset backgrounds + static labels (drawn once)
-    int iy = CT_Y + 82, iw = 142;
-    _D.fillRoundRect(26, iy, iw, 34, 8, C_INSET);
-    _D.fillRoundRect(26 + iw + 6, iy, iw, 34, 8, C_INSET);
-    _D.fillRoundRect(26 + 2*(iw+6), iy, iw, 34, 8, C_INSET);
-    fillText(34, iy + 3, iw - 12, 11, t("Alternator in"), 1, C_MUTED, C_INSET);
-    fillText(34 + iw + 6, iy + 3, iw - 12, 11, t("To battery"), 1, C_MUTED, C_INSET);
-    fillText(34 + 2*(iw+6), iy + 3, iw - 12, 11, t("Output"), 1, C_MUTED, C_INSET);
+    // Top card: the two sides of the converter, each with its own V / A / W box, so input and
+    // output are never confused. Bottom card: what is derived or diagnostic.
+    drawCard(12, CT_Y + 8, 456, 146, C_CARD, true);
+    const int iw = 142, x0 = 26, x1 = 26 + 148, x2 = 26 + 296;
+    fillText(26, CT_Y + 40, 220, 12, t("Input (alternator)"), 1, C_MUTED, C_CARD);
+    fillText(26, CT_Y + 96, 220, 12, t("Output (battery)"),   1, C_MUTED, C_CARD);
+    const int rows[2] = { CT_Y + 54, CT_Y + 110 };
+    for (int r = 0; r < 2; r++) {
+        const int xs[3] = { x0, x1, x2 };
+        const char* lbl[3] = { "Voltage", "Current", "Power" };
+        for (int c = 0; c < 3; c++) {
+            _D.fillRoundRect(xs[c], rows[r], iw, 34, 8, C_INSET);
+            fillText(xs[c] + 8, rows[r] + 3, iw - 12, 11, t(lbl[c]), 1, C_MUTED, C_INSET);
+        }
+    }
+    drawCard(12, CT_Y + 162, 456, 60, C_CARD, true);
+    fillText(26,  CT_Y + 170, 300, 12, t("Efficiency & status"), 1, C_MUTED, C_CARD);
+    fillText(26,  CT_Y + 192, 90,  14, t("Efficiency"), 1, C_MUTED, C_CARD);
+    fillText(250, CT_Y + 192, 70,  14, t("Status"),     1, C_MUTED, C_CARD);
     _dcdcSig = -1;   // force value redraw on screen entry
     updateDcdc();
 }
 
+
 void DisplayUI::updateDcdc() {
     char buf[16], tb[8];
     bool on = _od.valid;
-    // change-guard (anti-flicker on CYD direct draw) — redraw only when a shown value changes
     auto ri = [](float v, float m){ return isnan(v) ? 0L : (long)lroundf(v * m); };
     long sig = on ? 1 : 0;
     if (on) {
@@ -1066,40 +1056,41 @@ void DisplayUI::updateDcdc() {
     if (sig == _dcdcSig) return;
     _dcdcSig = sig;
     fillText(26, CT_Y + 18, 320, 16, on ? victronModelName(_od.productId, true) : t("DC-DC"), 2, C_TEXT, C_CARD);
-    float w = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent)) ? _od.outVoltage * _od.outCurrent : NAN;
     // Real charge state from the advert (BULK/ABSORPTION/FLOAT/...), same as Solar — not a
     // Charging/Standby guess derived from the output current.
     const char* state = on ? victronStateName(_od.deviceState) : t("offline");
     pillCached(2, 360, CT_Y + 16, 96, 20, state, on ? C_BLUE : C_MUTED, C_INSET);
-    fmtF(buf, w, 0);
-    centerFill(86, CT_Y + 42, 120, 28, buf, 4, on ? C_BLUE : C_MUTED, C_CARD);
-    int iy = CT_Y + 82, iw = 142;
-    fmtF(tb, on ? _od.inVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", tb);
-    fillText(34, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(tb, on ? _od.outCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
-    fillText(34 + iw + 6, iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
-    fmtF(tb, on ? _od.outVoltage : NAN, 1); snprintf(buf, sizeof(buf), "%s V", tb);
-    fillText(34 + 2*(iw+6), iy + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
 
-    // card B — input side and efficiency, all from data we already receive
-    float inW  = (on && !isnan(_od.inVoltage) && !isnan(_od.inCurrent))
-                 ? _od.inVoltage * _od.inCurrent : NAN;
+    const float inW  = (on && !isnan(_od.inVoltage)  && !isnan(_od.inCurrent))
+                       ? _od.inVoltage  * _od.inCurrent  : NAN;
+    const float outW = (on && !isnan(_od.outVoltage) && !isnan(_od.outCurrent))
+                       ? _od.outVoltage * _od.outCurrent : NAN;
+    const int iw = 142, x0 = 26, x1 = 26 + 148, x2 = 26 + 296;
+    auto cell = [&](int x, int y, float v, int dec, const char* unit) {
+        fmtF(tb, on ? v : NAN, dec);
+        snprintf(buf, sizeof(buf), "%s %s", tb, unit);
+        fillText(x + 8, y + 15, iw - 12, 16, on ? buf : "--", 2, C_TEXT, C_INSET);
+    };
+    cell(x0, CT_Y + 54,  _od.inVoltage,  1, "V");   // alternator side
+    cell(x1, CT_Y + 54,  _od.inCurrent,  1, "A");
+    cell(x2, CT_Y + 54,  inW,            0, "W");
+    cell(x0, CT_Y + 110, _od.outVoltage, 1, "V");   // service-battery side
+    cell(x1, CT_Y + 110, _od.outCurrent, 1, "A");
+    cell(x2, CT_Y + 110, outW,           0, "W");
+
     // Efficiency is only meaningful under real load; below that it is noise on tiny numbers.
-    float eff  = (!isnan(inW) && inW > 5.0f && !isnan(w) && w > 0.0f) ? (w / inW * 100.0f) : NAN;
-    fmtF(tb, on ? _od.inCurrent : NAN, 1); snprintf(buf, sizeof(buf), "%s A", tb);
-    fillText(180, CT_Y + 164, 64, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
-    fmtF(tb, inW, 0); snprintf(buf, sizeof(buf), "%s W", tb);
-    fillText(180, CT_Y + 182, 64, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
+    float eff = (!isnan(inW) && inW > 5.0f && !isnan(outW) && outW > 0.0f) ? (outW / inW * 100.0f) : NAN;
     fmtF(tb, eff, 0); snprintf(buf, sizeof(buf), "%s %%", tb);
-    fillText(360, CT_Y + 164, 90, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
-    // Status line: the error wins when present, otherwise why the charger is off. Both are
-    // empty strings while it is simply running, so the row stays quiet.
+    fillText(120, CT_Y + 192, 90, 14, on ? buf : "--", 1, C_TEXT, C_CARD);
+    // Status: the error wins when present, otherwise why the charger is off. Both are empty
+    // strings while it is simply running, so the row stays quiet.
     const char* oerr = on ? victronErrorName(_od.error) : "";
     const char* ooff = on ? victronOffReasonName(_od.offReason) : "";
     const char* stx  = oerr[0] ? oerr : (ooff[0] ? ooff : "");
-    fillText(100, CT_Y + 200, 350, 14, on ? (stx[0] ? t(stx) : "-") : "--", 1,
+    fillText(320, CT_Y + 192, 140, 14, on ? (stx[0] ? t(stx) : "-") : "--", 1,
              oerr[0] ? C_RED : C_TEXT, C_CARD);
 }
+
 
 // ─── Level ────────────────────────────────────────────────────────────────────
 void DisplayUI::drawLevel() {

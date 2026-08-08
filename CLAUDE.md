@@ -183,6 +183,8 @@ x=8          x=171        x=334
 
 **SOC inside a ring — 3-digit rule:** at 100% the extra digit makes `SOC %` wider than the ring's usable inner span and it would clip the stroke, so the number drops **one font step for 3-digit values only** (0..99 keep the large size): Overview `font6→font4`, Battery screen `font2→font1`. Same rule on the web via `setSoc(el, v, on, bigPx, smallPx)` (number ×0.8, `%` ×0.85). Usable width is not the full inner diameter: at the digits' top/bottom the circle narrows to `2·√(rᵢ² − (h/2)²)`.
 
+**DC-DC detail layout:** the two sides of the converter are kept visually separate — top card = two labelled groups (*Input (alternator)* / *Output (battery)*), each with its own Voltage / Current / Power box (power = V×A, computed); bottom card = *Efficiency & status* only (efficiency is suppressed below 5 W input, where it is noise; status shows the charger error, else the off reason, else nothing). Don't mix quantities from the two sides in one row — that was the pre-0.75 mistake.
+
 ### Color palette (RGB565)
 
 | Name | Hex | Usage |

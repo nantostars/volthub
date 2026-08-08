@@ -10,6 +10,17 @@ of the web dashboard.
 
 ---
 
+## 0.75 — DC-DC tab: symmetric input/output layout (device + web)
+- The top card mixed the two sides of the converter: a big output-power headline plus three boxes
+  labelled "Alternator in" (a voltage), "To battery" (a current) and "Output" (a voltage) — same
+  row, different quantities, different sides. It now shows **two labelled groups, each with its own
+  Voltage / Current / Power box**: *Input (alternator)* and *Output (battery)*. Input power and
+  output power are computed as V×A.
+- The bottom card keeps only what is derived or diagnostic and is retitled **"Efficiency & status"**
+  (input current and input power moved up into the boxes where they belong).
+- Dropped the big output-W headline: it duplicated the output Power box.
+- Removed the i18n entries left orphaned by the new labels.
+
 ## 0.74 — web System: move the data-log block to the bottom
 - The Data log card sat right under Network, in the middle of the page. It is now the last block
   of the Configuration card, after the OTA group and immediately above "Save and reboot".

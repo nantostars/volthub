@@ -290,18 +290,22 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div><div class="card-t" id="dc-title">DC-DC</div><div class="card-s">Alternator · Bluetooth</div></div>
           <span class="pill" id="dc-state">--</span>
         </div>
-        <div class="bigw"><div class="n c-blue" id="dc-w">--</div><div class="u">W</div></div>
-        <div class="grid3" style="margin-top:14px">
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Alternator in</div><div class="v num" id="dc-iv" style="font-size:23px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">To battery</div><div class="v num" id="dc-a" style="font-size:23px;font-weight:600">--</div></div>
-          <div class="inset"><div class="l c-muted" style="font-size:11px">Output</div><div class="v num" id="dc-ov" style="font-size:23px;font-weight:600">--</div></div>
+        <div class="card-s" style="margin-top:12px" data-i18n="Input (alternator)">Input (alternator)</div>
+        <div class="grid3" style="margin-top:6px">
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Voltage">Voltage</div><div class="v num" id="dc-iv" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Current">Current</div><div class="v num" id="dc-ia" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Power">Power</div><div class="v num" id="dc-iw" style="font-size:23px;font-weight:600">--</div></div>
+        </div>
+        <div class="card-s" style="margin-top:14px" data-i18n="Output (battery)">Output (battery)</div>
+        <div class="grid3" style="margin-top:6px">
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Voltage">Voltage</div><div class="v num" id="dc-ov" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Current">Current</div><div class="v num" id="dc-oa" style="font-size:23px;font-weight:600">--</div></div>
+          <div class="inset"><div class="l c-muted" style="font-size:11px" data-i18n="Power">Power</div><div class="v num c-blue" id="dc-ow" style="font-size:23px;font-weight:600">--</div></div>
         </div>
       </div>
       <div class="card">
-        <div class="card-s" style="margin-bottom:10px" data-i18n="Input &amp; efficiency">Input &amp; efficiency</div>
+        <div class="card-s" style="margin-bottom:10px" data-i18n="Efficiency &amp; status">Efficiency &amp; status</div>
         <div class="grid2">
-          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Input current">Input current</span><span class="st-status-val" id="dc-ia">--</span></div>
-          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Input power">Input power</span><span class="st-status-val" id="dc-iw">--</span></div>
           <div class="st-status-row"><span class="st-status-lbl" data-i18n="Efficiency">Efficiency</span><span class="st-status-val" id="dc-eff">--</span></div>
           <div class="st-status-row"><span class="st-status-lbl" data-i18n="Status">Status</span><span class="st-status-val" id="dc-status">--</span></div>
         </div>
@@ -494,6 +498,9 @@ var I18N={ it:{
   "Loads":"Carichi","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Runtime":"Autonomia","To full":"A pieno",
+  "Input (alternator)":"Ingresso (alternatore)","Output (battery)":"Uscita (batteria)",
+  "Voltage":"Tensione","Current":"Corrente","Power":"Potenza",
+  "Efficiency & status":"Rendimento e stato",
   "Data log (CSV)":"Log dati (CSV)",
   "Logging":"Registrazione",
   "Rows":"Righe",
@@ -505,9 +512,6 @@ var I18N={ it:{
   "One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga ogni 2 minuti. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
   "Load output":"Uscita carichi",
   "Error":"Errore",
-  "Input & efficiency":"Ingresso e rendimento",
-  "Input current":"Corrente ingresso",
-  "Input power":"Potenza ingresso",
   "Efficiency":"Rendimento",
   "Status":"Stato",
   "Battery voltage high":"Tensione batteria alta",
@@ -757,21 +761,19 @@ function updateSolar(d){
 function updateDcdc(d){
   var o=d.orion||{}, on=o.online;
   $('dc-title').textContent=on?(o.model||'DC-DC'):'DC-DC';
-  var w=(on&&o.outVoltage!==undefined&&o.outCurrent!==undefined)?o.outVoltage*o.outCurrent:NaN;
   // Real charge state from the advert (BULK/ABSORPTION/FLOAT/...), same as Solar.
   pill($('dc-state'), on?(o.state||'--'):TR('offline'), on?'var(--blue)':'var(--muted)', on?'rgba(90,165,245,.16)':'var(--inset)');
-  $('dc-w').textContent=fmt(w,0);
-  $('dc-iv').textContent=on?fmt(o.inVoltage,1)+' V':'--';
-  $('dc-a').textContent=on?fmt(o.outCurrent,1)+' A':'--';
-  $('dc-ov').textContent=on?fmt(o.outVoltage,1)+' V':'--';
-  // Input side + efficiency, all derived from data already in the advertisement.
-  var iA=(on&&o.inCurrent!==undefined&&o.inCurrent!==null)?o.inCurrent:NaN;
-  var iV=(on&&o.inVoltage!==undefined&&o.inVoltage!==null)?o.inVoltage:NaN;
-  var iW=(!isNaN(iA)&&!isNaN(iV))?iA*iV:NaN;
+  var num=function(v){ return (on&&v!==undefined&&v!==null)?v:NaN; };
+  var iV=num(o.inVoltage), iA=num(o.inCurrent), oV=num(o.outVoltage), oA=num(o.outCurrent);
+  var iW=(!isNaN(iV)&&!isNaN(iA))?iV*iA:NaN, oW=(!isNaN(oV)&&!isNaN(oA))?oV*oA:NaN;
+  $('dc-iv').textContent=isNaN(iV)?'--':fmt(iV,1)+' V';
   $('dc-ia').textContent=isNaN(iA)?'--':fmt(iA,1)+' A';
   $('dc-iw').textContent=isNaN(iW)?'--':fmt(iW,0)+' W';
+  $('dc-ov').textContent=isNaN(oV)?'--':fmt(oV,1)+' V';
+  $('dc-oa').textContent=isNaN(oA)?'--':fmt(oA,1)+' A';
+  $('dc-ow').textContent=isNaN(oW)?'--':fmt(oW,0)+' W';
   // Only meaningful under real load; below that it is noise on tiny numbers.
-  var eff=(!isNaN(iW)&&iW>5&&!isNaN(w)&&w>0)?(w/iW*100):NaN;
+  var eff=(!isNaN(iW)&&iW>5&&!isNaN(oW)&&oW>0)?(oW/iW*100):NaN;
   $('dc-eff').textContent=isNaN(eff)?'--':fmt(eff,0)+' %';
   // Error wins over off-reason; both empty while it is simply running.
   var oe=(on&&o.error&&o.error.length>0)?o.error:'';
@@ -779,6 +781,7 @@ function updateDcdc(d){
   $('dc-status').textContent=on?(oe?TR(oe):(or?TR(or):'\u2014')):'--';
   $('dc-status').style.color=oe?'var(--red)':'var(--text)';
 }
+
 
 // ── level ──
 function updateLevel(d){
