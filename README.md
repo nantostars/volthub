@@ -70,6 +70,20 @@ an Orion XS, at rest in the evening — hence the zeros on the power figures).
 <p align="center"><em>System: connected devices, network, firmware, language, and the configuration form
 (values shown are placeholders)</em></p>
 
+### Device screen
+
+The same firmware on the built-in display — here a Guition JC3248W535C installed in the camper.
+The device is running the **Italian** UI, the web screenshots above the English one: the language
+is switchable at runtime from the web System tab.
+
+| Overview | Battery |
+|---|---|
+| ![Device overview](docs/screenshots/device-overview.jpg) | ![Device battery](docs/screenshots/device-battery.jpg) |
+
+| Level | System |
+|---|---|
+| ![Device level](docs/screenshots/device-level.jpg) | ![Device system](docs/screenshots/device-system.jpg) |
+
 ## Hardware
 
 The firmware targets two low‑cost, all‑in‑one ESP32 touchscreen boards. No custom wiring

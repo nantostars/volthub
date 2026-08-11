@@ -10,6 +10,14 @@ of the web dashboard.
 
 ---
 
+## 0.81 — docs: photos of the device screen
+- Added the "Device screen" part of the Screenshots section: Overview, Battery, Level and System
+  photographed on a Guition installed in a camper, next to the web captures.
+- The photos are processed for the repository: **all EXIF stripped** (they carried the phone model
+  and timestamps; the GPS fields were already empty), cropped to the device, mildly brightened and
+  sharpened, and recompressed from ~4 MB each to 200-280 KB.
+- The originals live in `device-pics/`, which is git-ignored — only the processed copies are tracked.
+
 ## 0.80 — rename: "Camper Energy and Leveling Monitor"
 - Levelling is a first-class function of this project, not an accessory to the energy side, so the
   subtitle now says so: **volthub — Camper Energy and Leveling Monitor**.

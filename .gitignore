@@ -20,3 +20,7 @@ JC3248W535EN/
 # ESP-IDF component manager auto-generated manifest
 src/idf_component.yml
 *.orig
+
+# Original device photos (multi-MB, with camera EXIF) — only the processed
+# versions in docs/screenshots/ are tracked
+device-pics/
