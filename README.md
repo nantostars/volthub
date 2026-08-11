@@ -95,7 +95,8 @@ pio run -e cyd     -t upload --upload-port /dev/cu.usbserial-XXXX # CYD
 - **Runtime settings** (Wi‑Fi client, device MACs, language, screen timeout) are set from
   the web dashboard and persisted in NVS.
 - **Default Wi‑Fi:** Access Point `CamperEnergy` / `camper1234`; the dashboard is at
-  `http://192.168.4.1`.
+  `http://192.168.4.1`. Those defaults are in the public source, so **change the AP password**
+  from **System → Configuration → WiFi AP** on first use — anyone in range knows the factory one.
 
 ### Turning the AP off while the client is connected
 

@@ -10,6 +10,20 @@ of the web dashboard.
 
 ---
 
+## 0.77 — prepare for public release
+- Removed the `design/` folder: it held a corporate design-system stylesheet copied from an
+  internal project, which has no place in a public repository (also stripped from the history).
+- Author is now **nantostars** in `LICENSE`, `README.md` and the changelog; the git author and
+  committer identity was rewritten across the whole history for the same reason.
+- The BMS MAC placeholder in the settings form was a real-looking device address
+  (`AA:BB:CC:DD:EE:FF`); replaced with the obvious `AA:BB:CC:DD:EE:FF` and rewritten in history.
+- Dropped internal notes: the private sibling-project reference and the local serial port in
+  `CLAUDE.md`, and the "local repo / do not push" line in `docs/UPGRADE-latest-stack.md`.
+- `README.md` now warns that the factory AP password ships in the public source and should be
+  changed on first use.
+- Audited and clean: no Victron keys (only zeros were ever committed), no email addresses, no
+  tokens or API keys, no personal paths.
+
 ## 0.76 — Data log: add the BMS charge counter (`batt_ah`)
 - Added `batt_ah` (`remainingAh`) right after `batt_soc`. It is the BMS coulomb counter, and it is
   what you want for energy maths: the logged current is quantised by the BMS in ~0.5 A steps, so

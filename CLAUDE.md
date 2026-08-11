@@ -1,6 +1,6 @@
-# Camper Energy Monitor — CYD Firmware
+# volthub — Camper Energy Monitor firmware
 
-ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE and serves a WiFi web dashboard. This is the **CYD display variant** (`central-power-app-cyd`); the headless variant lives in `central-power-app`.
+ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE and serves a WiFi web dashboard.
 
 **Goal:** unified dashboard for LiTime BMS + Victron SmartSolar + Victron Orion XS DC-DC + Witmotion IMU, accessible from Android/browser — without a GX device or Raspberry Pi.
 
@@ -18,11 +18,11 @@ ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE an
 | Touch | XPT2046 resistive, SPI shared bus, CS=33, IRQ=36 |
 | Touch formula | `sx = 479 - map(ry, 320, 3860, 0, 479)` · `sy = map(rx, 480, 3860, 0, 319)` |
 | Flash | `min_spiffs.csv` (two OTA slots) |
-| Upload | 460800 baud · port `/dev/cu.usbserial-1130` (macOS, may vary) |
+| Upload | 460800 baud · port e.g. `/dev/cu.usbserial-XXXX` (macOS; varies) |
 
 **Flash command:**
 ```bash
-pio run -e cyd -t upload --upload-port /dev/cu.usbserial-1130 -d <path>/central-power-app-cyd
+pio run -e cyd -t upload --upload-port /dev/cu.usbserial-XXXX
 ```
 
 ### Guition JC3248W535C (`[env:guition]` — implemented, pending hardware verification)

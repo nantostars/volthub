@@ -121,4 +121,3 @@ Senza una di queste, è alto rischio / basso beneficio: rimandare.
 
 ---
 
-*Vincoli di progetto: repo locale, autore nantostars, nessun push su repo condivisi.*
