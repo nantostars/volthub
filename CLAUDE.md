@@ -1,8 +1,8 @@
-# volthub — Camper Energy Monitor firmware
+# volthub — Camper Energy and Leveling Monitor firmware
 
 ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE and serves a WiFi web dashboard.
 
-**Goal:** unified dashboard for LiTime BMS + Victron SmartSolar + Victron Orion XS DC-DC + Witmotion IMU, accessible from Android/browser — without a GX device or Raspberry Pi.
+**Goal:** unified energy **and levelling** dashboard for LiTime BMS + Victron SmartSolar + Victron Orion XS DC-DC + Witmotion IMU (pitch/roll when parking), accessible from Android/browser — without a GX device or Raspberry Pi.
 
 ---
 

@@ -499,7 +499,7 @@ static void scanWatchdogTask(void*) {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.println("\n[boot] Camper Energy Monitor CYD");
+    Serial.println("\n[boot] volthub - Camper Energy and Leveling Monitor");
 
     display.begin();
     settings.begin();

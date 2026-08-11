@@ -1,10 +1,11 @@
-# volthub — Camper Energy Monitor
+# volthub — Camper Energy and Leveling Monitor
 
-A self-contained energy dashboard for a camper/RV electrical system, running on an
-ESP32 touchscreen display. It reads a **LiTime BMS**, a **Victron SmartSolar** MPPT,
-a **Victron Orion‑XS** DC‑DC charger and a **Witmotion** tilt sensor over Bluetooth LE,
-and shows everything on the built‑in screen **and** on a phone/browser via Wi‑Fi — with
-**no GX device, Raspberry Pi or cloud** required.
+A self-contained energy **and levelling** dashboard for a camper/RV, running on an ESP32
+touchscreen display. It reads a **LiTime BMS**, a **Victron SmartSolar** MPPT and a
+**Victron Orion‑XS** DC‑DC charger over Bluetooth LE for the electrical side, and a
+**Witmotion** tilt sensor for pitch and roll, so you can also see how level the vehicle is
+when you park. Everything shows on the built‑in screen **and** on a phone/browser over
+Wi‑Fi — with **no GX device, Raspberry Pi or cloud** required.
 
 > Firmware for two touchscreen boards: the **Guition JC3248W535C** (ESP32‑S3, primary)
 > and the **ESP32‑2432S035R "CYD"** (ESP32). Both share the same UI and web dashboard.
@@ -20,8 +21,11 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
 - **Runtime estimate** — time to empty while discharging, time to full while charging, derived
   from the BMS coulomb counter (`remainingAh`) and a smoothed current, so it does not jump on
   every compressor start. Shown on the overview and the Battery screen.
+- **Levelling** — a spirit level fed by the tilt sensor: pitch and roll with green/amber/red
+  zones, so you can tell at a glance how much the vehicle needs to be raised, and on which side,
+  before putting the ramps under a wheel.
 - **Detail screens** — Battery (per‑cell voltages, SOH, cycles, temperature, balance
-  delta with alarm thresholds), Solar, DC‑DC, and a **spirit‑level** tab using the IMU.
+  delta with alarm thresholds), Solar and DC‑DC.
 - **Real charge state** — the actual Victron mode (Bulk / Absorption / Float / Storage /
   BatterySafe …) for both the MPPT and the DC‑DC, decoded from the advertisement and named
   after the official VE.Direct state table — not guessed from the current.

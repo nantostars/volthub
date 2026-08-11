@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.80 — rename: "Camper Energy and Leveling Monitor"
+- Levelling is a first-class function of this project, not an accessory to the energy side, so the
+  subtitle now says so: **volthub — Camper Energy and Leveling Monitor**.
+- Updated accordingly: the README title and intro, the GitHub About text, the `CLAUDE.md` heading
+  and goal line, and the serial boot banner (which still said "Camper Energy Monitor CYD", a name
+  from when this was the CYD-only variant).
+- The README feature list now gives levelling its own entry instead of a clause inside "Detail
+  screens", and repository topics were added for discoverability.
+
 ## 0.79 — docs: screenshots of the web dashboard
 - Added `docs/screenshots/` and a Screenshots section to the README: Overview, Battery, Solar,
   DC-DC, Level and System, captured from a **running device** with its real readings.
