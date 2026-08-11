@@ -43,6 +43,29 @@ and shows everything on the built‑in screen **and** on a phone/browser via Wi�
 - **Built to run for days** — no‑leak BLE scanning, non‑overlapping web polling and a free‑RAM
   readout in the System tab, so the dashboard stays reachable on long trips.
 
+## Screenshots
+
+### Web dashboard
+
+Real screenshots from a running device (a 12 V 147 Ah LiFePO4 bank, SmartSolar MPPT in float and
+an Orion XS, at rest in the evening — hence the zeros on the power figures).
+
+<p align="center"><img src="docs/screenshots/web-overview.png" width="640" alt="Overview tab"></p>
+
+| Battery | Solar |
+|---|---|
+| ![Battery](docs/screenshots/web-battery.png) | ![Solar](docs/screenshots/web-solar.png) |
+| Per-cell voltages, SOH, cycles, balance delta, runtime estimate | Charge state, battery-side V/A, yield today |
+
+| DC-DC | Level |
+|---|---|
+| ![DC-DC](docs/screenshots/web-dcdc.png) | ![Level](docs/screenshots/web-level.png) |
+| Alternator and battery side each with V / A / W, efficiency and off reason | Spirit level fed by the IMU |
+
+<p align="center"><img src="docs/screenshots/web-system.png" width="420" alt="System tab"></p>
+<p align="center"><em>System: connected devices, network, firmware, language, and the configuration form
+(values shown are placeholders)</em></p>
+
 ## Hardware
 
 The firmware targets two low‑cost, all‑in‑one ESP32 touchscreen boards. No custom wiring

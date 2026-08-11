@@ -10,6 +10,13 @@ of the web dashboard.
 
 ---
 
+## 0.79 — docs: screenshots of the web dashboard
+- Added `docs/screenshots/` and a Screenshots section to the README: Overview, Battery, Solar,
+  DC-DC, Level and System, captured from a **running device** with its real readings.
+- The System tab is rendered with **placeholder settings**: `/api/settings` returns the WiFi
+  passwords and both 32-character Victron AES keys in clear text, which would otherwise have ended
+  up in a public screenshot along with the real SSID and the BMS/IMU MAC addresses.
+
 ## 0.78 — docs: translate the upgrade assessment to English
 - `docs/UPGRADE-latest-stack.md` was the last Italian document in an otherwise English repository.
   Translated in full, keeping the content unchanged (it documents *why* the platform, NimBLE and
