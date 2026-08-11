@@ -1,123 +1,123 @@
-# Valutazione upgrade allo stack più recente (arduino v3 / NimBLE 2.x / GFX / …)
+# Upgrade assessment: latest stack (arduino v3 / NimBLE 2.x / GFX / …)
 
-> Documento di pianificazione **riutilizzabile**. Quando si deciderà di fare l'upgrade,
-> partire da qui. Solo valutazione: nessuna modifica al codice finché non si decide.
+> **Reusable planning document.** If and when the upgrade is attempted, start here.
+> Assessment only — no code changes until the decision is made.
 >
-> Redatto: 2026-07-23. Aggiornare le versioni "target" al momento dell'esecuzione.
+> Written 2026-07-23. Refresh the "target" versions at execution time.
 
 ---
 
-## 1. Stack attuale (known-good, deliberato)
+## 1. Current stack (known-good, deliberate)
 
-| Componente | Versione attuale | Note |
+| Component | Current version | Notes |
 |---|---|---|
-| Piattaforma | `espressif32@6.6.0` | = arduino-esp32 **v2** / **IDF 4.4** |
-| BLE | `NimBLE-Arduino @ ^1.4.2` | funziona su v2; **EOL** (non più mantenuta) |
-| GFX (Guition) | `GFX Library for Arduino @ 1.4.9` | solo `[env:guition]` |
-| Display (CYD) | `TFT_eSPI @ ^2.5.43` | solo `[env:cyd]` |
-| JSON | `ArduinoJson @ ^7.0.0` | entrambi gli env |
-| Crypto | mbedTLS (nel core ESP32) | AES-128-CTR per advert Victron |
+| Platform | `espressif32@6.6.0` | = arduino-esp32 **v2** / **IDF 4.4** |
+| BLE | `NimBLE-Arduino @ ^1.4.2` | works on v2; **EOL** (no longer maintained) |
+| GFX (Guition) | `GFX Library for Arduino @ 1.4.9` | `[env:guition]` only |
+| Display (CYD) | `TFT_eSPI @ ^2.5.43` | `[env:cyd]` only |
+| JSON | `ArduinoJson @ ^7.0.0` | both envs |
+| Crypto | mbedTLS (in the ESP32 core) | AES-128-CTR for the Victron advertisements |
 
-Lo stack è **scelto apposta**: v2 + NimBLE 1.4.2 + GFX 1.4.9 è il "known-good" che evita il
-crash BLE su IDF5 (vedi §3). Display Guition e touch sono confermati perfetti su questo stack.
+This stack is **pinned on purpose**: v2 + NimBLE 1.4.2 + GFX 1.4.9 is the known-good combination
+that avoids the BLE crash on IDF5 (see §3). The Guition display and touch are confirmed working
+on it.
 
-## 2. Stack target (da aggiornare all'esecuzione)
+## 2. Target stack (refresh at execution time)
 
-| Componente | Target | Vincolo |
+| Component | Target | Constraint |
 |---|---|---|
-| Piattaforma | **pioarduino** platform-espressif32 (arduino-esp32 **v3** / **IDF5**) | l'`espressif32` classico resta a v2 → serve il fork pioarduino |
-| BLE | **NimBLE-Arduino 2.x** | obbligatorio su IDF5 (1.4.x non compila/crasha) |
-| GFX (Guition) | GFX 1.6.x / 1.7.x | ha init AXS15231B nativi (type1/type2) |
-| Display (CYD) | TFT_eSPI ultima 2.5.4x (v3-compatible) | verificare supporto arduino v3 |
-| JSON | ArduinoJson 7.x | **invariato, zero lavoro** |
+| Platform | **pioarduino** platform-espressif32 (arduino-esp32 **v3** / **IDF5**) | classic `espressif32` stays on v2 → the pioarduino fork is required |
+| BLE | **NimBLE-Arduino 2.x** | mandatory on IDF5 (1.4.x does not build / crashes) |
+| GFX (Guition) | GFX 1.6.x / 1.7.x | ships native AXS15231B init sequences (type1/type2) |
+| Display (CYD) | latest TFT_eSPI 2.5.4x (v3-compatible) | verify arduino v3 support |
+| JSON | ArduinoJson 7.x | **unchanged, zero work** |
 
-Riferimento piattaforma pioarduino (esempio, usare la release più recente):
+pioarduino platform reference (example — use the latest release):
 `https://github.com/pioarduino/platform-espressif32/releases`
 
-## 3. È "tutto o niente" — e c'è già una prova
+## 3. It is all-or-nothing — and this project already has the proof
 
-I tre upgrade **non sono indipendenti**: sono un unico salto obbligato.
-- Arduino v3 non esiste su `espressif32@6.6.0` → serve pioarduino.
-- IDF5 rompe NimBLE 1.4.2 → obbligatorio NimBLE 2.x.
+The three upgrades are **not independent**: they are a single forced jump.
+- Arduino v3 does not exist on `espressif32@6.6.0` → pioarduino is required.
+- IDF5 breaks NimBLE 1.4.2 → NimBLE 2.x is mandatory.
 
-**Prova diretta nel progetto:** il branch `guition-v3-wip` andava in **boot-loop / Guru
-Meditation LoadProhibited all'init del BT controller** proprio perché aveva arduino v3 con
-NimBLE 1.4.2. Non è un bug da fixare: è l'incompatibilità che *impone* NimBLE 2.x. Quel branch
-è conservabile come riferimento; la soluzione buona (v2) è su `main`.
+**Direct evidence in this project:** the `guition-v3-wip` branch went into a **boot loop / Guru
+Meditation LoadProhibited at BT controller init** precisely because it paired arduino v3 with
+NimBLE 1.4.2. That is not a bug to fix: it is the incompatibility that *forces* NimBLE 2.x. Keep
+that branch as a reference if you like; the good solution (v2) is on `main`.
 
-## 4. Complessità per componente
+## 4. Complexity per component
 
-| Componente | Sforzo | Motivo |
+| Component | Effort | Why |
 |---|---|---|
-| **NimBLE 1.4.2 → 2.x** | 🔴 Alto | Il collo di bottiglia. API cambiate: `NimBLEAdvertisedDeviceCallbacks`→`NimBLEScanCallbacks`, firme `onResult`, subscribe/notify, gestione address, `getServices/getCharacteristics`. Ci sono **3 pattern BLE distinti** da riportare e ri-testare: scan passivo Victron, GATT attivo BMS, GATT attivo IMU (con le quirks: `getServices(true)`, discovery forzata, base UUID non-standard `9a`, unlock packet). |
-| **Piattaforma → pioarduino v3** | 🟡 Medio | Cambio in `platformio.ini` su **entrambi** gli env. Toolchain pioarduino da installare. Qualche API IDF5 da adeguare. |
-| **GFX 1.4.9 → 1.6/1.7 (Guition)** | 🟡 Medio-basso | Init AXS15231B nativi potrebbero semplificare o cambiare i costruttori del driver custom (`Arduino_AXS15231B_Guition.h`). Riverificare resa: init/COLMOD 0x55/rotazione software/40 MHz. Rischio di riaprire trama/flicker/touch. |
-| **TFT_eSPI (CYD)** | 🟡 Medio | Attriti noti con arduino v3 (API SPI/DMA). Bump + riverifica display CYD. |
-| **mbedTLS 2.x → 3.x (Victron AES-CTR)** | 🟡 Basso-medio | IDF5 porta mbedTLS 3.x; possibili API deprecate nella decifratura advert. |
-| **Wire / I2C (touch)** | 🟢-🟡 Basso | Nuovo driver I2C master in IDF5; il wrapper `Wire` regge ma va riverificato il touch AXS15231B. |
-| **WebServer / WiFi / OTA** | 🟢 Basso | API stabili. |
-| **ArduinoJson** | 🟢 Nullo | Già v7. |
-| **Partizioni / OTA** | ⚠️ Verifica | Binari v3/IDF5 **più grandi**: confermare che il firmware entri ancora in `min_spiffs.csv` (due slot OTA). Se cresce troppo, rivedere lo schema partizioni. |
+| **NimBLE 1.4.2 → 2.x** | 🔴 High | The bottleneck. Changed APIs: `NimBLEAdvertisedDeviceCallbacks`→`NimBLEScanCallbacks`, `onResult` signatures, subscribe/notify, address handling, `getServices`/`getCharacteristics`. There are **three distinct BLE patterns** to port and re-test: Victron passive scan, BMS active GATT, IMU active GATT (with its quirks: `getServices(true)`, forced discovery, non-standard `9a` base UUID, unlock packet). |
+| **Platform → pioarduino v3** | 🟡 Medium | `platformio.ini` change on **both** envs. pioarduino toolchain to install. Some IDF5 APIs to adapt. |
+| **GFX 1.4.9 → 1.6/1.7 (Guition)** | 🟡 Medium-low | Native AXS15231B init may simplify or change the custom driver's constructors (`Arduino_AXS15231B_Guition.h`). Re-verify the result: init / COLMOD 0x55 / software rotation / 40 MHz. Risk of reopening texture, flicker and touch issues. |
+| **TFT_eSPI (CYD)** | 🟡 Medium | Known friction with arduino v3 (SPI/DMA APIs). Bump and re-verify the CYD display. |
+| **mbedTLS 2.x → 3.x (Victron AES-CTR)** | 🟡 Low-medium | IDF5 brings mbedTLS 3.x; some APIs used in advertisement decryption may be deprecated. |
+| **Wire / I2C (touch)** | 🟢-🟡 Low | New I2C master driver in IDF5; the `Wire` wrapper holds, but AXS15231B touch needs re-checking. |
+| **WebServer / WiFi / OTA** | 🟢 Low | Stable APIs. |
+| **ArduinoJson** | 🟢 None | Already v7. |
+| **Partitions / OTA** | ⚠️ Check | v3/IDF5 binaries are **larger**: confirm the firmware still fits `min_spiffs.csv` (two OTA slots). If it grows too much, revisit the partition scheme. |
 
-## 5. Il vero costo è la RI-VERIFICA, non la scrittura
+## 5. The real cost is RE-VERIFICATION, not writing code
 
-Il porting del codice è ~2 giorni di lavoro focalizzato. Il grosso del rischio è il **test su
-hardware**, non comprimibile:
-- **Coesistenza WiFi + 3 connessioni BLE** su IDF5: timing-dependent, bug intermittenti e
-  difficili da riprodurre. Su IDF4 oggi funziona; lo scheduler radio di IDF5 è diverso.
-- **Display + touch Guition**: da ri-tarare con GFX nuova (rischio di riaprire problemi chiusi).
-- **Display CYD** con TFT_eSPI aggiornata.
-- **BMS / IMU / Victron**: regressioni da riverificare una per una col rispettivo hardware.
+Porting the code is roughly two focused days. Most of the risk sits in **hardware testing**, which
+cannot be compressed:
+- **WiFi + three BLE connections coexisting** on IDF5: timing-dependent, with intermittent bugs
+  that are hard to reproduce. It works today on IDF4; the IDF5 radio scheduler is different.
+- **Guition display + touch**: to be re-tuned against the new GFX (risk of reopening closed issues).
+- **CYD display** with an updated TFT_eSPI.
+- **BMS / IMU / Victron**: regressions to re-verify one by one against the real hardware.
 
-Stima grezza: **~2 giorni di porting + diversi giorni di debug/verifica hardware**, con code di
-coda imprevedibili sul BLE.
+Rough estimate: **~2 days of porting plus several days of hardware debugging and verification**,
+with an unpredictable tail on the BLE side.
 
-## 6. Piano di migrazione consigliato (de-risking)
+## 6. Recommended migration plan (de-risking)
 
-Ordine pensato per far emergere il rischio maggiore **presto** e poter tornare indietro:
+Ordered so the biggest risk surfaces **early**, while backing out is still cheap:
 
-1. **Branch dedicato** da `main` (es. `upgrade-v3`), mai lavorare su `main`. `main` resta il
-   known-good di rollback.
-2. **Prima il BLE, in isolamento.** Fare un firmware minimale (niente display) su arduino v3 +
-   NimBLE 2.x che porti i 3 pattern BLE e provi la **coesistenza WiFi+BLE** con l'hardware reale.
-   Se il BLE non regge, l'upgrade si ferma qui e non si è buttato tempo sul resto.
-3. **Piattaforma + build** entrambi gli env su pioarduino; sistemare warning/API IDF5, mbedTLS,
-   Wire. Verificare che i binari entrino nelle partizioni OTA.
-4. **Guition**: GFX aggiornata, ri-tarare display (init/COLMOD/rotazione/40 MHz) e touch.
-5. **CYD**: TFT_eSPI aggiornata, riverifica display + touch XPT2046.
-6. **Integrazione**: tutto acceso insieme (WiFi + 3 BLE + display + web + OTA), soak test.
+1. **Dedicated branch** off `main` (e.g. `upgrade-v3`); never work on `main`, which stays the
+   known-good rollback point.
+2. **BLE first, in isolation.** Build a minimal firmware (no display) on arduino v3 + NimBLE 2.x
+   that ports the three BLE patterns and exercises **WiFi+BLE coexistence** on real hardware. If
+   BLE does not hold up, the upgrade stops here and no time was spent on the rest.
+3. **Platform + build** for both envs on pioarduino; fix IDF5 warnings/APIs, mbedTLS, Wire. Check
+   the binaries still fit the OTA partitions.
+4. **Guition**: updated GFX, re-tune display (init / COLMOD / rotation / 40 MHz) and touch.
+5. **CYD**: updated TFT_eSPI, re-verify display + XPT2046 touch.
+6. **Integration**: everything running together (WiFi + 3 BLE + display + web + OTA), soak test.
 
-## 7. Checklist di verifica hardware (per sottosistema)
+## 7. Hardware verification checklist (per subsystem)
 
-- [ ] BMS LiTime: connessione GATT, poll 2s, frame 104 byte decodificato, celle/SOC corretti
-- [ ] Victron SmartSolar: scan advert, decifratura AES-CTR, modello da PID, valori
-- [ ] Victron Orion: idem, distinzione SmartSolar/Orion (key-check byte / record-type 0x0F)
-- [ ] IMU Witmotion: GATT, unlock packet, angoli pitch/roll/yaw
-- [ ] Coesistenza: 3 BLE + WiFi AP + polling web per ore, senza jitter/disconnessioni/crash
-- [ ] Guition: display (no trama/flicker), touch preciso al primo colpo, tab, timeout schermo
-- [ ] CYD: display, touch XPT2046
-- [ ] Web: dashboard, /api/data, tutte le tab, OTA (upload + reboot)
-- [ ] NTP, NVS (chiavi/MAC/settings), dimensione binario < slot OTA
+- [ ] LiTime BMS: GATT connection, 2 s poll, 104-byte frame decoded, cells/SOC correct
+- [ ] Victron SmartSolar: advertisement scan, AES-CTR decryption, model from PID, values
+- [ ] Victron Orion: same, plus SmartSolar/Orion discrimination (key-check byte / record type 0x0F)
+- [ ] Witmotion IMU: GATT, unlock packet, pitch/roll/yaw angles
+- [ ] Coexistence: 3 BLE + WiFi AP + web polling for hours, with no jitter, disconnections or crashes
+- [ ] Guition: display (no texture/flicker), touch accurate first try, tabs, screen timeout
+- [ ] CYD: display, XPT2046 touch
+- [ ] Web: dashboard, `/api/data`, every tab, OTA (upload + reboot)
+- [ ] NTP, NVS (keys/MACs/settings), binary size below the OTA slot
 
-## 8. Quando farlo (criterio di decisione)
+## 8. When to do it (decision criterion)
 
-Lo stack attuale funziona. Ha senso l'upgrade **solo con una ragione concreta** che esista
-*solo* su v3, ad es.:
-- serve una feature/API disponibile solo su NimBLE 2.x o IDF5;
-- serve una libreria futura che richiede arduino v3;
-- si vuole uscire da NimBLE 1.4.x (EOL) per sicurezza/manutenzione a lungo termine.
+The current stack works. The upgrade is worth it **only with a concrete reason** that exists
+*only* on v3, for example:
 
-Senza una di queste, è alto rischio / basso beneficio: rimandare.
+- a feature or API available only on NimBLE 2.x or IDF5 is needed;
+- a future library requires arduino v3;
+- you want off NimBLE 1.4.x (EOL) for long-term security and maintenance.
 
-## 9. Gotcha pratici (dal lavoro su questo progetto)
+Without one of those it is high risk for low benefit: postpone.
 
-- Usare **`~/.platformio/penv/bin/pio`** (il `pio` di pyenv non ha il modulo `lzma`, che serve
-  alla toolchain pioarduino).
-- Guition in crash-loop → l'upload fallisce: **tenere premuto BOOT durante il flash**.
-- Serial USB Guition: `-DARDUINO_USB_MODE=1 -DARDUINO_USB_CDC_ON_BOOT=1`.
-- Verifica display via webcam: `ffmpeg -f avfoundation -video_size 1920x1080 -i "0" -frames:v 20 out.jpg`.
-- Non fidarsi dei riassunti WebSearch/WebFetch per dati precisi (es. PID): usare la fonte
-  ufficiale (es. `pdftotext -layout` sul PDF Victron).
+## 9. Practical gotchas (learned on this project)
 
----
-
+- Use **`~/.platformio/penv/bin/pio`** — a pyenv `pio` may lack the `lzma` module the pioarduino
+  toolchain needs.
+- Guition in a crash loop makes uploads fail: **hold BOOT during flashing**.
+- Guition USB serial: `-DARDUINO_USB_MODE=1 -DARDUINO_USB_CDC_ON_BOOT=1`.
+- Checking the display with a webcam:
+  `ffmpeg -f avfoundation -video_size 1920x1080 -i "0" -frames:v 20 out.jpg`.
+- Do not trust WebSearch/WebFetch summaries for exact data (product IDs, register tables): go to
+  the official source (e.g. `pdftotext -layout` on the Victron PDF).

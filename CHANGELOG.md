@@ -10,6 +10,11 @@ of the web dashboard.
 
 ---
 
+## 0.78 — docs: translate the upgrade assessment to English
+- `docs/UPGRADE-latest-stack.md` was the last Italian document in an otherwise English repository.
+  Translated in full, keeping the content unchanged (it documents *why* the platform, NimBLE and
+  GFX versions are pinned, which is exactly what a reader forking this project needs to know).
+
 ## 0.77 — prepare for public release
 - Removed the `design/` folder: it held a corporate design-system stylesheet copied from an
   internal project, which has no place in a public repository (also stripped from the history).
