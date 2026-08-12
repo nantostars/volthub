@@ -10,6 +10,20 @@ of the web dashboard.
 
 ---
 
+## 0.82 — CI: build on every change, firmware releases on tag
+- **Pinned the libraries to exact versions** (NimBLE 1.4.3, ArduinoJson 7.4.3, TFT_eSPI 2.5.43;
+  GFX was already exact). They were caret ranges, so CI would have resolved whatever is current
+  that day and could ship a binary never run on hardware — with NimBLE that is precisely how the
+  0.47 boot loop happened. The pins are the versions actually verified on the devices.
+- `.github/workflows/build.yml`: compiles both boards on every push and PR.
+- `.github/workflows/release.yml`: on a `v*` tag, builds both boards and publishes a release with
+  four binaries plus `SHA256SUMS.txt`. It **refuses to publish if the tag does not match
+  `FW_VERSION`**, so a release can never ship a firmware that reports a different version.
+- Two artifacts per board: `*-ota.bin` (app image for the web updater) and `*-factory.bin`
+  (bootloader + partitions + boot_app0 + app, for flashing a blank board over USB). PlatformIO
+  emits an empty `firmware.factory.bin`, so the merged image is assembled in the workflow with
+  esptool, using the right bootloader offset per chip (0x0 on the S3, 0x1000 on the ESP32).
+
 ## 0.81 — docs: photos of the device screen
 - Added the "Device screen" part of the Screenshots section: Overview, Battery, Level and System
   photographed on a Guition installed in a camper, next to the web captures.

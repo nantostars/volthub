@@ -1,0 +1,117 @@
+name: release
+
+# Publish firmware binaries when a version tag is pushed:  git tag v0.82 && git push --tags
+# Deliberately NOT on every commit: FW_VERSION is bumped on each change, which would otherwise
+# produce a release per commit.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v0.82)'
+        required: true
+
+permissions:
+  contents: write            # needed to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      # The tag is the promise; Version.h is what actually ends up inside the binary and on the
+      # device System screen. If they disagree the release would ship a firmware reporting a
+      # different version, so stop here instead.
+      - name: Tag must match FW_VERSION
+        run: |
+          FW=$(grep -oE '"[0-9]+\.[0-9]+"' src/Version.h | tr -d '"')
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG="${TAG#v}"
+          echo "FW_VERSION=$FW  tag=$TAG"
+          if [ "$FW" != "$TAG" ]; then
+            echo "::error::tag v$TAG does not match FW_VERSION $FW in src/Version.h"
+            exit 1
+          fi
+          echo "FW=$FW" >> "$GITHUB_ENV"
+
+      - name: Build both environments
+        run: pio run -e guition -e cyd
+
+      # Two artifacts per board:
+      #  *-ota.bin     → the app image, what /update expects
+      #  *-factory.bin → bootloader + partitions + boot_app0 + app, for a virgin board over USB
+      # PlatformIO emits an empty firmware.factory.bin, so the merged image is built here.
+      # --flash_mode/freq/size keep: never rewrite the header PlatformIO produced for the board.
+      - name: Package firmware
+        run: |
+          ESPTOOL=$(ls ~/.platformio/packages/tool-esptoolpy/esptool.py)
+          BOOTAPP=$(ls ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin)
+          mkdir -p dist
+          # Guition is an ESP32-S3 (bootloader at 0x0); the CYD is a plain ESP32 (0x1000).
+          for e in guition cyd; do
+            if [ "$e" = "guition" ]; then CHIP=esp32s3; BL=0x0; else CHIP=esp32; BL=0x1000; fi
+            cp ".pio/build/$e/firmware.bin" "dist/volthub-$FW-$e-ota.bin"
+            python "$ESPTOOL" --chip $CHIP merge_bin \
+              -o "dist/volthub-$FW-$e-factory.bin" \
+              --flash_mode keep --flash_freq keep --flash_size keep \
+              $BL ".pio/build/$e/bootloader.bin" \
+              0x8000 ".pio/build/$e/partitions.bin" \
+              0xe000 "$BOOTAPP" \
+              0x10000 ".pio/build/$e/firmware.bin"
+          done
+          (cd dist && sha256sum *.bin > SHA256SUMS.txt)
+          ls -l dist
+
+      - name: Build release notes
+        run: |
+          {
+            echo "Firmware **v$FW** for both boards, built by CI from the tagged commit."
+            echo
+            echo "| File | Board | Use |"
+            echo "|---|---|---|"
+            echo "| \`volthub-$FW-guition-ota.bin\` | Guition JC3248W535C | upload from the web **System → Firmware update (OTA)** |"
+            echo "| \`volthub-$FW-guition-factory.bin\` | Guition JC3248W535C | first flash of a blank board over USB |"
+            echo "| \`volthub-$FW-cyd-ota.bin\` | ESP32-2432S035R \"CYD\" | OTA upload |"
+            echo "| \`volthub-$FW-cyd-factory.bin\` | ESP32-2432S035R \"CYD\" | first flash over USB |"
+            echo
+            echo "First flash over USB (factory image, offset 0):"
+            echo '```bash'
+            echo "esptool.py --chip esp32s3 write_flash 0x0 volthub-$FW-guition-factory.bin   # Guition"
+            echo "esptool.py --chip esp32   write_flash 0x0 volthub-$FW-cyd-factory.bin       # CYD"
+            echo '```'
+            echo
+            echo "Checksums in \`SHA256SUMS.txt\`."
+            echo
+            echo "## Changes in $FW"
+            echo
+            awk -v v="## $FW " 'index($0,v)==1{f=1;next} f&&/^## /{exit} f' CHANGELOG.md
+          } > notes.md
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release create "$TAG" dist/* --title "volthub $TAG" --notes-file notes.md

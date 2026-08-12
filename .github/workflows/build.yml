@@ -1,0 +1,41 @@
+name: build
+
+# Compile both boards on every change, so a broken build shows up here and not at release time.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The toolchain is ~1 GB; caching keeps a run at a couple of minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build both environments
+        run: pio run -e guition -e cyd
+
+      - name: Report sizes
+        run: |
+          for e in guition cyd; do
+            echo "$e: $(stat -c%s .pio/build/$e/firmware.bin) bytes"
+          done

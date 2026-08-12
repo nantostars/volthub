@@ -105,6 +105,24 @@ is required — the displays and touch controllers are integrated on the board.
 | Victron Orion‑XS DC‑DC | passive BLE advertisement | AES‑128‑CTR decrypted |
 | Witmotion WT9011DCL IMU | active GATT (service `FFE5`) | pitch/roll/yaw for the level screen |
 
+## Download
+
+Prebuilt firmware for both boards is attached to every
+[release](https://github.com/nantostars/volthub/releases), built by CI from the tagged commit:
+
+| File | Use |
+|---|---|
+| `volthub-<ver>-<board>-ota.bin` | upload from the web **System → Firmware update (OTA)** |
+| `volthub-<ver>-<board>-factory.bin` | first flash of a blank board over USB |
+
+```bash
+# blank board, single command (offset 0 — the image already contains bootloader and partitions)
+esptool.py --chip esp32s3 write_flash 0x0 volthub-<ver>-guition-factory.bin
+esptool.py --chip esp32   write_flash 0x0 volthub-<ver>-cyd-factory.bin
+```
+
+Or build it yourself:
+
 ## Build & flash
 
 The project uses [PlatformIO](https://platformio.org/).
