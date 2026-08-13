@@ -13,12 +13,21 @@ ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE an
 | Item | Value |
 |------|-------|
 | MCU | ESP32 dual-core 240 MHz |
-| Display | 3.5" ILI9488, 480×320, landscape (`setRotation(1)`) |
+| Display | 3.5" 480×320, landscape (`setRotation(1)`) — panel is **ST7796**, driven with `ILI9488_DRIVER` (see note) |
 | Display SPI | MOSI=13, MISO=12, SCLK=14, CS=15, DC=2, BL=27 (active HIGH) |
 | Touch | XPT2046 resistive, SPI shared bus, CS=33, IRQ=36 |
 | Touch formula | `sx = 479 - map(ry, 320, 3860, 0, 479)` · `sy = map(rx, 480, 3860, 0, 319)` |
+| microSD | SPI on its **own** bus (VSPI): CLK=18, MOSI/CMD=23, MISO/DAT0=19, CS=5 — **not** shared with the display (HSPI 14/13/12/15) |
+| Free peripherals | RGB LED 4/17/16 · LDR (light sensor) 34 · audio amp 26 — unused by this firmware |
 | Flash | `min_spiffs.csv` (two OTA slots) |
 | Upload | 460800 baud · port e.g. `/dev/cu.usbserial-XXXX` (macOS; varies) |
+
+**⚠ Driver mismatch, working on purpose:** the panel is an **ST7796** (per the board reference) but
+`platformio.ini` builds with `-DILI9488_DRIVER`. The two are command-compatible enough that the
+display works, and it has been used this way since the beginning. TFT_eSPI does ship `ST7796_DRIVER`;
+switching would be a blind change on a board that is currently at v0.54 in the field, so leave it
+unless a real display anomaly shows up on the CYD (wrong colours, inverted, offset) — then try it
+with the hardware in hand. Pin reference: <https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248S035>
 
 **Flash command:**
 ```bash

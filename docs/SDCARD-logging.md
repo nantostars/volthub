@@ -39,6 +39,23 @@ Two consequences:
 Use `SD_MMC.setPins(clk, cmd, d0)` then `SD_MMC.begin("/sdcard", true)` (the `true` selects 1-bit
 mode) on ESP32-S3.
 
+### The CYD slot is on its own SPI bus too
+
+From the board reference (<https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248S035>):
+
+| Signal | GPIO |
+|---|---|
+| CLK | 18 |
+| MOSI (CMD) | 23 |
+| MISO (DAT0) | 19 |
+| CS | 5 |
+
+That is **VSPI**, while the display and the touch controller share **HSPI** (14/13/12, CS 15 and 33).
+So on the CYD as well the card does **not** contend with the display, and the "no periodic probing"
+caveat below turns out not to apply to either board. The two backends differ only in the driver
+(`SD_MMC` 1-bit on the Guition, `SD` over SPI on the CYD), which the `Backend` struct already
+absorbs — it holds an `fs::FS*` and does not care how the medium was mounted.
+
 ## 3. The abstraction: one already exists
 
 `LittleFS` and `SD_MMC` both derive from `fs::FS`, and `DataLogger` already funnels every access
@@ -63,8 +80,9 @@ they are.
 
 **No continuous polling.** Detect once at boot, plus a *rescan* action in the web System tab. An
 optional slow retry (a mount attempt every few minutes, only while logging is enabled and the card
-is absent) is cheap here precisely because SDMMC disturbs no other bus — it would be a bad idea on
-a board where the card shares the display's SPI.
+is absent) is affordable on **both** boards, since neither shares a bus with the display — a
+constraint I expected to have and turned out not to. Still keep it slow: the point is convenience
+("insert the card and it starts"), not detection latency.
 
 ## 5. Removal and failures
 
@@ -101,9 +119,9 @@ deliberately triggers the schema-suffix path, so old files are never mixed with 
 
 ## 9. Open questions
 
-1. **CYD pins are unknown.** On that board the card may share the display's SPI, which would change
-   the rules (no periodic probing, serialised access). The design must work with no card at all
-   there, which is the likely starting state anyway.
+1. ~~CYD pins unknown~~ — **resolved** (see above): own SPI bus, no contention. What remains to be
+   checked on that board is only whether `SPI.begin()` on VSPI coexists cleanly with TFT_eSPI's
+   HSPI instance, which is routine but untested here.
 2. **Current draw**: a card in write can pull ~100 mA in bursts. Worth watching on a camper supply —
    a marginal 5 V rail is what once made the display look washed out.
 3. **FAT32 is required.** An exFAT card will simply fail to mount and look broken; document it.

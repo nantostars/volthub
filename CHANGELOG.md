@@ -10,6 +10,20 @@ of the web dashboard.
 
 ---
 
+## 0.86 — docs: CYD pinout confirmed against the board reference
+- Checked our CYD configuration against the board reference
+  (<https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248S035>). Display and touch pins **match
+  exactly** what we build with (MOSI 13, MISO 12, SCLK 14, CS 15, DC 2, BL 27, touch CS 33, IRQ 36).
+- **The microSD is on its own SPI bus** (VSPI: CLK 18, MOSI 23, MISO 19, CS 5), separate from the
+  display and touch on HSPI. That closes the main open question in `docs/SDCARD-logging.md`: neither
+  board shares a bus with the display, so the SD design is simpler than assumed on both.
+- **Noted a real discrepancy:** the panel is an **ST7796** but we build with `-DILI9488_DRIVER`.
+  They are compatible enough that it has always worked, so it is documented rather than changed —
+  switching drivers blind on a board currently running v0.54 in the field would be reckless. Revisit
+  only if a display anomaly appears on the CYD, with the hardware in hand.
+- Also recorded the peripherals the board has and this firmware ignores: RGB LED (4/17/16), light
+  sensor (34), audio amp (26).
+
 ## 0.85 — docs: microSD logging design note
 - Added `docs/SDCARD-logging.md`: how logging to a card would work — one row per minute and a long
   history when a card is present, unchanged behaviour on internal flash when it is not.
