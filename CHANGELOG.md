@@ -10,6 +10,12 @@ of the web dashboard.
 
 ---
 
+## 0.84 — web: the reveal button only appears when there is something to reveal
+- Since 0.83 the secret fields start empty, so the eye button on them implied the stored password
+  or key could be shown — exactly the impression the previous release removed. It now appears only
+  once the field has typed content, where it is genuinely useful (checking a 32-character Victron
+  key was pasted correctly).
+
 ## 0.83 — security: `/api/settings` no longer returns secrets
 - The endpoint is unauthenticated, and it was returning the **AP and client WiFi passwords and both
   32-character Victron AES keys in clear text** — readable by anyone on the network with a single

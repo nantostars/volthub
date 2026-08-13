@@ -912,6 +912,16 @@ function pushTime(){
     body:JSON.stringify({epoch:Math.floor(Date.now()/1000)})}).catch(function(){});
 }
 
+function syncEyes(){
+  var wraps=document.querySelectorAll('.st-input-wrap');
+  for(var i=0;i<wraps.length;i++){
+    var inp=wraps[i].querySelector('input'), eye=wraps[i].querySelector('.st-eye');
+    if(inp&&eye) eye.style.display = inp.value.length ? '' : 'none';
+  }
+}
+document.addEventListener('input',function(e){
+  if(e.target&&e.target.className&&(''+e.target.className).indexOf('st-input')>=0) syncEyes();
+});
 function toggleEye(id,btn){ var i=$(id); if(!i)return; if(i.type==='password'){i.type='text';btn.style.opacity='1';}else{i.type='password';btn.style.opacity='.5';} }
 function validateWifiPass(el){
   var ok=el.value.length===0||el.value.length>=8;
@@ -940,6 +950,7 @@ function loadSettings(){
              solar:!!d.solarKeySet, orion:!!d.orionKeySet};
     _otaHasPass=_stored.ota;
     applyStoredHints();
+    syncEyes();
   }).catch(function(){ setMsg(TR('Could not load settings'),'err'); });
 }
 function saveSettings(){
