@@ -465,6 +465,9 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
 <script>
 var $=function(id){return document.getElementById(id)};
 var lastData=null, curView='overview', _otaHasPass=false;
+// Which secrets the device holds. It never sends them back, so the form shows a
+// placeholder and posts a field only when the user types a new value.
+var _stored={ota:false,wifi:false,sta:false,solar:false,orion:false};
 
 // ── keep-screen-on ──────────────────────────────────────────────────────────
 // The dashboard is served over plain HTTP, so the Screen Wake Lock API is
@@ -595,6 +598,7 @@ function applyLang(){
   document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ el.placeholder=TR(el.getAttribute('data-i18n-ph')); });
   var le=$('lang-en'), li=$('lang-it');
   if(le&&li){ le.classList.toggle('on',curLang==='en'); li.classList.toggle('on',curLang==='it'); }
+  applyStoredHints();   // applyLang just reset every data-i18n-ph placeholder
   if(lastData) applyData(lastData);
 }
 function setLang(l){
@@ -916,17 +920,26 @@ function validateWifiPass(el){
     h.textContent=el.value.length===0?TR('Minimum 8 characters (WPA2)'):ok?'✓ OK':TR('Minimum 8 characters'); }
 }
 function setMsg(t,c){ var e=$('st-msg'); e.textContent=t; e.className='st-msg'+(c?' '+c:''); }
+function applyStoredHints(){
+  var mark = function(id,on){ var el=$(id); if(!el) return;
+    if(on) el.placeholder='\u2022\u2022\u2022\u2022\u2022\u2022 ('+TR('set')+')'; };
+  mark('st-ota-pass',_stored.ota);   mark('st-wifi-pass',_stored.wifi);
+  mark('st-sta-pass',_stored.sta);   mark('st-solar-key',_stored.solar);
+  mark('st-orion-key',_stored.orion);
+}
 function loadSettings(){
   fetch('/api/settings').then(function(r){return r.json();}).then(function(d){
-    $('st-wifi-ssid').value=d.wifiSsid||''; $('st-wifi-pass').value=d.wifiPass||'';
-    $('st-sta-ssid').value=d.staSsid||''; $('st-sta-pass').value=d.staPass||'';
-    $('st-bms-mac').value=d.bmsMac||''; $('st-solar-key').value=d.solarKey||'';
-    $('st-orion-key').value=d.orionKey||''; $('st-ntp-srv').value=d.ntpServer||'';
+    $('st-wifi-ssid').value=d.wifiSsid||''; $('st-sta-ssid').value=d.staSsid||'';
+    $('st-bms-mac').value=d.bmsMac||''; $('st-ntp-srv').value=d.ntpServer||'';
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
     $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
     $('st-ap-off').checked=!!d.apOffWhenSta;
-    _otaHasPass=!!d.otaHasPass;
-    $('st-ota-pass').placeholder=d.otaHasPass?'•••••• ('+TR('set')+')':'';
+    // Secret fields stay empty: the device does not send them back.
+    ['st-wifi-pass','st-sta-pass','st-solar-key','st-orion-key','st-ota-pass'].forEach(function(id){ $(id).value=''; });
+    _stored={ota:!!d.otaHasPass, wifi:!!d.wifiHasPass, sta:!!d.staHasPass,
+             solar:!!d.solarKeySet, orion:!!d.orionKeySet};
+    _otaHasPass=_stored.ota;
+    applyStoredHints();
   }).catch(function(){ setMsg(TR('Could not load settings'),'err'); });
 }
 function saveSettings(){

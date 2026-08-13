@@ -10,6 +10,20 @@ of the web dashboard.
 
 ---
 
+## 0.83 — security: `/api/settings` no longer returns secrets
+- The endpoint is unauthenticated, and it was returning the **AP and client WiFi passwords and both
+  32-character Victron AES keys in clear text** — readable by anyone on the network with a single
+  GET, and visible in any screenshot of the System tab. It now reports only whether each secret is
+  stored (`wifiHasPass`, `staHasPass`, `solarKeySet`, `orionKeySet`), exactly as the OTA password
+  has always been handled. A Victron key counts as set only when it is 32 chars and not the
+  all-zero default.
+- The form leaves those fields empty with a "•••••• (set)" placeholder and posts a value only when
+  you type a new one; the placeholders are re-applied after a language switch, which resets every
+  translated placeholder.
+- Fixed a bug this exposed: `staPass` was written even when empty, so once the password stopped
+  being echoed back, every save would have **erased the WiFi client password**. Secret fields are
+  now written only when non-empty — as a consequence, clearing one requires setting a new value.
+
 ## 0.82 — CI: build on every change, firmware releases on tag
 - **Pinned the libraries to exact versions** (NimBLE 1.4.3, ArduinoJson 7.4.3, TFT_eSPI 2.5.43;
   GFX was already exact). They were caret ranges, so CI would have resolved whatever is current

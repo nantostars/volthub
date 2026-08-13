@@ -256,13 +256,20 @@ static void handleApiData() {
 
 static void handleGetSettings() {
     JsonDocument doc;
-    doc["bmsMac"]     = settings.getBmsMac();
-    doc["solarKey"]   = settings.getSolarKey();
-    doc["orionKey"]   = settings.getOrionKey();
-    doc["wifiSsid"]   = settings.getWifiSsid();
-    doc["wifiPass"]   = settings.getWifiPassword();
-    doc["staSsid"]    = settings.getStaSsid();
-    doc["staPass"]    = settings.getStaPass();
+    // Secrets are NEVER echoed — only whether one is stored, the same rule the OTA password has
+    // always followed. /api/settings is unauthenticated, so whatever it returns is readable by
+    // anyone on the network; it used to hand out the WiFi passwords and both Victron AES keys in
+    // clear text. The form posts a field back only when the user typed a new value.
+    auto keyConfigured = [](const String& k) {
+        return k.length() == 32 && k != "00000000000000000000000000000000";   // default = not set
+    };
+    doc["bmsMac"]      = settings.getBmsMac();
+    doc["solarKeySet"] = keyConfigured(settings.getSolarKey());
+    doc["orionKeySet"] = keyConfigured(settings.getOrionKey());
+    doc["wifiSsid"]    = settings.getWifiSsid();
+    doc["wifiHasPass"] = settings.getWifiPassword().length() > 0;
+    doc["staSsid"]     = settings.getStaSsid();
+    doc["staHasPass"]  = settings.getStaPass().length() > 0;
     doc["ntpServer"]  = settings.getNtpServer();
     doc["ntpTZ"]      = settings.getNtpTZ();
     doc["imuMac"]     = settings.getWitmotionMac();
@@ -287,7 +294,8 @@ static void handlePostSettings() {
     if (doc["wifiSsid"].is<const char*>() && strlen(doc["wifiSsid"])>0)  settings.setWifiSsid(doc["wifiSsid"].as<String>());
     if (doc["wifiPass"].is<const char*>() && strlen(doc["wifiPass"])>=8) settings.setWifiPassword(doc["wifiPass"].as<String>());
     if (doc["staSsid"].is<const char*>())  settings.setStaSsid(doc["staSsid"].as<String>());
-    if (doc["staPass"].is<const char*>())  settings.setStaPass(doc["staPass"].as<String>());
+    // Empty = "keep the stored one" (the form no longer receives it), same as otaPass.
+    if (doc["staPass"].is<const char*>() && strlen(doc["staPass"]) > 0) settings.setStaPass(doc["staPass"].as<String>());
     if (doc["ntpServer"].is<const char*>() && strlen(doc["ntpServer"])>0) settings.setNtpServer(doc["ntpServer"].as<String>());
     if (doc["ntpTZ"].is<const char*>()     && strlen(doc["ntpTZ"])>0)     settings.setNtpTZ(doc["ntpTZ"].as<String>());
     if (doc["imuMac"].is<const char*>()    && strlen(doc["imuMac"])>0)    settings.setWitmotionMac(doc["imuMac"].as<String>());
