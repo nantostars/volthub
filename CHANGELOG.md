@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.85 — docs: microSD logging design note
+- Added `docs/SDCARD-logging.md`: how logging to a card would work — one row per minute and a long
+  history when a card is present, unchanged behaviour on internal flash when it is not.
+- Two facts established while writing it, so the work does not start from scratch later: the
+  Guition's TF slot is **SDMMC 1-bit on GPIO 11 (CMD) / 12 (CLK) / 13 (D0)** — a dedicated
+  peripheral, so **no contention with the QSPI display** — and those GPIOs are free in our firmware
+  (verified against the display and touch pin assignments).
+- Nothing implemented: `DataLogger` still writes to LittleFS only.
+
 ## 0.84 — web: the reveal button only appears when there is something to reveal
 - Since 0.83 the secret fields start empty, so the eye button on them implied the stored password
   or key could be shown — exactly the impression the previous release removed. It now appears only

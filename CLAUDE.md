@@ -132,6 +132,8 @@ Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PER
 - **Changing the column set is a breaking change for files already on disk**: `rotateIfNeeded()` compares the existing file's first line with `CSV_HEADER` and falls back to `volthub_YYYYMMDD_<n>.csv` when they differ, so two schemas never end up in one file. Keep that check working when adding columns.
 - Statuses are numeric to keep rows ~80 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
 
+**Logging to a microSD is designed but NOT implemented** — see `docs/SDCARD-logging.md`. Key facts already established: the Guition TF slot is SDMMC 1-bit on GPIO 11/12/13 (dedicated peripheral, no contention with the QSPI display) and those pins are free; `LittleFS` and `SD_MMC` both derive from `fs::FS`, so the logger only needs a backend pointer plus a capacity shim.
+
 ### NimBLE GATT quirks (IMU)
 
 - Must call `getServices(true)` then iterate the returned vector directly. `getService(uuid)` returns null even after forced discovery — same for `getCharacteristics(true)`.
