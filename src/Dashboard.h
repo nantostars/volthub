@@ -425,8 +425,16 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
             <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
           <div id="log-status"></div>
+          <div id="log-actions" style="display:none;margin:6px 0">
+            <button class="lang-btn" onclick="logAction({rescan:true})" data-i18n="Detect card">Detect card</button>
+            <button class="lang-btn" id="log-eject" onclick="logEject()" data-i18n="Eject card">Eject card</button>
+            <button class="lang-btn" onclick="logPurge()" data-i18n="Delete older than…">Delete older than…</button>
+          </div>
           <div id="log-files"></div>
-          <div class="st-hint" data-i18n="One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
+          <div id="log-more" style="display:none;margin-top:4px">
+            <button class="lang-btn" onclick="moreLogs()" data-i18n="Show older">Show older</button>
+          </div>
+          <div class="st-hint" data-i18n="One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
         </div>
 
         <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
@@ -501,6 +509,21 @@ var I18N={ it:{
   "Loads":"Carichi","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Runtime":"Autonomia","To full":"A pieno",
+  "Storage":"Memoria",
+  "SD card":"Scheda SD",
+  "internal flash":"flash interna",
+  "free":"liberi",
+  "Sampling":"Campionamento",
+  "one row every":"una riga ogni",
+  "Archive":"Archivio",
+  "files":"file",
+  "Detect card":"Rileva scheda",
+  "Eject card":"Espelli scheda",
+  "Delete older than…":"Elimina più vecchi di…",
+  "Show older":"Mostra più vecchi",
+  "Card unmounted — you can remove it now":"Scheda smontata — ora puoi rimuoverla",
+  "Delete logs older than how many days?":"Eliminare i log più vecchi di quanti giorni?",
+  "Deleted":"Eliminati",
   "Input (alternator)":"Ingresso (alternatore)","Output (battery)":"Uscita (batteria)",
   "Voltage":"Tensione","Current":"Corrente","Power":"Potenza",
   "Efficiency & status":"Rendimento e stato",
@@ -512,7 +535,7 @@ var I18N={ it:{
   "waiting for clock":"in attesa di orario",
   "logging":"in registrazione",
   "storage error":"errore memoria",
-  "One row every 2 minutes. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga ogni 2 minuti. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
+  "One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga al minuto su microSD, una ogni due sulla flash interna. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
   "Load output":"Uscita carichi",
   "Error":"Errore",
   "Efficiency":"Rendimento",
@@ -879,32 +902,70 @@ function validateKey(el,hintId){
 }
 // ── data log ──────────────────────────────────────────────────────────────
 function fmtKB(b){ return (b>=1024)?(Math.round(b/1024)+' KB'):(b+' B'); }
-function refreshLogs(){
-  fetch('/api/logs').then(function(r){return r.json();}).then(function(d){
+var _logOffset=0, _logLimit=15, _logShown=0;
+
+function fmtBytes(b){
+  if(b>=1073741824) return (b/1073741824).toFixed(1)+' GB';
+  if(b>=1048576)    return (b/1048576).toFixed(1)+' MB';
+  if(b>=1024)       return Math.round(b/1024)+' KB';
+  return b+' B';
+}
+function dayOf(n){ var m=/volthub_(\d{4})(\d{2})(\d{2})/.exec(n); return m?(m[3]+'/'+m[2]+'/'+m[1]):n; }
+
+// The device returns a WINDOW of the list plus a summary: a card can hold a year of files and
+// serialising them all would cost tens of KB of heap on the ESP32 — and be unreadable anyway.
+function refreshLogs(reset){
+  if(reset!==false){ _logOffset=0; _logShown=0; $('log-files').innerHTML=''; }
+  fetch('/api/logs?offset='+_logOffset+'&limit='+_logLimit).then(function(r){return r.json();}).then(function(d){
     var b=$('log-btn');
     if(b){ b.textContent=d.enabled?'ON':'OFF'; b.classList.toggle('on',!!d.enabled); }
+    var onSd=(d.medium==='sd');
     var rows='';
     rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Status')+'</span><span class="st-status-val '+(d.state==='logging'?'ok':'dim')+'">'+TR(d.state)+'</span></div>';
-    if(d.enabled) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Rows')+'</span><span class="st-status-val">'+(d.rows||0)+'</span></div>';
-    if(d.total) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Free space')+'</span><span class="st-status-val">'+fmtKB(d.free)+' / '+fmtKB(d.total)+'</span></div>';
+    rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Storage')+'</span><span class="st-status-val '+(onSd?'ok':'dim')+'">'+
+          (onSd?TR('SD card'):TR('internal flash'))+' · '+fmtBytes(d.free)+' '+TR('free')+'</span></div>';
+    if(d.enabled) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Sampling')+'</span><span class="st-status-val">'+TR('one row every')+' '+d.periodS+'s</span></div>';
+    // Summary instead of a long list: tells you the size of the archive without enumerating it.
+    if(d.count) rows+='<div class="st-status-row"><span class="st-status-lbl">'+TR('Archive')+'</span><span class="st-status-val">'+
+          d.count+' '+TR('files')+' · '+fmtBytes(d.bytes)+(d.oldest?' · '+dayOf(d.oldest)+' → '+dayOf(d.newest):'')+'</span></div>';
     $('log-status').innerHTML=rows;
+    $('log-actions').style.display=d.enabled?'':'none';
+    var ej=$('log-eject'); if(ej) ej.style.display=onSd?'':'none';
+
     var fl='';
-    (d.files||[]).sort(function(a,b){return a.n<b.n?1:-1;}).forEach(function(f){
-      fl+='<div class="st-status-row"><span class="st-status-lbl"><a class="ota-link" style="display:inline" href="/logdl?f='+f.n+'" download>'+f.n+'</a></span>'+
-          '<span class="st-status-val">'+fmtKB(f.s)+' <button class="lang-btn" onclick="delLog(\''+f.n+'\')">&#10005;</button></span></div>';
+    (d.files||[]).forEach(function(f){
+      fl+='<div class="st-status-row"><span class="st-status-lbl"><a class="ota-link" style="display:inline" href="/logdl?f='+encodeURIComponent(f.p)+'" download>'+dayOf(f.n)+'</a></span>'+
+          '<span class="st-status-val">'+fmtBytes(f.s)+' <button class="lang-btn" onclick="delLog(\''+f.p+'\')">&#10005;</button></span></div>';
     });
-    $('log-files').innerHTML=fl;
+    $('log-files').innerHTML += fl;
+    _logShown += (d.files||[]).length;
+    $('log-more').style.display=(_logShown < d.count)?'':'none';
   }).catch(function(){});
+}
+function moreLogs(){ _logOffset=_logShown; refreshLogs(false); }
+function logAction(body){
+  return fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(j){ refreshLogs(); return j; }).catch(function(){});
+}
+// Pulling the card while the logger writes can damage the file or the FAT.
+function logEject(){
+  logAction({eject:true}).then(function(j){
+    if(j&&j.ok) setMsg(TR('Card unmounted — you can remove it now'),'ok');
+  });
+}
+function logPurge(){
+  var d=prompt(TR('Delete logs older than how many days?'),'90');
+  if(!d) return;
+  logAction({purgeDays:parseInt(d,10)}).then(function(j){
+    if(j&&j.removed!==undefined) setMsg(TR('Deleted')+' '+j.removed,'ok');
+  });
 }
 function toggleLog(){
   var on=$('log-btn').textContent==='ON';
   fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!on})})
     .then(function(){ refreshLogs(); }).catch(function(){});
 }
-function delLog(n){
-  fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:n})})
-    .then(function(){ refreshLogs(); }).catch(function(){});
-}
+function delLog(p){ logAction({file:p}); }
 // The device has no RTC and often no internet: hand it the phone's clock so the logger can
 // start (and the on-screen clock is right). The device ignores it if already NTP-synced.
 function pushTime(){

@@ -10,6 +10,25 @@ of the web dashboard.
 
 ---
 
+## 0.87 — data log: microSD support on both boards (LOCAL, not released)
+- The logger now writes to a **microSD when one is present** and to internal flash otherwise. The
+  medium is the only thing that varies: **1 row/min on a card**, one every two on flash, since the
+  sampling period, the retention and the directory layout were all sized around 128 KB.
+  Guition uses SDMMC 1-bit (CLK 12 / CMD 11 / D0 13), the CYD SPI on VSPI (18/19/23/5) — neither
+  slot shares a bus with the display.
+- **Files are grouped `/volthub/YYYY/MM/`** on a card: a flat directory with hundreds of entries is
+  slow to scan and unpleasant to read on a computer. Internal flash stays flat (it holds ~2 files).
+- **Retention by age on a card** (365 days) plus a 100 MB free-space floor, so the device never
+  fills a card that may hold other things. Flash keeps its free-space rule.
+- **The listing is paginated.** It used to serialise every file: with a year of logs that is ~365
+  entries, tens of KB of heap in a single request on a device with ~170 KB free — and an unusable
+  wall of rows. `/api/logs` now takes `offset`/`limit` (15 by default, 50 max) and returns a
+  **summary** computed at constant memory: file count, total bytes, first and last day.
+- **Safe eject**, which the design lacked: pulling a card mid-write can damage the file or the FAT.
+  The System tab now has *Eject card* (flush, close, unmount, keep logging on flash), *Detect card*
+  and *Delete older than…*. A failed write also falls back to flash on its own rather than stopping.
+- Kept local on purpose until it is tested on both boards.
+
 ## 0.86 — docs: CYD pinout confirmed against the board reference
 - Checked our CYD configuration against the board reference
   (<https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248S035>). Display and touch pins **match

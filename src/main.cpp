@@ -406,41 +406,7 @@ static void handleSetTime() {
     server.send(200,"application/json","{\"ok\":true}");
 }
 
-// List the CSV files plus logger/storage status (web System tab).
-static void handleLogsList() {
-    JsonDocument doc;
-    doc["enabled"] = logger.enabled();
-    doc["state"]   = logger.stateName();
-    doc["rows"]    = logger.rowsWritten();
-    doc["file"]    = logger.currentFile();
-    doc["free"]    = (uint32_t)logger.freeBytes();
-    doc["total"]   = (uint32_t)logger.totalBytes();
-    JsonArray arr  = doc["files"].to<JsonArray>();
-    File dir = LittleFS.open("/");
-    for (File f = dir.openNextFile(); f; f = dir.openNextFile()) {
-        const char* n = f.name(); const char* bare = (n[0]=='/') ? n+1 : n;
-        if (strncmp(bare, "volthub_", 8) != 0) continue;
-        JsonObject jo = arr.add<JsonObject>();
-        jo["n"] = bare; jo["s"] = (uint32_t)f.size();
-    }
-    dir.close();
-    String json; serializeJson(doc,json);
-    server.send(200,"application/json",json);
-}
-
-// Download one CSV. streamFile keeps RAM flat regardless of file size.
-static void handleLogDownload() {
-    String n = server.arg("f");
-    if (!n.startsWith("volthub_") || n.indexOf('/') >= 0) { server.send(400,"text/plain","bad name"); return; }
-    String path = "/" + n;
-    File f = LittleFS.open(path, FILE_READ);
-    if (!f) { server.send(404,"text/plain","not found"); return; }
-    server.sendHeader("Content-Disposition", "attachment; filename=" + n);
-    server.streamFile(f, "text/csv");
-    f.close();
-}
-
-// POST /api/lang — switch the UI language live. Deliberately NOT part of /api/settings: that
+// POST /api/lang - switch the UI language live. Deliberately NOT part of /api/settings: that
 // handler reboots on every save, and a language switch has no reason to restart the device
 // (the display just repaints and the web page re-runs applyLang()).
 static void handleSetLang() {
@@ -453,11 +419,135 @@ static void handleSetLang() {
     server.send(200,"application/json","{\"ok\":true}");
 }
 
-// POST /api/logs — toggle the logger and delete files. Deliberately NOT part of /api/settings:
-// that handler reboots the device on every save, which would be absurd for a log switch.
+// Walk every log file, newest first, calling fn(path, name, size). Constant memory: the tree is
+// /volthub/YYYY/MM on a card and flat on internal flash, and names sort chronologically.
+template <typename F>
+static void walkLogs(F fn) {
+    fs::FS* fs = logger.fs();
+    if (!fs) return;
+    auto namesDesc = [](String* a, int n) {                 // tiny insertion sort, n is small
+        for (int i = 1; i < n; i++) { String k = a[i]; int j = i - 1;
+            while (j >= 0 && a[j] < k) { a[j+1] = a[j]; j--; } a[j+1] = k; }
+    };
+    if (!logger.onSd()) {
+        String names[8]; int n = 0;
+        File dir = fs->open("/");
+        for (File f = dir.openNextFile(); f && n < 8; f = dir.openNextFile()) {
+            String bn = f.name(); int sl = bn.lastIndexOf('/'); if (sl >= 0) bn = bn.substring(sl+1);
+            if (!bn.startsWith("volthub_")) continue;
+            names[n++] = bn;
+        }
+        dir.close();
+        namesDesc(names, n);
+        for (int i = 0; i < n; i++) {
+            String full = "/" + names[i];
+            File f = fs->open(full, FILE_READ);
+            if (f) { fn(full, names[i], (uint32_t)f.size()); f.close(); }
+        }
+        return;
+    }
+    // card: years desc, months desc, files desc — at most 12 months per year in memory
+    String years[16]; int ny = 0;
+    File root = fs->open(LOG_SD_ROOT);
+    if (!root) return;
+    for (File y = root.openNextFile(); y && ny < 16; y = root.openNextFile())
+        if (y.isDirectory()) { String b = y.name(); int sl=b.lastIndexOf('/'); if(sl>=0) b=b.substring(sl+1); years[ny++] = b; }
+    root.close();
+    namesDesc(years, ny);
+    for (int yi = 0; yi < ny; yi++) {
+        String ypath = String(LOG_SD_ROOT) + "/" + years[yi];
+        String months[12]; int nm = 0;
+        File ydir = fs->open(ypath);
+        if (!ydir) continue;
+        for (File m = ydir.openNextFile(); m && nm < 12; m = ydir.openNextFile())
+            if (m.isDirectory()) { String b = m.name(); int sl=b.lastIndexOf('/'); if(sl>=0) b=b.substring(sl+1); months[nm++] = b; }
+        ydir.close();
+        namesDesc(months, nm);
+        for (int mi = 0; mi < nm; mi++) {
+            String mpath = ypath + "/" + months[mi];
+            String files[40]; int nf = 0;
+            File mdir = fs->open(mpath);
+            if (!mdir) continue;
+            for (File f = mdir.openNextFile(); f && nf < 40; f = mdir.openNextFile()) {
+                String b = f.name(); int sl=b.lastIndexOf('/'); if(sl>=0) b=b.substring(sl+1);
+                if (b.startsWith("volthub_")) files[nf++] = b;
+            }
+            mdir.close();
+            namesDesc(files, nf);
+            for (int i = 0; i < nf; i++) {
+                String full = mpath + "/" + files[i];
+                File f = fs->open(full, FILE_READ);
+                if (f) { fn(full, files[i], (uint32_t)f.size()); f.close(); }
+            }
+        }
+    }
+}
+
+// GET /api/logs[?offset=&limit=] — status, storage, and a WINDOW of the file list.
+// Never the whole list: a card can hold a year of files, and serialising ~365 entries would cost
+// tens of KB of heap in one request (JsonDocument + the String copy) on a device with ~170 KB free.
+// The summary (count, bytes, first/last day) is computed while walking, at constant memory.
+static void handleLogsList() {
+    long offset = server.hasArg("offset") ? server.arg("offset").toInt() : 0;
+    long limit  = server.hasArg("limit")  ? server.arg("limit").toInt()  : 15;
+    if (limit < 1)  limit = 1;
+    if (limit > 50) limit = 50;          // hard ceiling: the response must stay small
+
+    JsonDocument doc;
+    doc["enabled"] = logger.enabled();
+    doc["state"]   = logger.stateName();
+    doc["rows"]    = logger.rowsWritten();
+    doc["file"]    = logger.currentFile();
+    doc["medium"]  = logger.mediumName();
+    doc["periodS"] = logger.periodMs() / 1000;
+    doc["free"]    = (double)logger.freeBytes();      // a card exceeds 32 bits
+    doc["total"]   = (double)logger.totalBytes();
+    doc["offset"]  = (uint32_t)offset;
+
+    JsonArray arr = doc["files"].to<JsonArray>();
+    uint32_t count = 0; double bytes = 0; String newest, oldest;
+    walkLogs([&](const String& path, const String& name, uint32_t size) {
+        if (count == 0) newest = name;
+        oldest = name;
+        count++; bytes += size;
+        if ((long)count > offset && arr.size() < (size_t)limit) {
+            JsonObject jo = arr.add<JsonObject>();
+            jo["n"] = name; jo["p"] = path; jo["s"] = size;
+        }
+    });
+    doc["count"]  = count;
+    doc["bytes"]  = bytes;
+    doc["newest"] = newest;
+    doc["oldest"] = oldest;
+
+    String json; serializeJson(doc,json);
+    server.send(200,"application/json",json);
+}
+
+// Download one CSV. streamFile keeps RAM flat regardless of file size. The path comes from the
+// listing, so it is validated rather than trusted: it must sit under a known root and name a log.
+static void handleLogDownload() {
+    String p = server.arg("f");
+    bool okRoot = logger.onSd() ? p.startsWith(String(LOG_SD_ROOT) + "/") : (p.startsWith("/volthub_") && p.indexOf('/', 1) < 0);
+    int sl = p.lastIndexOf('/');
+    String name = sl >= 0 ? p.substring(sl + 1) : p;
+    if (!okRoot || !name.startsWith("volthub_") || p.indexOf("..") >= 0) {
+        server.send(400,"text/plain","bad path"); return;
+    }
+    fs::FS* fs = logger.fs();
+    File f = fs ? fs->open(p, FILE_READ) : File();
+    if (!f) { server.send(404,"text/plain","not found"); return; }
+    server.sendHeader("Content-Disposition", "attachment; filename=" + name);
+    server.streamFile(f, "text/csv");
+    f.close();
+}
+
+// POST /api/logs — everything that acts on the logger. Deliberately NOT part of /api/settings:
+// that handler reboots the device on every save, which would be absurd here.
 static void handleLogsPost() {
     JsonDocument doc;
     if (deserializeJson(doc, server.arg("plain"))) { server.send(400,"application/json","{\"error\":\"bad json\"}"); return; }
+
     if (doc["enabled"].is<bool>()) {
         bool le = doc["enabled"].as<bool>();
         settings.setLogEnabled(le);
@@ -465,11 +555,31 @@ static void handleLogsPost() {
         server.send(200,"application/json","{\"ok\":true}");
         return;
     }
+    if (doc["rescan"].is<bool>() && doc["rescan"].as<bool>()) {
+        bool sd = logger.rescan();
+        server.send(200,"application/json", sd ? "{\"ok\":true,\"medium\":\"sd\"}"
+                                               : "{\"ok\":true,\"medium\":\"flash\"}");
+        return;
+    }
+    // Pulling a card mid-write can damage the file or the FAT: flush, close and unmount first.
+    if (doc["eject"].is<bool>() && doc["eject"].as<bool>()) {
+        bool did = logger.eject();
+        server.send(200,"application/json", did ? "{\"ok\":true}" : "{\"error\":\"no card\"}");
+        return;
+    }
+    if (doc["purgeDays"].is<int>()) {
+        uint16_t n = logger.purgeOlderThan((uint16_t)doc["purgeDays"].as<int>());
+        String r = String("{\"ok\":true,\"removed\":") + n + "}";
+        server.send(200,"application/json", r);
+        return;
+    }
     const char* n = doc["file"] | "";
-    if (strncmp(n, "volthub_", 8) != 0 || strchr(n, '/')) { server.send(400,"application/json","{\"error\":\"bad name\"}"); return; }
+    if (strncmp(n, "/", 1) != 0 || strstr(n, "volthub_") == nullptr || strstr(n, "..") != nullptr) {
+        server.send(400,"application/json","{\"error\":\"bad name\"}"); return;
+    }
     logger.flush();
-    String path = String("/") + n;
-    LittleFS.remove(path);
+    fs::FS* fs = logger.fs();
+    if (fs) fs->remove(n);
     server.send(200,"application/json","{\"ok\":true}");
 }
 

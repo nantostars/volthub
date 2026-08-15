@@ -2,6 +2,19 @@
 #include <LittleFS.h>
 #include <time.h>
 
+#ifdef BOARD_GUITION
+  #include <SD_MMC.h>
+  // SDMMC 1-bit, from the vendor demo pincfg.h. Dedicated peripheral: the display is on QSPI,
+  // so the card never contends with it.
+  static const int SD_PIN_CLK = 12, SD_PIN_CMD = 11, SD_PIN_D0 = 13;
+#else
+  #include <SD.h>
+  #include <SPI.h>
+  // VSPI, separate from the display + touch which share HSPI (14/13/12).
+  static const int SD_PIN_SCK = 18, SD_PIN_MISO = 19, SD_PIN_MOSI = 23, SD_PIN_CS = 5;
+  static SPIClass sdSpi(VSPI);
+#endif
+
 // Column legend. Statuses are numeric codes to keep rows small:
 //   batt_st : 1 = charging, 0 = idle, -1 = discharging (same ±8 W thresholds as the UI)
 //   sol_st / dc_st : official VE.Direct CS codes (3 = Bulk, 4 = Absorption, 5 = Float, …)
@@ -26,40 +39,93 @@ static void addI(char* dst, size_t n, size_t& len, long v, bool valid, bool last
     len += snprintf(dst + len, n - len, last ? "\n" : ",");
 }
 
+// The last path component: SD returns full paths from openNextFile(), LittleFS bare names.
+static const char* baseName(const char* p) {
+    const char* s = strrchr(p, '/');
+    return s ? s + 1 : p;
+}
+
+// "volthub_YYYYMMDD.csv" (or "..._N.csv") → YYYYMMDD as a number, 0 if it is not one of ours.
+static uint32_t dayOfName(const char* name) {
+    if (strncmp(name, "volthub_", 8) != 0) return 0;
+    uint32_t d = 0;
+    for (int i = 8; i < 16; i++) {
+        if (name[i] < '0' || name[i] > '9') return 0;
+        d = d * 10 + (uint32_t)(name[i] - '0');
+    }
+    return d;
+}
+
 bool DataLogger::timeValid() const {
     return time(nullptr) > 1600000000L;   // ~2020: anything below means the clock is unset
 }
 
-bool DataLogger::mount() {
-    if (_mounted) return true;
+// ─── media ───────────────────────────────────────────────────────────────────
+
+bool DataLogger::mountSd() {
+#ifdef BOARD_GUITION
+    if (!SD_MMC.setPins(SD_PIN_CLK, SD_PIN_CMD, SD_PIN_D0)) return false;
+    if (!SD_MMC.begin("/sdcard", true)) return false;          // true = 1-bit mode
+    if (SD_MMC.cardType() == CARD_NONE) { SD_MMC.end(); return false; }
+    _fs = &SD_MMC;
+    Serial.printf("[log] SD mounted (SDMMC 1-bit) - %llu MB\n", SD_MMC.totalBytes() / (1024ULL * 1024));
+#else
+    sdSpi.begin(SD_PIN_SCK, SD_PIN_MISO, SD_PIN_MOSI, SD_PIN_CS);
+    if (!SD.begin(SD_PIN_CS, sdSpi)) { sdSpi.end(); return false; }
+    if (SD.cardType() == CARD_NONE) { SD.end(); sdSpi.end(); return false; }
+    _fs = &SD;
+    Serial.printf("[log] SD mounted (SPI) - %llu MB\n", SD.totalBytes() / (1024ULL * 1024));
+#endif
+    _medium = MED_SD;
+    return true;
+}
+
+void DataLogger::unmountSd() {
+    if (_medium != MED_SD) return;
+#ifdef BOARD_GUITION
+    SD_MMC.end();
+#else
+    SD.end();
+    sdSpi.end();
+#endif
+    _fs = nullptr;
+    _medium = MED_NONE;
+}
+
+bool DataLogger::mountFlash() {
     // formatOnFail: the partition has never been used, so the first mount formats it.
-    _mounted = LittleFS.begin(true);
-    if (!_mounted) Serial.println("[log] LittleFS mount FAILED");
-    else Serial.printf("[log] LittleFS ok — %u/%u bytes used\n",
-                       (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
-    return _mounted;
+    if (!LittleFS.begin(true)) { Serial.println("[log] LittleFS mount FAILED"); return false; }
+    _fs = &LittleFS;
+    _medium = MED_FLASH;
+    Serial.printf("[log] internal flash - %u/%u bytes used\n",
+                  (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
+    return true;
 }
 
-void DataLogger::begin(bool enabled) {
-    _enabled = enabled;
-    _state   = enabled ? LOG_WAIT_TIME : LOG_OFF;
-    if (enabled && !mount()) _state = LOG_ERROR;
+uint64_t DataLogger::totalBytes() const {
+    if (_medium == MED_FLASH) return LittleFS.totalBytes();
+#ifdef BOARD_GUITION
+    if (_medium == MED_SD) return SD_MMC.totalBytes();
+#else
+    if (_medium == MED_SD) return SD.totalBytes();
+#endif
+    return 0;
 }
 
-void DataLogger::setEnabled(bool en) {
-    if (en == _enabled) return;
-    if (!en) flush();                       // don't lose buffered rows when switching off
-    _enabled = en;
-    if (!en) { _state = LOG_OFF; return; }
-    _state = mount() ? LOG_WAIT_TIME : LOG_ERROR;
-}
-
-size_t DataLogger::freeBytes() const {
-    if (!_mounted) return 0;
-    size_t t = LittleFS.totalBytes(), u = LittleFS.usedBytes();
+uint64_t DataLogger::freeBytes() const {
+    uint64_t t = totalBytes(), u = 0;
+    if (_medium == MED_FLASH) u = LittleFS.usedBytes();
+#ifdef BOARD_GUITION
+    else if (_medium == MED_SD) u = SD_MMC.usedBytes();
+#else
+    else if (_medium == MED_SD) u = SD.usedBytes();
+#endif
     return t > u ? t - u : 0;
 }
-size_t DataLogger::totalBytes() const { return _mounted ? LittleFS.totalBytes() : 0; }
+
+const char* DataLogger::mediumName() const {
+    switch (_medium) { case MED_SD: return "sd"; case MED_FLASH: return "flash"; default: return "none"; }
+}
 
 const char* DataLogger::stateName() const {
     switch (_state) {
@@ -70,37 +136,73 @@ const char* DataLogger::stateName() const {
     }
 }
 
-// Retention = keep LOG_MIN_FREE bytes free. That is the rule that actually runs: ~60 KB/day on a
-// 128 KB partition means about 1.8 days, so only ~2 files ever coexist. LOG_MAX_FILES is not a
-// retention policy, it is a guard for the case where a wrong/jumping clock spawns several small
-// files that individually would not trip the space rule.
-void DataLogger::prune() {
-    if (!_mounted) return;
-    for (int guard = 0; guard < 16; guard++) {
-        int  count = 0;
-        char oldest[32] = {0};
-        File dir = LittleFS.open("/");
-        for (File f = dir.openNextFile(); f; f = dir.openNextFile()) {
-            const char* n = f.name();
-            if (strncmp(n, "volthub_", 8) != 0 && strncmp(n, "/volthub_", 9) != 0) continue;
-            count++;
-            const char* bare = (n[0] == '/') ? n + 1 : n;
-            if (!oldest[0] || strcmp(bare, oldest + 1) < 0) snprintf(oldest, sizeof(oldest), "/%s", bare);
-        }
-        dir.close();
-        bool tooMany = count > LOG_MAX_FILES;
-        bool tooFull = freeBytes() < LOG_MIN_FREE;
-        if ((!tooMany && !tooFull) || !oldest[0] || count <= 1) return;
-        // Never delete the file we are currently writing unless it is the only way to free space.
-        if (strcmp(oldest, _file) == 0 && !tooFull) return;
-        Serial.printf("[log] pruning %s (files=%d free=%u)\n", oldest, count, (unsigned)freeBytes());
-        LittleFS.remove(oldest);
-    }
+// ─── lifecycle ───────────────────────────────────────────────────────────────
+
+void DataLogger::begin(bool enabled) {
+    _enabled = enabled;
+    if (!enabled) { _state = LOG_OFF; return; }        // nothing is mounted until it is needed
+    if (!mountSd() && !mountFlash()) { _state = LOG_ERROR; return; }
+    _state = LOG_WAIT_TIME;
 }
 
+void DataLogger::setEnabled(bool en) {
+    if (en == _enabled) return;
+    if (!en) {                                         // switching off: leave nothing open
+        flush();
+        unmountSd();
+        _enabled = false; _state = LOG_OFF; _file[0] = 0; _day[0] = 0;
+        return;
+    }
+    _enabled = true; _sdFailed = false;
+    if (_medium == MED_NONE && !mountSd() && !mountFlash()) { _state = LOG_ERROR; return; }
+    _state = LOG_WAIT_TIME;
+}
+
+bool DataLogger::rescan() {
+    if (_medium == MED_SD) return true;                // already on a card
+    flush();
+    if (_medium == MED_FLASH) { LittleFS.end(); _fs = nullptr; _medium = MED_NONE; }
+    _sdFailed = false;
+    _file[0] = 0; _day[0] = 0;                         // next sample opens a file on the new medium
+    bool got = mountSd();
+    if (!got) mountFlash();
+    _state = _enabled ? LOG_WAIT_TIME : LOG_OFF;
+    return got;
+}
+
+bool DataLogger::eject() {
+    if (_medium != MED_SD) return false;
+    flush();
+    unmountSd();
+    _file[0] = 0; _day[0] = 0;
+    _sdFailed = true;                                  // do not silently grab it back
+    if (_enabled) _state = mountFlash() ? LOG_WAIT_TIME : LOG_ERROR;   // keep logging meanwhile
+    Serial.println("[log] card unmounted - safe to remove");
+    return true;
+}
+
+// ─── paths ───────────────────────────────────────────────────────────────────
+
+bool DataLogger::ensureDir(const char* path) {
+    if (!_fs || _fs->exists(path)) return true;
+    return _fs->mkdir(path);
+}
+
+// SD gets /volthub/YYYY/MM/... : a flat directory with hundreds of entries is slow to scan and
+// unpleasant to read on a computer. Internal flash holds ~2 files, so it stays flat.
+void DataLogger::makePath(char* dst, size_t n, const char* day, int suffix) const {
+    char stem[32];
+    if (suffix == 0) snprintf(stem, sizeof(stem), "volthub_%s.csv", day);
+    else             snprintf(stem, sizeof(stem), "volthub_%s_%d.csv", day, suffix);
+    if (_medium == MED_SD) snprintf(dst, n, "%s/%.4s/%.2s/%s", LOG_SD_ROOT, day, day + 4, stem);
+    else                   snprintf(dst, n, "/%s", stem);
+}
+
+// ─── rotation ────────────────────────────────────────────────────────────────
+
 // True when the file's first line is exactly the current header, i.e. same column set.
-static bool headerMatches(const char* path) {
-    File f = LittleFS.open(path, FILE_READ);
+static bool headerMatches(fs::FS* fs, const char* path) {
+    File f = fs->open(path, FILE_READ);
     if (!f) return false;
     String first = f.readStringUntil('\n');
     f.close();
@@ -118,23 +220,151 @@ void DataLogger::rotateIfNeeded() {
 
     flush();                                          // close out the previous day cleanly
     strncpy(_day, day, sizeof(_day) - 1);
+
+    if (_medium == MED_SD) {                          // /volthub, /volthub/YYYY, /volthub/YYYY/MM
+        char dir[48];
+        ensureDir(LOG_SD_ROOT);
+        snprintf(dir, sizeof(dir), "%s/%.4s", LOG_SD_ROOT, day);              ensureDir(dir);
+        snprintf(dir, sizeof(dir), "%s/%.4s/%.2s", LOG_SD_ROOT, day, day + 4); ensureDir(dir);
+    }
+
     // Pick a name whose existing header matches the current column set. After a firmware update
-    // that changes the columns, appending to a file written with the old layout would silently
-    // corrupt it, so we move to a suffixed name instead of mixing two schemas in one file.
+    // that changes the columns - or after switching medium mid-day - appending to a file written
+    // with another layout would silently corrupt it, so move to a suffixed name instead.
     for (int i = 0; i < 10; i++) {
-        if (i == 0) snprintf(_file, sizeof(_file), "/volthub_%s.csv", day);
-        else        snprintf(_file, sizeof(_file), "/volthub_%s_%d.csv", day, i);
-        if (!LittleFS.exists(_file)) {
-            File f = LittleFS.open(_file, FILE_WRITE);
+        makePath(_file, sizeof(_file), day, i);
+        if (!_fs->exists(_file)) {
+            File f = _fs->open(_file, FILE_WRITE);
             if (f) { f.print(CSV_HEADER); f.close(); }
             Serial.printf("[log] new file %s\n", _file);
             break;
         }
-        if (headerMatches(_file)) break;                 // same schema → keep appending
+        if (headerMatches(_fs, _file)) break;         // same schema -> keep appending
         Serial.printf("[log] %s has a different column set, trying next name\n", _file);
     }
     prune();
 }
+
+// ─── retention ───────────────────────────────────────────────────────────────
+
+void DataLogger::prune() { if (_medium == MED_SD) pruneSd(); else pruneFlash(); }
+
+// Internal flash: keep LOG_FLASH_MIN_FREE bytes free. That is the rule that actually runs
+// (~60 KB/day on a 128 KB partition => ~2 days, so only ~2 files coexist). LOG_FLASH_MAX_FILES is
+// a guard for a wrong/jumping clock spawning several small files.
+void DataLogger::pruneFlash() {
+    if (!_fs) return;
+    for (int guard = 0; guard < 16; guard++) {
+        int  count = 0;
+        char oldest[64] = {0};
+        File dir = _fs->open("/");
+        for (File f = dir.openNextFile(); f; f = dir.openNextFile()) {
+            const char* bare = baseName(f.name());
+            if (!dayOfName(bare)) continue;
+            count++;
+            if (!oldest[0] || strcmp(bare, oldest + 1) < 0) snprintf(oldest, sizeof(oldest), "/%s", bare);
+        }
+        dir.close();
+        bool tooMany = count > LOG_FLASH_MAX_FILES;
+        bool tooFull = freeBytes() < LOG_FLASH_MIN_FREE;
+        if ((!tooMany && !tooFull) || !oldest[0] || count <= 1) return;
+        if (strcmp(oldest, _file) == 0 && !tooFull) return;
+        Serial.printf("[log] pruning %s (files=%d free=%u)\n", oldest, count, (unsigned)freeBytes());
+        _fs->remove(oldest);
+    }
+}
+
+// Card: retention is by AGE, plus a free-space floor so the device never fills a card that may
+// hold other things. Walking /volthub/YYYY/MM stays cheap because the tree is small and ordered.
+void DataLogger::pruneSd() {
+    if (!_fs || !timeValid()) return;
+    time_t cutoff = time(nullptr) - (time_t)LOG_SD_KEEP_DAYS * 86400;
+    struct tm ct; localtime_r(&cutoff, &ct);
+    char cutDay[9]; strftime(cutDay, sizeof(cutDay), "%Y%m%d", &ct);
+    uint32_t cutNum = strtoul(cutDay, nullptr, 10);
+    bool needSpace = freeBytes() < LOG_SD_MIN_FREE;
+
+    File root = _fs->open(LOG_SD_ROOT);
+    if (!root) return;
+    for (File y = root.openNextFile(); y; y = root.openNextFile()) {
+        if (!y.isDirectory()) continue;
+        char ypath[48]; snprintf(ypath, sizeof(ypath), "%s/%s", LOG_SD_ROOT, baseName(y.name()));
+        File ydir = _fs->open(ypath);
+        if (!ydir) continue;
+        for (File m = ydir.openNextFile(); m; m = ydir.openNextFile()) {
+            if (!m.isDirectory()) continue;
+            char mpath[64]; snprintf(mpath, sizeof(mpath), "%s/%s", ypath, baseName(m.name()));
+            File mdir = _fs->open(mpath);
+            if (!mdir) continue;
+            for (File f = mdir.openNextFile(); f; f = mdir.openNextFile()) {
+                const char* bare = baseName(f.name());
+                uint32_t d = dayOfName(bare);
+                if (!d) continue;
+                if (d >= cutNum && !needSpace) continue;
+                char full[96]; snprintf(full, sizeof(full), "%s/%s", mpath, bare);
+                if (strcmp(full, _file) == 0) continue;        // never the file we are writing
+                Serial.printf("[log] pruning %s\n", full);
+                _fs->remove(full);
+                if (needSpace) needSpace = freeBytes() < LOG_SD_MIN_FREE;
+            }
+            mdir.close();
+        }
+        ydir.close();
+    }
+    root.close();
+}
+
+uint16_t DataLogger::purgeOlderThan(uint16_t days) {
+    if (!_fs || !timeValid()) return 0;
+    time_t cutoff = time(nullptr) - (time_t)days * 86400;
+    struct tm ct; localtime_r(&cutoff, &ct);
+    char cutDay[9]; strftime(cutDay, sizeof(cutDay), "%Y%m%d", &ct);
+    uint32_t cutNum = strtoul(cutDay, nullptr, 10);
+    uint16_t removed = 0;
+    flush();
+
+    if (_medium != MED_SD) {                                   // flat layout
+        File dir = _fs->open("/");
+        for (File f = dir.openNextFile(); f; f = dir.openNextFile()) {
+            const char* bare = baseName(f.name());
+            uint32_t d = dayOfName(bare);
+            if (!d || d >= cutNum) continue;
+            char full[64]; snprintf(full, sizeof(full), "/%s", bare);
+            if (strcmp(full, _file) == 0) continue;
+            if (_fs->remove(full)) removed++;
+        }
+        dir.close();
+        return removed;
+    }
+    File root = _fs->open(LOG_SD_ROOT);
+    if (!root) return 0;
+    for (File y = root.openNextFile(); y; y = root.openNextFile()) {
+        if (!y.isDirectory()) continue;
+        char ypath[48]; snprintf(ypath, sizeof(ypath), "%s/%s", LOG_SD_ROOT, baseName(y.name()));
+        File ydir = _fs->open(ypath);
+        if (!ydir) continue;
+        for (File m = ydir.openNextFile(); m; m = ydir.openNextFile()) {
+            if (!m.isDirectory()) continue;
+            char mpath[64]; snprintf(mpath, sizeof(mpath), "%s/%s", ypath, baseName(m.name()));
+            File mdir = _fs->open(mpath);
+            if (!mdir) continue;
+            for (File f = mdir.openNextFile(); f; f = mdir.openNextFile()) {
+                const char* bare = baseName(f.name());
+                uint32_t d = dayOfName(bare);
+                if (!d || d >= cutNum) continue;
+                char full[96]; snprintf(full, sizeof(full), "%s/%s", mpath, bare);
+                if (strcmp(full, _file) == 0) continue;
+                if (_fs->remove(full)) removed++;
+            }
+            mdir.close();
+        }
+        ydir.close();
+    }
+    root.close();
+    return removed;
+}
+
+// ─── sampling ────────────────────────────────────────────────────────────────
 
 void DataLogger::buildRow(char* dst, size_t n, const BmsData& b,
                           const SolarData& s, const OrionData& o) {
@@ -168,20 +398,37 @@ void DataLogger::buildRow(char* dst, size_t n, const BmsData& b,
 
 void DataLogger::flush() {
     if (!_len) return;
-    if (!_mounted || !_file[0]) { _len = 0; return; }
-    File f = LittleFS.open(_file, FILE_APPEND);
-    if (!f) { Serial.println("[log] append failed"); _state = LOG_ERROR; _len = 0; return; }
+    if (!_fs || !_file[0]) { _len = 0; return; }
+    File f = _fs->open(_file, FILE_APPEND);
+    if (!f) {
+        Serial.println("[log] append failed");
+        _len = 0;
+        // On a card this usually means it was pulled out. Fall back to internal flash rather
+        // than stopping: losing the buffered rows is bad, losing the log entirely is worse.
+        if (_medium == MED_SD) {
+            Serial.println("[log] card lost - falling back to internal flash");
+            unmountSd();
+            _sdFailed = true;
+            _file[0] = 0; _day[0] = 0;
+            if (!mountFlash()) _state = LOG_ERROR;
+        } else {
+            _state = LOG_ERROR;
+        }
+        return;
+    }
     f.write((const uint8_t*)_buf, _len);
     f.close();
     _len = 0;
-    if (freeBytes() < LOG_MIN_FREE) prune();
+    if (_medium == MED_FLASH && freeBytes() < LOG_FLASH_MIN_FREE) prune();
 }
 
 void DataLogger::update(uint32_t nowMs, const BmsData& b, const SolarData& s, const OrionData& o) {
     if (!_enabled) return;
-    if (!_mounted && !mount()) { _state = LOG_ERROR; return; }
-    if (!timeValid()) { _state = LOG_WAIT_TIME; return; }   // no clock → no filename, no rows
-    if (_lastMs && (nowMs - _lastMs) < LOG_PERIOD_MS) return;
+    if (_medium == MED_NONE) {                        // nothing mounted (first run, or ejected)
+        if (!(!_sdFailed && mountSd()) && !mountFlash()) { _state = LOG_ERROR; return; }
+    }
+    if (!timeValid()) { _state = LOG_WAIT_TIME; return; }   // no clock -> no filename, no rows
+    if (_lastMs && (nowMs - _lastMs) < periodMs()) return;
     _lastMs = nowMs;
 
     rotateIfNeeded();
