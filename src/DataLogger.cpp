@@ -216,7 +216,19 @@ void DataLogger::rotateIfNeeded() {
     struct tm ti; localtime_r(&now, &ti);
     char day[9];
     strftime(day, sizeof(day), "%Y%m%d", &ti);
-    if (strcmp(day, _day) == 0 && _file[0]) return;   // same day, file already open
+    if (strcmp(day, _day) == 0 && _file[0]) {
+        // Same day. On flash also roll over by size, so the pruner always has an older file to
+        // remove; on a card a daily file is ~111 KB and stays whole.
+        if (_medium != MED_FLASH) return;
+        File cur = _fs->open(_file, FILE_READ);
+        size_t sz = cur ? cur.size() : 0;
+        if (cur) cur.close();
+        if (sz < LOG_FLASH_MAX_FILE) return;
+        flush();
+        _seq++;
+    } else {
+        _seq = 0;
+    }
 
     flush();                                          // close out the previous day cleanly
     strncpy(_day, day, sizeof(_day) - 1);
@@ -231,7 +243,7 @@ void DataLogger::rotateIfNeeded() {
     // Pick a name whose existing header matches the current column set. After a firmware update
     // that changes the columns - or after switching medium mid-day - appending to a file written
     // with another layout would silently corrupt it, so move to a suffixed name instead.
-    for (int i = 0; i < 10; i++) {
+    for (int i = _seq; i < _seq + 10; i++) {
         makePath(_file, sizeof(_file), day, i);
         if (!_fs->exists(_file)) {
             File f = _fs->open(_file, FILE_WRITE);
@@ -239,7 +251,13 @@ void DataLogger::rotateIfNeeded() {
             Serial.printf("[log] new file %s\n", _file);
             break;
         }
-        if (headerMatches(_fs, _file)) break;         // same schema -> keep appending
+        if (headerMatches(_fs, _file)) {              // same schema
+            if (_medium != MED_FLASH) break;          // card: keep appending
+            File c = _fs->open(_file, FILE_READ);     // flash: only if there is room left in it
+            size_t sz = c ? c.size() : 0; if (c) c.close();
+            if (sz < LOG_FLASH_MAX_FILE) break;
+            continue;                                  // full -> try the next suffix
+        }
         Serial.printf("[log] %s has a different column set, trying next name\n", _file);
     }
     prune();

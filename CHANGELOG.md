@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.88 — data log: one row a minute on both media (LOCAL, not released)
+- Sampling is now **60 s everywhere**, not 60 s on a card and 120 s on flash.
+- That does not fit internal flash on its own: at one row a minute a day is **~111 KB** against
+  ~95 KB usable, and the pruner never deletes the file it is writing — so a day-long file would
+  have filled the partition and stopped the log after ~20 h. Flash therefore also **rolls over by
+  size every 40 KB** (~8.5 h), which keeps a couple of files the pruner can actually remove.
+- Net effect on internal flash: the rolling window drops from ~2 days at 2-min sampling to
+  **~17 h**. On a card nothing changes — a daily file is ~111 KB and a year still fits easily.
+
 ## 0.87 — data log: microSD support on both boards (LOCAL, not released)
 - The logger now writes to a **microSD when one is present** and to internal flash otherwise. The
   medium is the only thing that varies: **1 row/min on a card**, one every two on flash, since the

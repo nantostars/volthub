@@ -11,8 +11,9 @@
 // capacity — sampling period, retention, directory layout — is a property of the active medium
 // and nothing else in the class branches on it.
 //
-//   SD    : one row/min, /volthub/YYYY/MM/volthub_YYYYMMDD.csv, keep a year
-//   flash : one row/2min, /volthub_YYYYMMDD.csv, keep whatever fits in 128 KB (~2 days)
+// Sampling is one row a minute on BOTH media; only capacity-driven behaviour differs:
+//   SD    : /volthub/YYYY/MM/volthub_YYYYMMDD.csv, one file a day, keep a year
+//   flash : /volthub_YYYYMMDD[_N].csv, rolled over every 40 KB, ~17 h of history in 128 KB
 //
 // Card wiring (both slots sit on their own bus — neither contends with the display):
 //   Guition : SDMMC 1-bit, CLK 12 / CMD 11 / D0 13   (dedicated peripheral, display is QSPI)
@@ -21,8 +22,7 @@
 // Time: rows are useless without a clock and the filename needs a date, so logging stays idle
 // until the time is valid (NTP, or pushed by the browser via POST /api/time).
 
-#define LOG_PERIOD_SD_MS     60000UL    // one sample a minute on a card
-#define LOG_PERIOD_FLASH_MS 120000UL    // one every two minutes on 128 KB of flash
+#define LOG_PERIOD_MS        60000UL    // one sample a minute, on either medium
 #define LOG_FLUSH_ROWS       5          // buffer this many rows between writes
 #define LOG_ROW_MAX          160        // generous upper bound for one CSV row
 
@@ -30,11 +30,16 @@
 // arbitrary number, and the card may hold other things besides our logs.
 #define LOG_SD_KEEP_DAYS     365
 #define LOG_SD_MIN_FREE      (100ULL * 1024 * 1024)   // keep 100 MB free on the card
-// On internal flash space is the only real limit (~60 KB/day against ~110 KB usable), so the
-// free-space rule is what actually fires; the count cap is a guard against a jumping clock
-// spawning many small files.
+// On internal flash space is the only real limit (~111 KB/day at one row a minute, against
+// ~110 KB usable), so the free-space rule is what actually fires; the count cap is a guard
+// against a jumping clock spawning many small files.
 #define LOG_FLASH_MAX_FILES  3
 #define LOG_FLASH_MIN_FREE   15000UL
+// At one row a minute a whole day is ~111 KB, more than the ~95 KB usable here — and the pruner
+// never deletes the file it is writing, so a day-long file would fill the partition and stop the
+// log. On flash we therefore also roll over by SIZE, keeping a couple of files the pruner can
+// actually delete: ~8.5 h per file, so the rolling window is ~17 h.
+#define LOG_FLASH_MAX_FILE   40960UL
 
 #define LOG_SD_ROOT          "/volthub"
 
@@ -63,7 +68,7 @@ public:
     const char* mediumName() const;              // "sd" | "flash" | "none"
     const char* currentFile() const { return _file; }
     uint32_t    rowsWritten() const { return _rows; }
-    uint32_t    periodMs() const { return _medium == MED_SD ? LOG_PERIOD_SD_MS : LOG_PERIOD_FLASH_MS; }
+    uint32_t    periodMs() const { return LOG_PERIOD_MS; }
     uint64_t    freeBytes() const;
     uint64_t    totalBytes() const;
 
@@ -99,6 +104,7 @@ private:
     char     _day[9]    = {0};      // "YYYYMMDD" of that file
     uint32_t _rows      = 0;
     uint32_t _lastMs    = 0;
+    int      _seq       = 0;      // suffix of the open file within the day
     char     _buf[LOG_ROW_MAX * LOG_FLUSH_ROWS + 8] = {0};
     size_t   _len       = 0;
 };
