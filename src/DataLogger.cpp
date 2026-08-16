@@ -158,6 +158,26 @@ void DataLogger::setEnabled(bool en) {
     _state = LOG_WAIT_TIME;
 }
 
+// The card stopped answering (pulled out, or a bad contact). Drop to internal flash and KEEP the
+// buffered rows: they are valid samples, they just have to land somewhere else.
+void DataLogger::loseCard(const char* why) {
+    Serial.printf("[log] card lost (%s) - falling back to internal flash\n", why);
+    unmountSd();
+    _sdFailed = true;                       // do not grab it back silently; use rescan()
+    _file[0] = 0; _day[0] = 0; _seq = 0;    // next sample opens a file on flash
+    if (_enabled && !mountFlash()) _state = LOG_ERROR;
+}
+
+// A removed card makes totalBytes() read 0 while the driver times out on every request, so this
+// is both the detection and the reason to unmount quickly: it stops the 1 Hz error storm.
+void DataLogger::poll() {
+    if (_medium != MED_SD) return;
+    uint32_t now = millis();
+    if (_lastPollMs && (now - _lastPollMs) < 2000) return;
+    _lastPollMs = now;
+    if (totalBytes() == 0) loseCard("no response");
+}
+
 bool DataLogger::rescan() {
     if (_medium == MED_SD) return true;                // already on a card
     flush();
@@ -418,20 +438,16 @@ void DataLogger::flush() {
     if (!_len) return;
     if (!_fs || !_file[0]) { _len = 0; return; }
     File f = _fs->open(_file, FILE_APPEND);
+    if (!f && _medium == MED_SD) {
+        // Almost always a pulled card. Switch medium and write the same rows there instead of
+        // discarding them; rotateIfNeeded() on the next sample opens the flash file.
+        loseCard("append failed");
+        return;                              // rows stay in the buffer for the next flush
+    }
     if (!f) {
         Serial.println("[log] append failed");
         _len = 0;
-        // On a card this usually means it was pulled out. Fall back to internal flash rather
-        // than stopping: losing the buffered rows is bad, losing the log entirely is worse.
-        if (_medium == MED_SD) {
-            Serial.println("[log] card lost - falling back to internal flash");
-            unmountSd();
-            _sdFailed = true;
-            _file[0] = 0; _day[0] = 0;
-            if (!mountFlash()) _state = LOG_ERROR;
-        } else {
-            _state = LOG_ERROR;
-        }
+        _state = LOG_ERROR;
         return;
     }
     f.write((const uint8_t*)_buf, _len);
@@ -442,6 +458,7 @@ void DataLogger::flush() {
 
 void DataLogger::update(uint32_t nowMs, const BmsData& b, const SolarData& s, const OrionData& o) {
     if (!_enabled) return;
+    poll();                                  // notice a pulled card within ~2 s
     if (_medium == MED_NONE) {                        // nothing mounted (first run, or ejected)
         if (!(!_sdFailed && mountSd()) && !mountFlash()) { _state = LOG_ERROR; return; }
     }

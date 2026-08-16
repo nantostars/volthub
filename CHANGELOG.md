@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.91 — data log: notice a pulled card in seconds, not at the next write (LOCAL)
+- Found on the bench by pulling the card out of a Guition that was logging. The fallback existed
+  but hung off the **write path only**, which at one row a minute runs every five minutes. Until
+  then the device kept reporting `medium: sd`, `state: logging` with a capacity of 0 KB, and the
+  SDMMC driver timed out roughly once a second, flooding the serial.
+- Added `DataLogger::poll()`: a self rate-limited (2 s) health check on the active medium. A
+  removed card makes `totalBytes()` read 0, which is both the detection and the reason to unmount
+  promptly — that is what stops the error storm. It runs from `loop()` and at the start of
+  `GET /api/logs`, so the page can never show a card that is no longer there.
+- The buffered rows are **no longer discarded** when the medium fails: they are valid samples, so
+  the logger keeps them and writes them to the flash file after switching. Previously a failed
+  append threw away up to five minutes of data.
+
 ## 0.90 — web Overview: the remaining labels are translated too (LOCAL, not released)
 - `Solar`, `DC-DC` and `Battery` in the overview carried no `data-i18n`, so they stayed English in
   Italian mode while the device translated them — the two UIs disagreed, and the `Solare`/`Batteria`

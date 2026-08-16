@@ -57,6 +57,10 @@ public:
     // Write anything still buffered (call before a reboot: settings save, OTA).
     void flush();
 
+    // Cheap health check on the active medium; self rate-limited, call it often (loop + status
+    // handlers). A pulled card is detected here in ~2 s instead of at the next flush, which can
+    // be five minutes away and leaves the UI claiming it is still writing to the card.
+    void poll();
     // Try to mount a card now (the web "rescan" action). True if the SD is active afterwards.
     bool rescan();
     // Flush, close and unmount so the card can be pulled safely; falls back to internal flash.
@@ -91,6 +95,7 @@ private:
     void rotateIfNeeded();
     bool ensureDir(const char* path);
     void makePath(char* dst, size_t n, const char* day, int suffix) const;
+    void loseCard(const char* why);
     void prune();
     void pruneFlash();
     void pruneSd();
@@ -104,6 +109,7 @@ private:
     char     _day[9]    = {0};      // "YYYYMMDD" of that file
     uint32_t _rows      = 0;
     uint32_t _lastMs    = 0;
+    uint32_t _lastPollMs= 0;
     int      _seq       = 0;      // suffix of the open file within the day
     char     _buf[LOG_ROW_MAX * LOG_FLUSH_ROWS + 8] = {0};
     size_t   _len       = 0;

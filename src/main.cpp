@@ -488,6 +488,7 @@ static void walkLogs(F fn) {
 // tens of KB of heap in one request (JsonDocument + the String copy) on a device with ~170 KB free.
 // The summary (count, bytes, first/last day) is computed while walking, at constant memory.
 static void handleLogsList() {
+    logger.poll();          // so the page never shows a card that has already been pulled
     long offset = server.hasArg("offset") ? server.arg("offset").toInt() : 0;
     long limit  = server.hasArg("limit")  ? server.arg("limit").toInt()  : 15;
     if (limit < 1)  limit = 1;
@@ -719,6 +720,7 @@ void loop() {
     SolarData s = victron.getSolar();
     OrionData o = victron.getOrion();
 
+    logger.poll();
     logger.update(millis(), b, s, o);
 
     display.update(b, s, o, imu.getData(), millis());
