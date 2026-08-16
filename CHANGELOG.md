@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.92 — data log: stop reporting a clock problem that does not exist (LOCAL)
+- Found while testing safe eject: after ejecting, rescanning or enabling the logger, the state was
+  set to *waiting for clock* unconditionally, so for up to a minute — until the next sample — the
+  System tab announced a clock failure on a device whose clock had been NTP-synced for hours.
+- The state after a medium change is now derived from reality (`resetState()`): off when disabled,
+  *waiting for clock* only when the clock really is unset, *logging* otherwise.
+- Safe eject itself verified on hardware: flush, unmount, `card unmounted - safe to remove`, and
+  **zero SDMMC errors afterwards**.
+
 ## 0.91 — data log: notice a pulled card in seconds, not at the next write (LOCAL)
 - Found on the bench by pulling the card out of a Guition that was logging. The fallback existed
   but hung off the **write path only**, which at one row a minute runs every five minutes. Until

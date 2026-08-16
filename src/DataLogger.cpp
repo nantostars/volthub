@@ -155,11 +155,17 @@ void DataLogger::setEnabled(bool en) {
     }
     _enabled = true; _sdFailed = false;
     if (_medium == MED_NONE && !mountSd() && !mountFlash()) { _state = LOG_ERROR; return; }
-    _state = LOG_WAIT_TIME;
+    resetState();
 }
 
 // The card stopped answering (pulled out, or a bad contact). Drop to internal flash and KEEP the
 // buffered rows: they are valid samples, they just have to land somewhere else.
+void DataLogger::resetState() {
+    if (!_enabled)          _state = LOG_OFF;
+    else if (!timeValid())  _state = LOG_WAIT_TIME;
+    else                    _state = LOG_ACTIVE;
+}
+
 void DataLogger::loseCard(const char* why) {
     Serial.printf("[log] card lost (%s) - falling back to internal flash\n", why);
     unmountSd();
@@ -186,7 +192,7 @@ bool DataLogger::rescan() {
     _file[0] = 0; _day[0] = 0;                         // next sample opens a file on the new medium
     bool got = mountSd();
     if (!got) mountFlash();
-    _state = _enabled ? LOG_WAIT_TIME : LOG_OFF;
+    resetState();
     return got;
 }
 
@@ -196,7 +202,8 @@ bool DataLogger::eject() {
     unmountSd();
     _file[0] = 0; _day[0] = 0;
     _sdFailed = true;                                  // do not silently grab it back
-    if (_enabled) _state = mountFlash() ? LOG_WAIT_TIME : LOG_ERROR;   // keep logging meanwhile
+    if (_enabled && !mountFlash()) _state = LOG_ERROR;   // keep logging meanwhile
+    else resetState();
     Serial.println("[log] card unmounted - safe to remove");
     return true;
 }

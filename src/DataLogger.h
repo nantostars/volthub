@@ -96,6 +96,9 @@ private:
     bool ensureDir(const char* path);
     void makePath(char* dst, size_t n, const char* day, int suffix) const;
     void loseCard(const char* why);
+    // State after a medium change: only claim "waiting for clock" when the clock really is unset,
+    // otherwise the UI reports a problem that does not exist until the next sample.
+    void resetState();
     void prune();
     void pruneFlash();
     void pruneSd();
