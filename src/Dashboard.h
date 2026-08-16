@@ -184,12 +184,12 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
       <!-- sources -->
       <div class="ov-top">
         <div class="node">
-          <div class="nh"><span class="dot" id="ov-d-sol"></span>Solar</div>
+          <div class="nh"><span class="dot" id="ov-d-sol"></span><span data-i18n="Solar">Solar</span></div>
           <div class="nv c-orange"><span id="ov-solw">--</span><small> W</small></div>
           <div class="na"><span id="ov-sola">--</span><small> A</small></div>
         </div>
         <div class="node">
-          <div class="nh"><span class="dot" id="ov-d-dc"></span>DC-DC</div>
+          <div class="nh"><span class="dot" id="ov-d-dc"></span><span data-i18n="DC-DC">DC-DC</span></div>
           <div class="nv c-blue"><span id="ov-dcw">--</span><small> W</small></div>
           <div class="na"><span id="ov-dca">--</span><small> A</small></div>
         </div>
@@ -207,7 +207,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           </div>
         </div>
         <div class="ov-bmeta">
-          <div class="card-s">Battery</div>
+          <div class="card-s" data-i18n="Battery">Battery</div>
           <div id="ov-bstate" style="font-size:20px;font-weight:600;margin:3px 0">--</div>
           <div class="num c-muted" id="ov-bvi" style="font-size:15px">--</div>
           <div class="num c-muted" id="ov-beta" style="font-size:15px">--</div>

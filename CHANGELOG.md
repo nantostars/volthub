@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.90 — web Overview: the remaining labels are translated too (LOCAL, not released)
+- `Solar`, `DC-DC` and `Battery` in the overview carried no `data-i18n`, so they stayed English in
+  Italian mode while the device translated them — the two UIs disagreed, and the `Solare`/`Batteria`
+  dictionary entries were dead code. Fixed the same way as 0.89.
+- `Solar` and `DC-DC` needed the label in its own `<span>`: their `<div>` also contains the
+  online/offline **status dot**, and `applyLang()` assigns `textContent`, which would have deleted
+  it. `Battery` has no child element, so it carries the attribute directly.
+- `DC-DC` is identical in both languages; it is tagged anyway so the overview has no odd exception.
+
 ## 0.89 — Overview: "Loads" is now "Battery discharge" (LOCAL, not released)
 - The third overview box reads **Battery discharge / Scarica batteria** on the web. The name says
   what the number is: since 0.59 it has been the battery discharge straight from the BMS, not a
