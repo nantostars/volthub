@@ -113,7 +113,7 @@ Prebuilt firmware for both boards is attached to every
 
 | File | Use |
 |---|---|
-| `volthub-<ver>-<board>-ota.bin` | upload from the web **System → Firmware update (OTA)** |
+| `volthub-<ver>-<board>-ota.bin` | upload from the web **System → OTA** |
 | `volthub-<ver>-<board>-factory.bin` | first flash of a blank board over USB |
 
 ```bash
@@ -139,8 +139,8 @@ pio run -e cyd     -t upload --upload-port /dev/cu.usbserial-XXXX # CYD
 ```
 
 - **Guition tip:** if the board is in a crash loop, hold the **BOOT** button during flashing.
-- **OTA:** off by default. In the web dashboard go to **System → Configuration → Firmware
-  update (OTA)**, tick *Enable OTA*, set a username and password, and save. Then open
+- **OTA:** off by default. In the web dashboard go to **System → OTA**, tick *Enable OTA*, set a
+  username and password, and save. Then open
   `http://<device-ip>/update` (HTTP Basic Auth with those credentials) and upload
   `.pio/build/<env>/firmware.bin`. OTA works only while enabled with both credentials set.
 

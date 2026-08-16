@@ -1,10 +1,14 @@
 # Logging to a microSD card (design note)
 
-> **Reusable planning document — nothing implemented yet.** Written 2026-08-14, when a card was
-> first inserted in the Guition. Pick it up from here.
+> **Implemented in 0.87 → 0.92 — this is now the design record, not a plan.** Written 2026-08-14
+> when a card was first inserted in the Guition; built and validated on that board on 2026-08-16
+> (mount, 60 s cadence, year/month subdirectories, rotation, pruning, hot-removal fallback in ~2 s,
+> rescan, safe eject — 1.4 KB of heap). **Not yet exercised on the CYD.** Sections 1–10 are the
+> reasoning as it was written; **section 11 records where the implementation diverged** and is the
+> one to trust when the two disagree.
 >
-> Goal: when a card is present, log **one row per minute** (instead of one every two) and keep a
-> long history. When it is absent, keep working exactly as today on internal flash.
+> Goal: when a card is present, log **one row per minute** and keep a long history. When it is
+> absent, keep working exactly as before on internal flash.
 
 ---
 
@@ -136,3 +140,44 @@ deliberately triggers the schema-suffix path, so old files are never mixed with 
 2. Backend abstraction in `DataLogger` (still LittleFS only, no behaviour change).
 3. Selection, fallback and per-backend policies.
 4. Web System tab: medium in use, capacity, rescan, downloads from both media.
+
+---
+
+## 11. What actually shipped
+
+Same skeleton, four deliberate divergences.
+
+| Design (§4, §6, §7) | Implemented |
+|---|---|
+| 60 s on the card, 120 s on flash | **60 s on both.** Two cadences meant two flavours of file for no benefit; §9.4 was the open question and this is the answer. The cost is the fallback history, which is why flash now rotates every 40 KB (see below). |
+| Retention "400 files or 500 MB, effectively never prunes" | **365 days plus a 100 MB free-space floor** (`LOG_SD_KEEP_DAYS`, `LOG_SD_MIN_FREE`). An age rule is what a user can reason about; the space floor is the guard the file cap was meant to be. |
+| Flat `volthub_YYYYMMDD.csv` on the card | **`/volthub/YYYY/MM/`** — a year is 365 files in one directory, unpleasant to list on the device and worse to page through in the web UI. |
+| List files from both media, tagged by source | **Only the medium in use is listed.** `walkLogs()` walks `logger.fs()`. Rows written to flash before a card was inserted are still on the partition and reappear the moment logging falls back, but they are not downloadable while the card is mounted. Left as is: the fallback path is the rare case, and a two-source listing means a source parameter on `/logdl` and a merged pager. Reconsider if it bites in use. |
+
+Details worth knowing that the plan did not anticipate:
+
+- **Flash needed size rotation.** At 60 s a day is ~111 KB against ~95 KB usable in the 128 KB
+  partition, and the pruner never deletes the open file — without rotation the partition fills and
+  logging stops. `LOG_FLASH_MAX_FILE` (40 KB) rolls to `volthub_YYYYMMDD_<n>.csv`; usable history
+  there is ~17 h (0.88).
+- **Card loss must be detected outside the flush path.** Originally a pulled card surfaced only at
+  the next write, i.e. up to 5 minutes later. `poll()` runs every 2 s and calls `loseCard()` on
+  `totalBytes() == 0` (0.91).
+- **The buffered rows are kept across the switch** — the first version dropped them (0.91).
+- **`_sdFailed` latches.** After a failure or an eject the logger will not remount on its own;
+  *Detect card* (`rescan()`) is the only way back. Silently grabbing a card mid-removal is how FAT
+  gets corrupted.
+- **`resetState()` after every medium change**, otherwise the UI showed a false *waiting for clock*
+  following an eject or a rescan (0.92).
+- §9.2 (**current draw**) was never measured. Nothing anomalous observed in the Guition test, but no
+  supply-side measurement was taken.
+- §9.3 (**FAT32 only**) held: documented in the README and in the System card hint.
+- §8 (**richer columns now that space is not the constraint**) was deliberately left alone — the
+  column set is identical on both media, so one schema, and `rotateIfNeeded()` still guards it.
+
+### Still open
+
+1. **The CYD is untested.** The one real unknown is §9.1: `SPI.begin()` on VSPI (18/19/23/5)
+   alongside TFT_eSPI's HSPI instance. Code is in `mountSd()`, compiled, never run.
+2. Whether the flash fallback's ~17 h is enough, or the buffer should grow so a pulled card costs
+   fewer writes.

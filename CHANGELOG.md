@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.96 — docs: the microSD note still read as a plan, the OTA paths still pointed at Configuration (LOCAL)
+- `docs/SDCARD-logging.md` opened with *"nothing implemented yet"* while the feature had shipped in
+  0.87→0.92 and run on hardware. It is now marked as the design record, and a new **§11 What
+  actually shipped** lists the four deliberate divergences (60 s on both media, age+space retention
+  instead of a file cap, `YYYY/MM` subdirectories, single-medium listing), the things the plan did
+  not foresee (flash size rotation, `poll()` detection, buffer kept across the switch, `_sdFailed`
+  latching, `resetState()`) and what is still open — the CYD, never run.
+- `CLAUDE.md`: the *"microSD is designed but NOT implemented"* paragraph replaced by how it works;
+  added the System tab card layout from 0.95 and why `Save and reboot` sits outside Configuration.
+- `README.md`: OTA now lives in its own card, so both **System → Configuration → Firmware update**
+  paths become **System → OTA**.
+- Docs only. `docs/screenshots/web-system.png` still shows the pre-0.95 two-card layout.
+
 ## 0.95 — web: the System tab is four cards instead of two (LOCAL)
 - The *Network* card had become a catch-all (status rows, language, keep-screen-on, the OTA link)
   and *Configuration* held everything else including OTA and the log, so the page read as one long

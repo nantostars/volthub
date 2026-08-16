@@ -141,7 +141,17 @@ Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PER
 - **Changing the column set is a breaking change for files already on disk**: `rotateIfNeeded()` compares the existing file's first line with `CSV_HEADER` and falls back to `volthub_YYYYMMDD_<n>.csv` when they differ, so two schemas never end up in one file. Keep that check working when adding columns.
 - Statuses are numeric to keep rows ~80 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
 
-**Logging to a microSD is designed but NOT implemented** — see `docs/SDCARD-logging.md`. Key facts already established: the Guition TF slot is SDMMC 1-bit on GPIO 11/12/13 (dedicated peripheral, no contention with the QSPI display) and those pins are free; `LittleFS` and `SD_MMC` both derive from `fs::FS`, so the logger only needs a backend pointer plus a capacity shim.
+**microSD (implemented 0.87→0.92, validated on the Guition, `docs/SDCARD-logging.md` has the design
+rationale):** the medium is chosen when logging starts — `mountSd()` first, `mountFlash()` otherwise
+— and both are reached through a single `fs::FS*`, since `LittleFS`, `SD_MMC` and `SD` share that
+base class. Guition = `SD_MMC` 1-bit on GPIO 11/12/13 (dedicated peripheral, no contention with the
+QSPI display); CYD = `SD` over **VSPI** 18/19/23/5, a different bus from TFT_eSPI's HSPI. **FAT32
+only** — exFAT does not mount and the device silently falls back to flash. The card is mounted only
+while logging is enabled, and never probed periodically: `poll()` (every 2 s) only checks a card
+already in use via `totalBytes() == 0`, and `rescan()`/`eject()` are explicit user actions from the
+web. On loss, `loseCard()` **keeps the buffered rows** and writes them to flash — the medium switch
+always starts a new file, so no file ever mixes two sources. `_sdFailed` stops the logger grabbing
+the card back on its own after a failure or an eject: only *Detect card* clears it.
 
 ### NimBLE GATT quirks (IMU)
 
@@ -330,6 +340,23 @@ Mirrors the CYD overview: same box titles (SOLAR / BATTERY / DC-DC / BATTERY DIS
 - `#view-level`: `height: calc(100vh - 56px); overflow: hidden` — no scroll. `setView()` sets `display: flex` (not `block`).
 - `.lv-grid`: `flex-direction: row` landscape, `column` portrait.
 - `.lv-svg`: `flex: 1; width: 100%; height: 100%` with SVG `preserveAspectRatio="xMidYMid meet"`.
+
+### System tab — layout (v0.95)
+
+Four cards plus the save button, in this order:
+
+| Card | Holds |
+|---|---|
+| Connected devices | `#sy-devs` |
+| **Status** | `#st-status` only — firmware, OTA on/off, free RAM, AP/STA, time |
+| **Configuration** | *Interface* group (language, keep screen on) then WiFi AP · WiFi Client · BMS · MPPT · DC-DC · NTP · IMU |
+| **OTA** | enable + credentials + the `/update` link (`#ota-link`, shown only when `sys.ota`) |
+| **Data log (CSV)** | toggle, medium/space, Detect/Eject/Delete-older, file list, hint |
+
+`Save and reboot` sits **after** the last card, not inside Configuration: it posts Configuration and
+OTA (`/api/settings`), while language and the log toggle have their own live endpoints (`/api/lang`,
+`/api/logs`) and must not be moved into that form — it reboots on every POST. The cards carry no
+state of their own; every handler works off ids, so the block order can be changed freely.
 
 ### System tab — "Keep screen on"
 
