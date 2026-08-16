@@ -10,6 +10,18 @@ of the web dashboard.
 
 ---
 
+## 0.89 — Overview: "Loads" is now "Battery discharge" (LOCAL, not released)
+- The third overview box reads **Battery discharge / Scarica batteria** on the web. The name says
+  what the number is: since 0.59 it has been the battery discharge straight from the BMS, not a
+  total load figure, and "Loads" invited the wrong reading.
+- On the device the box is labelled **Discharge / Scarica**: the full wording needs 204 px in a
+  130 px field, so it would have been clipped. The short form keeps the same font size as the
+  Solar and DC-DC labels next to it.
+- The web label is also **translated now**: those three overview labels carry no `data-i18n`, so
+  "Loads" stayed English in Italian mode and the "Carichi" dictionary entry was dead. The new label
+  sits in its own `<span>`, because `applyLang()` assigns `textContent` and would otherwise wipe the
+  status dot inside the same element. *Solar* and *DC-DC* still have that gap.
+
 ## 0.88 — data log: one row a minute on both media (LOCAL, not released)
 - Sampling is now **60 s everywhere**, not 60 s on a card and 120 s on flash.
 - That does not fit internal flash on its own: at one row a minute a day is **~111 KB** against

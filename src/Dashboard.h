@@ -216,7 +216,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
       <!-- loads -->
       <div class="ov-bot">
         <div class="node">
-          <div class="nh"><span class="dot" id="ov-d-ld"></span>Loads</div>
+          <div class="nh"><span class="dot" id="ov-d-ld"></span><span data-i18n="Battery discharge">Battery discharge</span></div>
           <div class="nv c-pale"><span id="ov-ldw">--</span><small> W</small></div>
           <div class="na"><span id="ov-lda">--</span><small> A</small></div>
         </div>
@@ -506,7 +506,7 @@ document.addEventListener('visibilitychange',function(){ if(document.visibilityS
 // ── i18n (English key → Italian; English fallback) ──
 var I18N={ it:{
   "Overview":"Panoramica","Battery":"Batteria","Solar":"Solare","Level":"Livella","System":"Sistema",
-  "Loads":"Carichi","offline":"offline","online":"online",
+  "Battery discharge":"Scarica batteria","offline":"offline","online":"online",
   "Charging":"In carica","Discharging":"In scarica","Idle":"Inattivo",
   "Runtime":"Autonomia","To full":"A pieno",
   "Storage":"Memoria",

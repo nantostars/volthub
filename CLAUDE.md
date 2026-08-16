@@ -219,14 +219,14 @@ x=8          x=171        x=334
 - **SOLAR** — W headline: `UI_GREEN` if >0.5W, else `UI_MUTED`. Sub-values A/V: `UI_TEXT`. Wh: `UI_MUTED`.
 - **BATTERY** — SOC: `socCol()` (green >50%, yellow >20%, red ≤20%). State: green=CHARGING, orange=DISCHARGING, muted=IDLE / offline. A and W: `signCol()` (green if positive, orange if negative). V: `UI_TEXT`.
 - **DC-DC** — W headline: `UI_GREEN` if outW >0.5W, else `UI_MUTED`. A and V: `UI_TEXT`.
-- **LOADS** — A: `UI_MUTED` (derived). W: `UI_TEXT`.
+- **BATTERY DISCHARGE** (labelled *Discharge* on the device, where the full wording does not fit the 130px field) — A: `UI_MUTED` (derived). W: `UI_TEXT`.
 
 ### Sub-value order (consistent across CYD and web)
 
 - SOLAR: A → V → Wh
 - BATTERY: A → V → W
 - DC-DC: A → V
-- LOADS: A → W
+- BATTERY DISCHARGE: A → W
 
 ### Anti-flicker rules
 
@@ -293,7 +293,7 @@ Served from `Dashboard.h` (embedded HTML/CSS/JS). Polls `/api/data` every 2s.
 
 ### Overview tab
 
-Mirrors the CYD overview: same box titles (SOLAR / BATTERY / DC-DC / LOADS), same field order, same color logic.
+Mirrors the CYD overview: same box titles (SOLAR / BATTERY / DC-DC / BATTERY DISCHARGE), same field order, same color logic.
 
 **Font sizes:**
 

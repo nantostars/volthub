@@ -14,10 +14,10 @@ Wi‑Fi — with **no GX device, Raspberry Pi or cloud** required.
 
 ## Features
 
-- **Live overview** — solar, DC‑DC and loads power, battery ring (SOC), voltage/current,
-  animated energy‑flow lines, colour‑coded by state (producing / discharging).
-  *Loads* is the battery **discharge** reported by the BMS, i.e. what the loads actually draw
-  from the battery (net of what solar/DC‑DC already cover); it reads 0 while charging or idle.
+- **Live overview** — solar and DC‑DC power, battery ring (SOC), voltage/current, battery
+  discharge, animated energy‑flow lines, colour‑coded by state (producing / discharging).
+  *Battery discharge* is what the BMS reports the loads actually draw from the battery, net of
+  what solar and DC‑DC already cover; it reads 0 while charging or idle.
 - **Runtime estimate** — time to empty while discharging, time to full while charging, derived
   from the BMS coulomb counter (`remainingAh`) and a smoothed current, so it does not jump on
   every compressor start. Shown on the overview and the Battery screen.

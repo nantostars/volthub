@@ -89,7 +89,7 @@ static const struct { const char* en; const char* it; } LANG_IT[] = {
     {"Overview","Panoramica"}, {"Battery","Batteria"}, {"Solar","Solare"}, {"Level","Livella"},
     {"System","Sistema"},
     // overview / nodes
-    {"Loads","Carichi"}, {"offline","offline"}, {"online","online"},
+    {"Discharge","Scarica"}, {"offline","offline"}, {"online","online"},
     // states
     {"Idle","Inattivo"}, {"Charging","In carica"}, {"Discharging","In scarica"},
     {"Balanced","Bilanciata"}, {"Balancing","Bilanciam."},
@@ -683,7 +683,7 @@ void DisplayUI::drawOverview() {
     drawCard(8, CT_Y + 142, 150, 80, C_INSET, true);
     fillText(20, CT_Y + 150, 130, 16, t("DC-DC"), 2, C_MUTED, C_INSET);
     drawCard(322, CT_Y + 75, 150, 80, C_INSET, true);
-    fillText(334, CT_Y + 83, 130, 16, t("Loads"), 2, C_MUTED, C_INSET);
+    fillText(334, CT_Y + 83, 130, 16, t("Discharge"), 2, C_MUTED, C_INSET);
     for (int i = 0; i < 3; i++) _nodeTxt[i][0] = '\x01';  // invalidate node cache → force redraw
     _lastSocBucket = -999;                                  // force ring redraw
     updateOverview();
