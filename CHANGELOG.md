@@ -10,6 +10,18 @@ of the web dashboard.
 
 ---
 
+## 0.95 — web: the System tab is four cards instead of two (LOCAL)
+- The *Network* card had become a catch-all (status rows, language, keep-screen-on, the OTA link)
+  and *Configuration* held everything else including OTA and the log, so the page read as one long
+  form with unrelated things inside it.
+- Now: **Status** (only the device rows), **Configuration** (an *Interface* group with language and
+  keep-screen-on, then the WiFi/BMS/Victron/NTP/IMU fields), **OTA** (enable + credentials + the
+  `/update` link, together for the first time) and **Data log (CSV)**.
+- *Save and reboot* moves below the last card: it applies to Configuration and OTA, and staying
+  last keeps the log card where 0.79 put it — at the bottom, above the button.
+- Markup only. No id, endpoint or handler changed, so `saveSettings()`, `applyStoredHints()` and
+  the log calls work as before.
+
 ## 0.94 — docs/UI: the sampling text still described the old two-tier cadence (LOCAL)
 - Spotted in the System tab: the card reported *internal flash* and *one row every 60s* while the
   hint below still read "one a minute on microSD, one every two on internal flash". The behaviour

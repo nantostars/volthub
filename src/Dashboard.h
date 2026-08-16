@@ -349,19 +349,21 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
         <div id="sy-devs"></div>
       </div>
       <div class="card">
-        <div class="card-s" style="margin-bottom:6px" data-i18n="Network">Network</div>
+        <div class="card-s" style="margin-bottom:6px" data-i18n="Status">Status</div>
         <div id="st-status"></div>
-        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Language">Language</span>
-          <span class="lang-sel"><button class="lang-btn on" id="lang-en" onclick="setLang(0)">EN</button><button class="lang-btn" id="lang-it" onclick="setLang(1)">IT</button></span></div>
-        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Keep screen on">Keep screen on</span>
-          <span class="lang-sel"><button class="lang-btn" id="wake-btn" onclick="toggleWake()">OFF</button></span></div>
-        <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) →</a>
       </div>
 
 
       <!-- settings form -->
       <div class="card">
         <div class="card-s" style="margin-bottom:10px" data-i18n="Configuration">Configuration</div>
+
+        <div class="st-group"><div class="st-gt" data-i18n="Interface">Interface</div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Language">Language</span>
+            <span class="lang-sel"><button class="lang-btn on" id="lang-en" onclick="setLang(0)">EN</button><button class="lang-btn" id="lang-it" onclick="setLang(1)">IT</button></span></div>
+          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Keep screen on">Keep screen on</span>
+            <span class="lang-sel"><button class="lang-btn" id="wake-btn" onclick="toggleWake()">OFF</button></span></div>
+        </div>
 
         <div class="st-group"><div class="st-gt">WiFi AP</div>
           <div class="st-field"><label class="st-label" for="st-wifi-ssid">SSID</label>
@@ -412,34 +414,38 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div id="st-imu-mac-hint" class="st-hint">Formato: AA:BB:CC:DD:EE:FF</div></div>
         </div>
 
-        <div class="st-group"><div class="st-gt" data-i18n="Firmware update (OTA)">Firmware update (OTA)</div>
-          <div class="st-field"><label class="st-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="st-ota-en" type="checkbox"><span data-i18n="Enable OTA">Enable OTA</span></label></div>
-          <div class="st-field"><label class="st-label" for="st-ota-user" data-i18n="Username">Username</label>
-            <div class="st-input-wrap"><input id="st-ota-user" class="st-input" type="text" maxlength="32" autocomplete="off"></div></div>
-          <div class="st-field"><label class="st-label" for="st-ota-pass" data-i18n="Password">Password</label>
-            <div class="st-input-wrap"><input id="st-ota-pass" class="st-input" type="password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-ota-pass',this)">&#128065;</button></div>
-            <div class="st-hint" data-i18n="OTA active only with enable + username + password">OTA active only with enable + username + password</div></div>
-        </div>
-
-        <div class="st-group"><div class="st-gt" data-i18n="Data log (CSV)">Data log (CSV)</div>
-          <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
-            <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
-          <div id="log-status"></div>
-          <div id="log-actions" style="display:none;margin:6px 0">
-            <button class="lang-btn" onclick="logAction({rescan:true})" data-i18n="Detect card">Detect card</button>
-            <button class="lang-btn" id="log-eject" onclick="logEject()" data-i18n="Eject card">Eject card</button>
-            <button class="lang-btn" onclick="logPurge()" data-i18n="Delete older than…">Delete older than…</button>
-          </div>
-          <div id="log-files"></div>
-          <div id="log-more" style="display:none;margin-top:4px">
-            <button class="lang-btn" onclick="moreLogs()" data-i18n="Show older">Show older</button>
-          </div>
-          <div class="st-hint" data-i18n="One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
-        </div>
-
-        <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
-        <div class="st-msg" id="st-msg"></div>
       </div>
+
+      <div class="card">
+        <div class="card-s" style="margin-bottom:10px">OTA</div>
+        <div class="st-field"><label class="st-label" style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="st-ota-en" type="checkbox"><span data-i18n="Enable OTA">Enable OTA</span></label></div>
+        <div class="st-field"><label class="st-label" for="st-ota-user" data-i18n="Username">Username</label>
+          <div class="st-input-wrap"><input id="st-ota-user" class="st-input" type="text" maxlength="32" autocomplete="off"></div></div>
+        <div class="st-field"><label class="st-label" for="st-ota-pass" data-i18n="Password">Password</label>
+          <div class="st-input-wrap"><input id="st-ota-pass" class="st-input" type="password" maxlength="63" autocomplete="off"><button class="st-eye" onclick="toggleEye('st-ota-pass',this)">&#128065;</button></div>
+          <div class="st-hint" data-i18n="OTA active only with enable + username + password">OTA active only with enable + username + password</div></div>
+        <a class="ota-link" id="ota-link" href="/update" style="display:none" data-i18n="Firmware update (OTA) →">Firmware update (OTA) &#8594;</a>
+      </div>
+
+      <div class="card">
+        <div class="card-s" style="margin-bottom:10px" data-i18n="Data log (CSV)">Data log (CSV)</div>
+        <div class="st-status-row"><span class="st-status-lbl" data-i18n="Logging">Logging</span>
+          <span class="lang-sel"><button class="lang-btn" id="log-btn" onclick="toggleLog()">OFF</button></span></div>
+        <div id="log-status"></div>
+        <div id="log-actions" style="display:none;margin:6px 0">
+          <button class="lang-btn" onclick="logAction({rescan:true})" data-i18n="Detect card">Detect card</button>
+          <button class="lang-btn" id="log-eject" onclick="logEject()" data-i18n="Eject card">Eject card</button>
+          <button class="lang-btn" onclick="logPurge()" data-i18n="Delete older than…">Delete older than…</button>
+        </div>
+        <div id="log-files"></div>
+        <div id="log-more" style="display:none;margin-top:4px">
+          <button class="lang-btn" onclick="moreLogs()" data-i18n="Show older">Show older</button>
+        </div>
+        <div class="st-hint" data-i18n="One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
+      </div>
+
+      <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
+      <div class="st-msg" id="st-msg"></div>
     </div>
 
   </div><!-- /content -->
@@ -569,7 +575,7 @@ var I18N={ it:{
   "Switched off (mode)":"Spento (modo)",
   "Off":"Spento",
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
-  "Connected devices":"Dispositivi connessi","Network":"Rete","Configuration":"Configurazione",
+  "Connected devices":"Dispositivi connessi","Configuration":"Configurazione","Interface":"Interfaccia",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
   "Cell voltages":"Tensioni celle","Bubble level":"Livella a bolla",
   "Production today":"Produzione oggi","Ramp / chock guidance":"Guida cunei / rampe",
