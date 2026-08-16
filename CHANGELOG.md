@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.94 — docs/UI: the sampling text still described the old two-tier cadence (LOCAL)
+- Spotted in the System tab: the card reported *internal flash* and *one row every 60s* while the
+  hint below still read "one a minute on microSD, one every two on internal flash". The behaviour
+  was right — 0.88 made it 60 s on both media — the **text** was stale.
+- Updated the hint, `CLAUDE.md` (which still documented `LOG_PERIOD_MS` as 2 min and no card at
+  all) and the README, whose Data log section described only the 128 KB partition: it now covers
+  both media, the layouts, the retention, FAT32, the eject/detect actions and what happens when a
+  card is pulled.
+
 ## 0.93 — boot banner prints the version and the board (LOCAL)
 - The serial banner said only `[boot] volthub - Camper Energy and Leveling Monitor`, so during the
   SD testing "which firmware is running?" could only be answered by querying `/api/data` — over the

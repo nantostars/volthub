@@ -130,7 +130,7 @@ The pill shows the **mode**, not just up/down, so every tap has visible feedback
 
 ### CSV data log (`DataLogger`)
 
-Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PERIOD_MS` (2 min) to `/volthub_YYYYMMDD.csv`.
+Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PERIOD_MS` (**60 s, both media**) to a **microSD when one is present**, otherwise to internal flash. On a card: `/volthub/YYYY/MM/volthub_YYYYMMDD.csv`, one file a day, kept 365 days plus a 100 MB free floor. On flash: `/volthub_YYYYMMDD[_N].csv`, rolled over every `LOG_FLASH_MAX_FILE` (40 KB) — a whole day is ~111 KB against ~95 KB usable, and the pruner never deletes the open file, so without size rotation the partition would fill and logging would stop.
 
 - **Filesystem: LittleFS on the existing `spiffs` partition** (128 KB from `min_spiffs.csv`). The Arduino LittleFS library mounts the partition *labelled* `spiffs` by default, so this needs **no repartitioning and no USB flash** — it formats on first mount. Use LittleFS, **not SPIFFS**: SPIFFS garbage collection on a nearly-full filesystem (a rotating log's normal state) can stall the device for seconds; the flash cache is disabled during erases, so that stall hits both cores.
 - **Buffered**: rows accumulate in RAM and flush every `LOG_FLUSH_ROWS` (5) → one write per 10 min, not 720/day. `flush()` must be called before any reboot (it already is in `handlePostSettings`).

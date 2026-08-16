@@ -434,7 +434,7 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
           <div id="log-more" style="display:none;margin-top:4px">
             <button class="lang-btn" onclick="moreLogs()" data-i18n="Show older">Show older</button>
           </div>
-          <div class="st-hint" data-i18n="One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
+          <div class="st-hint" data-i18n="One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).">One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).</div>
         </div>
 
         <button class="st-save-btn" id="st-save-btn" onclick="saveSettings()" data-i18n="Save and reboot">Save and reboot</button>
@@ -535,7 +535,7 @@ var I18N={ it:{
   "waiting for clock":"in attesa di orario",
   "logging":"in registrazione",
   "storage error":"errore memoria",
-  "One row a minute on a microSD, one every two on internal flash. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga al minuto su microSD, una ogni due sulla flash interna. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
+  "One row a minute, on a microSD when present and on internal flash otherwise. Applies immediately, no save needed. Status codes: battery 1 charge / 0 idle / -1 discharge; solar and DC-DC use the VE.Direct codes (3 bulk, 4 absorption, 5 float).":"Una riga al minuto, su microSD se presente e sulla flash interna altrimenti. Ha effetto subito, senza salvare. Codici di stato: batteria 1 carica / 0 inattiva / -1 scarica; solare e DC-DC usano i codici VE.Direct (3 bulk, 4 assorbimento, 5 float).",
   "Load output":"Uscita carichi",
   "Error":"Errore",
   "Efficiency":"Rendimento",

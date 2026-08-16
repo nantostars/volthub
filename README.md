@@ -41,9 +41,10 @@ Wi‑Fi — with **no GX device, Raspberry Pi or cloud** required.
   optionally [switch itself off while the client is connected](#turning-the-ap-off-while-the-client-is-connected),
   so your phone stops auto‑joining it — with an on‑screen button and a boot grace window so you
   can never be locked out.
-- **CSV data log** — optional, off by default: one row every 2 minutes to internal flash
-  (`volthub_YYYYMMDD.csv`), with battery, solar and DC-DC readings. Enable it and download the
-  files from the web System tab. See [Data log](#data-log-csv).
+- **CSV data log** — optional, off by default: one row a minute with battery, solar and DC‑DC
+  readings, to a **microSD** when one is present and to internal flash otherwise, with automatic
+  fallback if the card is pulled. Enable it and download the files from the web System tab.
+  See [Data log](#data-log-csv).
 - **Built to run for days** — no‑leak BLE scanning, non‑overlapping web polling and a free‑RAM
   readout in the System tab, so the dashboard stays reachable on long trips.
 
@@ -196,7 +197,7 @@ option ships disabled.
 ### Data log (CSV)
 
 Optional, **off by default**, enabled from the web **System → Data log** card. One row every
-2 minutes is appended to `volthub_YYYYMMDD.csv` on the device's internal flash; the same card
+minute is appended to `volthub_YYYYMMDD.csv`; the same card
 lists the files with a download link and a delete button.
 
 Columns: `datetime, batt_soc, batt_ah, batt_v, batt_a, batt_temp, batt_st, sol_batt_v,
@@ -208,12 +209,24 @@ quantises in ~0.5 A steps. Statuses are numeric codes — battery
 spreadsheets treat it as missing rather than a real zero. PV voltage and current are not logged
 because the Victron advertisement does not carry them.
 
-Storage is the 128 KB internal partition (LittleFS): about **55 KB a day**, so roughly **1.8 days**
-fit — in practice today's file plus part of yesterday's. One file is written per day and the oldest
-is pruned whenever free space drops below 15 KB; that free-space rule *is* the retention policy.
-(A 3-file cap also exists, but only as a guard in case a wrong clock spawns several small files —
-space runs out long before the count matters.) Rows are buffered and written once every 10 minutes, so the log costs one small
-flash write per 10 min — no perceptible impact, and flash wear is negligible.
+**Storage: a microSD when one is present, internal flash otherwise.** The medium is chosen at
+startup; the System card shows which one is in use and how much space is left.
+
+| | microSD | internal flash |
+|---|---|---|
+| Layout | `/volthub/YYYY/MM/volthub_YYYYMMDD.csv`, one file a day | `/volthub_YYYYMMDD[_N].csv`, rolled every 40 KB |
+| History | 365 days (plus a 100 MB free-space floor) | ~17 h in the 128 KB partition |
+| Card wiring | Guition SDMMC 1‑bit (11/12/13) · CYD SPI on VSPI (18/19/23/5) | — |
+
+Format the card **FAT32** — exFAT is not supported by the ESP32 and will simply fail to mount, in
+which case the device quietly logs to internal flash instead (the System card tells you which).
+Nothing else to prepare: the directories are created on the first write. A card is only mounted
+while logging is enabled.
+
+Rows are buffered and written every 5 samples, so the log costs one small write per 5 minutes.
+**Pulling the card is handled**: the loss is noticed within a couple of seconds, the buffered rows
+are kept and written to flash instead, and logging continues there. Use **Eject card** first when
+you can — on FAT, pulling mid-write can damage the file. **Detect card** remounts it afterwards.
 
 **Clock:** the board has no battery-backed RTC, so without a date there is no filename and no
 usable timestamp — logging waits in *"waiting for clock"*. Opening the dashboard fixes this even
