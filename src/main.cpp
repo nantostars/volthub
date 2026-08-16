@@ -618,7 +618,15 @@ static void scanWatchdogTask(void*) {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.println("\n[boot] volthub - Camper Energy and Leveling Monitor");
+    // Version and board in the banner: the serial log is what you read when the network is down,
+    // and "which firmware is this?" was only answerable by querying /api/data.
+#ifdef BOARD_GUITION
+    const char* boardName = "guition";
+#else
+    const char* boardName = "cyd";
+#endif
+    Serial.printf("\n[boot] volthub v%s (%s) - Camper Energy and Leveling Monitor\n",
+                  FW_VERSION, boardName);
 
     display.begin();
     settings.begin();

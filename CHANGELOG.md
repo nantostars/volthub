@@ -10,6 +10,12 @@ of the web dashboard.
 
 ---
 
+## 0.93 — boot banner prints the version and the board (LOCAL)
+- The serial banner said only `[boot] volthub - Camper Energy and Leveling Monitor`, so during the
+  SD testing "which firmware is running?" could only be answered by querying `/api/data` — over the
+  network, which is exactly what the serial log is for when it is not available. It now reads
+  `[boot] volthub v0.93 (guition) - …`, board included, since a log often arrives without context.
+
 ## 0.92 — data log: stop reporting a clock problem that does not exist (LOCAL)
 - Found while testing safe eject: after ejecting, rescanning or enabling the logger, the state was
   set to *waiting for clock* unconditionally, so for up to a minute — until the next sample — the
