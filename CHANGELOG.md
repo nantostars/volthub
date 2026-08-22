@@ -10,11 +10,22 @@ of the web dashboard.
 
 ---
 
-## 0.98 — docs: log screenshot retaken on 0.97 (LOCAL)
+## 0.99 — release notes carry every version since the previous tag
+- A release aggregates many versions: `FW_VERSION` is bumped on every commit while tags are rare,
+  so v0.98 shipped 0.85→0.98 but its notes listed only 0.98, a screenshot swap. The workflow now
+  reads the previous tag (`git tag --sort=-v:refname`, current one excluded) and emits every
+  CHANGELOG section down to it, under a *Changes since vX.Y* heading. Falls back to the single
+  section when no earlier tag exists.
+- The v0.98 notes were regenerated with the same logic and pushed to the existing release.
+- Dropped the `(LOCAL)` / `(LOCAL, not released)` markers from 0.87→0.98: they were true while the
+  work sat unpushed, and became wrong the moment it was released.
+- The OTA row in the notes template points at **System → OTA**, its card since 0.95.
+
+## 0.98 — docs: log screenshot retaken on 0.97
 - `web-system-log.png` replaced with a capture from a device running 0.97, where the card is fully
   in English — the previous one still showed the mixed-language rows that 0.97 fixed.
 
-## 0.97 — web: the log card kept the language it was rendered in (LOCAL)
+## 0.97 — web: the log card kept the language it was rendered in
 - Visible in a screenshot taken with the UI in English: the *Data log* card still read *Stato ·
   Memoria · Campionamento · Archivio*. `applyLang()` re-translates `[data-i18n]` nodes, but the log
   card is built in JS by `refreshLogs()` and carries no such attributes, so it kept the language of
@@ -23,7 +34,7 @@ of the web dashboard.
 - Screenshots: `web-system.png` retaken for the 0.95 layout, plus `web-system-ota.png` and
   `web-system-log.png` (the SD archive). README updated.
 
-## 0.96 — docs: the microSD note still read as a plan, the OTA paths still pointed at Configuration (LOCAL)
+## 0.96 — docs: the microSD note still read as a plan, the OTA paths still pointed at Configuration
 - `docs/SDCARD-logging.md` opened with *"nothing implemented yet"* while the feature had shipped in
   0.87→0.92 and run on hardware. It is now marked as the design record, and a new **§11 What
   actually shipped** lists the four deliberate divergences (60 s on both media, age+space retention
@@ -36,7 +47,7 @@ of the web dashboard.
   paths become **System → OTA**.
 - Docs only. `docs/screenshots/web-system.png` still shows the pre-0.95 two-card layout.
 
-## 0.95 — web: the System tab is four cards instead of two (LOCAL)
+## 0.95 — web: the System tab is four cards instead of two
 - The *Network* card had become a catch-all (status rows, language, keep-screen-on, the OTA link)
   and *Configuration* held everything else including OTA and the log, so the page read as one long
   form with unrelated things inside it.
@@ -48,7 +59,7 @@ of the web dashboard.
 - Markup only. No id, endpoint or handler changed, so `saveSettings()`, `applyStoredHints()` and
   the log calls work as before.
 
-## 0.94 — docs/UI: the sampling text still described the old two-tier cadence (LOCAL)
+## 0.94 — docs/UI: the sampling text still described the old two-tier cadence
 - Spotted in the System tab: the card reported *internal flash* and *one row every 60s* while the
   hint below still read "one a minute on microSD, one every two on internal flash". The behaviour
   was right — 0.88 made it 60 s on both media — the **text** was stale.
@@ -57,13 +68,13 @@ of the web dashboard.
   both media, the layouts, the retention, FAT32, the eject/detect actions and what happens when a
   card is pulled.
 
-## 0.93 — boot banner prints the version and the board (LOCAL)
+## 0.93 — boot banner prints the version and the board
 - The serial banner said only `[boot] volthub - Camper Energy and Leveling Monitor`, so during the
   SD testing "which firmware is running?" could only be answered by querying `/api/data` — over the
   network, which is exactly what the serial log is for when it is not available. It now reads
   `[boot] volthub v0.93 (guition) - …`, board included, since a log often arrives without context.
 
-## 0.92 — data log: stop reporting a clock problem that does not exist (LOCAL)
+## 0.92 — data log: stop reporting a clock problem that does not exist
 - Found while testing safe eject: after ejecting, rescanning or enabling the logger, the state was
   set to *waiting for clock* unconditionally, so for up to a minute — until the next sample — the
   System tab announced a clock failure on a device whose clock had been NTP-synced for hours.
@@ -72,7 +83,7 @@ of the web dashboard.
 - Safe eject itself verified on hardware: flush, unmount, `card unmounted - safe to remove`, and
   **zero SDMMC errors afterwards**.
 
-## 0.91 — data log: notice a pulled card in seconds, not at the next write (LOCAL)
+## 0.91 — data log: notice a pulled card in seconds, not at the next write
 - Found on the bench by pulling the card out of a Guition that was logging. The fallback existed
   but hung off the **write path only**, which at one row a minute runs every five minutes. Until
   then the device kept reporting `medium: sd`, `state: logging` with a capacity of 0 KB, and the
@@ -85,7 +96,7 @@ of the web dashboard.
   the logger keeps them and writes them to the flash file after switching. Previously a failed
   append threw away up to five minutes of data.
 
-## 0.90 — web Overview: the remaining labels are translated too (LOCAL, not released)
+## 0.90 — web Overview: the remaining labels are translated too
 - `Solar`, `DC-DC` and `Battery` in the overview carried no `data-i18n`, so they stayed English in
   Italian mode while the device translated them — the two UIs disagreed, and the `Solare`/`Batteria`
   dictionary entries were dead code. Fixed the same way as 0.89.
@@ -94,7 +105,7 @@ of the web dashboard.
   it. `Battery` has no child element, so it carries the attribute directly.
 - `DC-DC` is identical in both languages; it is tagged anyway so the overview has no odd exception.
 
-## 0.89 — Overview: "Loads" is now "Battery discharge" (LOCAL, not released)
+## 0.89 — Overview: "Loads" is now "Battery discharge"
 - The third overview box reads **Battery discharge / Scarica batteria** on the web. The name says
   what the number is: since 0.59 it has been the battery discharge straight from the BMS, not a
   total load figure, and "Loads" invited the wrong reading.
@@ -106,7 +117,7 @@ of the web dashboard.
   sits in its own `<span>`, because `applyLang()` assigns `textContent` and would otherwise wipe the
   status dot inside the same element. *Solar* and *DC-DC* still have that gap.
 
-## 0.88 — data log: one row a minute on both media (LOCAL, not released)
+## 0.88 — data log: one row a minute on both media
 - Sampling is now **60 s everywhere**, not 60 s on a card and 120 s on flash.
 - That does not fit internal flash on its own: at one row a minute a day is **~111 KB** against
   ~95 KB usable, and the pruner never deletes the file it is writing — so a day-long file would
@@ -115,7 +126,7 @@ of the web dashboard.
 - Net effect on internal flash: the rolling window drops from ~2 days at 2-min sampling to
   **~17 h**. On a card nothing changes — a daily file is ~111 KB and a year still fits easily.
 
-## 0.87 — data log: microSD support on both boards (LOCAL, not released)
+## 0.87 — data log: microSD support on both boards
 - The logger now writes to a **microSD when one is present** and to internal flash otherwise. The
   medium is the only thing that varies: **1 row/min on a card**, one every two on flash, since the
   sampling period, the retention and the directory layout were all sized around 128 KB.

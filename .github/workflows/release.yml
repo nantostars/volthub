@@ -90,7 +90,7 @@ jobs:
             echo
             echo "| File | Board | Use |"
             echo "|---|---|---|"
-            echo "| \`volthub-$FW-guition-ota.bin\` | Guition JC3248W535C | upload from the web **System → Firmware update (OTA)** |"
+            echo "| \`volthub-$FW-guition-ota.bin\` | Guition JC3248W535C | upload from the web **System → OTA** |"
             echo "| \`volthub-$FW-guition-factory.bin\` | Guition JC3248W535C | first flash of a blank board over USB |"
             echo "| \`volthub-$FW-cyd-ota.bin\` | ESP32-2432S035R \"CYD\" | OTA upload |"
             echo "| \`volthub-$FW-cyd-factory.bin\` | ESP32-2432S035R \"CYD\" | first flash over USB |"
@@ -103,9 +103,20 @@ jobs:
             echo
             echo "Checksums in \`SHA256SUMS.txt\`."
             echo
-            echo "## Changes in $FW"
-            echo
-            awk -v v="## $FW " 'index($0,v)==1{f=1;next} f&&/^## /{exit} f' CHANGELOG.md
+            # Every CHANGELOG section from this version down to (not including) the one that was
+            # released last. Tagging is deliberately sparser than the per-commit version bump, so a
+            # release almost always carries several versions - listing only $FW would hide them.
+            PREV=$(git tag --sort=-v:refname | grep -vx "v$FW" | head -1)
+            if [ -n "$PREV" ]; then
+              echo "## Changes since ${PREV}"
+              echo
+              awk -v a="## $FW " -v b="## ${PREV#v} " \
+                  'index($0,a)==1{f=1} f&&index($0,b)==1{exit} f' CHANGELOG.md
+            else
+              echo "## Changes in $FW"
+              echo
+              awk -v a="## $FW " 'index($0,a)==1{f=1;next} f&&/^## /{exit} f' CHANGELOG.md
+            fi
           } > notes.md
           cat notes.md
 
