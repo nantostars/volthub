@@ -385,6 +385,9 @@ static void handleOtaDone() {
     bool ok = !Update.hasError();
     server.send(200, "text/plain", ok ? "Update OK — rebooting." : "Update FAILED.");
     Serial.printf("[OTA] %s\n", ok ? "Success" : "Failed");
+    // Same reason as handlePostSettings: rows sit in RAM until five of them accumulate, so a
+    // reboot without this silently drops up to four minutes of log right before the update.
+    logger.flush();
     delay(500);
     ESP.restart();
 }

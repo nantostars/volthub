@@ -10,6 +10,14 @@ of the web dashboard.
 
 ---
 
+## 0.102 — an OTA update threw away the buffered log rows
+- Visible in the log around the 0.100→0.101 flashes: a row missing outright, and the sampling phase
+  jumping. `handlePostSettings()` and the file-delete handler both call `logger.flush()` before
+  rebooting; `handleOtaDone()` never did, so the up to four rows still in RAM (they are written
+  every five samples) were lost on every firmware update.
+- One `logger.flush()` before the restart. The rows around an update are exactly the ones worth
+  keeping — they say what the device was doing when you changed the firmware under it.
+
 ## 0.101 — battery offline on 0.100: the wrong parser was receiving the frames
 - Symptom on hardware: Solar, DC-DC and IMU online, **Battery offline**, BLE 3. The link was fine —
   no data ever reached the UI.
