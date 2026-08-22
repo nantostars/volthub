@@ -628,6 +628,9 @@ function applyLang(){
   var le=$('lang-en'), li=$('lang-it');
   if(le&&li){ le.classList.toggle('on',curLang==='en'); li.classList.toggle('on',curLang==='it'); }
   applyStoredHints();   // applyLang just reset every data-i18n-ph placeholder
+  // The log card is built in JS, so it carries no data-i18n and the loop above cannot reach it:
+  // without this it keeps the language it was rendered in until the next log action.
+  if(curView==='system') refreshLogs();
   if(lastData) applyData(lastData);
 }
 function setLang(l){

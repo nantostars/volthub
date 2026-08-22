@@ -68,8 +68,13 @@ an Orion XS, at rest in the evening — hence the zeros on the power figures).
 | Alternator and battery side each with V / A / W, efficiency and off reason | Spirit level fed by the IMU |
 
 <p align="center"><img src="docs/screenshots/web-system.png" width="420" alt="System tab"></p>
-<p align="center"><em>System: connected devices, network, firmware, language, and the configuration form
+<p align="center"><em>System: connected devices, status, and the head of the configuration form
 (values shown are placeholders)</em></p>
+
+| OTA | Data log |
+|---|---|
+| ![OTA](docs/screenshots/web-system-ota.png) | ![Data log](docs/screenshots/web-system-log.png) |
+| Off by default: tick, set credentials, and the `/update` link appears | A week of daily files on a microSD, with medium, free space and cadence |
 
 ### Device screen
 

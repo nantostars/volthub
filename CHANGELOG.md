@@ -10,6 +10,15 @@ of the web dashboard.
 
 ---
 
+## 0.97 — web: the log card kept the language it was rendered in (LOCAL)
+- Visible in a screenshot taken with the UI in English: the *Data log* card still read *Stato ·
+  Memoria · Campionamento · Archivio*. `applyLang()` re-translates `[data-i18n]` nodes, but the log
+  card is built in JS by `refreshLogs()` and carries no such attributes, so it kept the language of
+  its last render — until the next log action or a return to the System tab.
+- `applyLang()` now calls `refreshLogs()` when the System tab is open.
+- Screenshots: `web-system.png` retaken for the 0.95 layout, plus `web-system-ota.png` and
+  `web-system-log.png` (the SD archive). README updated.
+
 ## 0.96 — docs: the microSD note still read as a plan, the OTA paths still pointed at Configuration (LOCAL)
 - `docs/SDCARD-logging.md` opened with *"nothing implemented yet"* while the feature had shipped in
   0.87→0.92 and run on hardware. It is now marked as the design record, and a new **§11 What
