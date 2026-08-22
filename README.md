@@ -1,7 +1,7 @@
 # volthub — Camper Energy and Leveling Monitor
 
 A self-contained energy **and levelling** dashboard for a camper/RV, running on an ESP32
-touchscreen display. It reads a **LiTime BMS**, a **Victron SmartSolar** MPPT and a
+touchscreen display. It reads a **battery BMS**, a **Victron SmartSolar** MPPT and a
 **Victron Orion‑XS** DC‑DC charger over Bluetooth LE for the electrical side, and a
 **Witmotion** tilt sensor for pitch and roll, so you can also see how level the vehicle is
 when you park. Everything shows on the built‑in screen **and** on a phone/browser over
@@ -104,9 +104,14 @@ is required — the displays and touch controllers are integrated on the board.
 
 ### Monitored BLE devices
 
+One battery protocol is active at a time — pick it in **System → Configuration → Battery BMS**
+and save (the device reboots). A second BMS link is not possible: it would starve the passive
+scan the two Victron devices depend on.
+
 | Device | Protocol | Notes |
 |---|---|---|
-| LiTime BMS | active GATT (notify `ffe2` / write `ffe1`) | 2 s poll, 104‑byte frame |
+| LiTime BMS · Power Queen · Redodo · Ampere Time | active GATT (service `ffe0`, notify `ffe1` / write `ffe2`) | 2 s poll, 104‑byte little‑endian frame |
+| JBD / Xiaoxiang · Overkill · ECO‑WORTHY · Epoch · LIONTRON · Vatrer | active GATT (service `ff00`, notify `ff01` / write `ff02`) | big‑endian, two alternating requests. **Never tested on a real battery** |
 | Victron SmartSolar MPPT | passive BLE advertisement | AES‑128‑CTR decrypted (key from VictronConnect) |
 | Victron Orion‑XS DC‑DC | passive BLE advertisement | AES‑128‑CTR decrypted |
 | Witmotion WT9011DCL IMU | active GATT (service `FFE5`) | pitch/roll/yaw for the level screen |
@@ -277,6 +282,11 @@ This project builds on the following open‑source software:
 | [Adafruit GFX fonts](https://github.com/adafruit/Adafruit-GFX-Library) (FreeSansBold) | large UI numerals | BSD |
 | [Arduino‑ESP32](https://github.com/espressif/arduino-esp32) core | framework | LGPL‑2.1 |
 | Mbed TLS (via ESP‑IDF) | AES‑128‑CTR for Victron decryption | Apache‑2.0 |
+
+The JBD/Xiaoxiang frame layout was re‑implemented from
+[syssi/esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms) (Apache‑2.0) and the LiTime one
+from [mirosieber/Litime_BMS_ESP32](https://github.com/mirosieber/Litime_BMS_ESP32); no code from
+either is vendored.
 
 Victron product‑id names are derived from Victron Energy's public **VE.Direct Protocol**
 documentation. Victron, SmartSolar, Orion‑XS, LiTime and Witmotion are trademarks of their

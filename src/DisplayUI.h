@@ -6,7 +6,7 @@
 #else
   #include <TFT_eSPI.h>
 #endif
-#include "LitimeBMS.h"
+#include "BmsData.h"
 #include "VictronBLE.h"
 #include "WitmotionIMU.h"
 

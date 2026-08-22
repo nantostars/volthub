@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <FS.h>
-#include "LitimeBMS.h"
+#include "BmsData.h"
 #include "VictronBLE.h"
 
 // ─── CSV data logger ─────────────────────────────────────────────────────────

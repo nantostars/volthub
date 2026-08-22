@@ -382,7 +382,13 @@ body{background:var(--body);color:var(--text);font-family:var(--sans);
             <div class="st-hint" data-i18n="Stops the phone auto-joining the AP. It comes back if the client drops, for 10 min after every boot, and from the AP button on the device screen.">Stops the phone auto-joining the AP. It comes back if the client drops, for 10 min after every boot, and from the AP button on the device screen.</div></div>
         </div>
 
-        <div class="st-group"><div class="st-gt">LiTime BMS</div>
+        <div class="st-group"><div class="st-gt" data-i18n="Battery BMS">Battery BMS</div>
+          <div class="st-field"><label class="st-label" for="st-bms-type" data-i18n="Protocol">Protocol</label>
+            <div class="st-input-wrap"><select id="st-bms-type" class="st-input">
+              <option value="0">LiTime · Power Queen · Redodo · Ampere Time</option>
+              <option value="1">JBD / Xiaoxiang · Overkill · ECO-WORTHY · Epoch · LIONTRON</option>
+            </select></div>
+            <div class="st-hint" data-i18n="The JBD driver has never been tested on a real battery.">The JBD driver has never been tested on a real battery.</div></div>
           <div class="st-field"><label class="st-label" for="st-bms-mac">MAC Address</label>
             <div class="st-input-wrap"><input id="st-bms-mac" class="st-input" type="text" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" oninput="validateMac(this,'st-bms-mac-hint')" autocomplete="off"></div>
             <div id="st-bms-mac-hint" class="st-hint">Formato: AA:BB:CC:DD:EE:FF</div></div>
@@ -576,6 +582,8 @@ var I18N={ it:{
   "Off":"Spento",
   "Balanced":"Bilanciata","Balancing":"Bilanciamento",
   "Connected devices":"Dispositivi connessi","Configuration":"Configurazione","Interface":"Interfaccia",
+  "Battery BMS":"BMS batteria","Protocol":"Protocollo",
+  "The JBD driver has never been tested on a real battery.":"Il driver JBD non \u00e8 mai stato provato su una batteria vera.",
   "Save and reboot":"Salva e riavvia","Firmware update (OTA) →":"Aggiornamento firmware (OTA) →",
   "Cell voltages":"Tensioni celle","Bubble level":"Livella a bolla",
   "Production today":"Produzione oggi","Ramp / chock guidance":"Guida cunei / rampe",
@@ -746,8 +754,9 @@ function updateBattery(d){
   $('bt-eta').textContent=on?fmtEta(b.etaMin):'--';
   $('bt-eta').style.color=(on&&b.etaFull)?'var(--green)':'var(--text)';
   $('bt-cap').textContent=on?fmt(b.fullAh,0)+' Ah':'--';
-  $('bt-soh').textContent=on?fmt(b.soh,0)+'%':'--';
-  $('bt-cyc').textContent=(on&&b.cycles!==undefined)?b.cycles:'--';
+  // 0 = not reported by this protocol (JBD has no SOH), not a battery at zero health.
+  $('bt-soh').textContent=(on&&b.soh)?fmt(b.soh,0)+'%':'--';
+  $('bt-cyc').textContent=(on&&b.cycles)?b.cycles:'--';
   $('bt-temp').textContent=on?fmt(b.cellTemp,0)+'°C':'--';
   $('bt-temp').style.color=(on&&b.cellTemp>45)?'var(--red)':'var(--text)';
   var cells=(on&&b.cells)?b.cells:[];
@@ -1011,6 +1020,7 @@ function loadSettings(){
   fetch('/api/settings').then(function(r){return r.json();}).then(function(d){
     $('st-wifi-ssid').value=d.wifiSsid||''; $('st-sta-ssid').value=d.staSsid||'';
     $('st-bms-mac').value=d.bmsMac||''; $('st-ntp-srv').value=d.ntpServer||'';
+    $('st-bms-type').value=String(d.bmsType||0);
     $('st-ntp-tz').value=d.ntpTZ||''; $('st-imu-mac').value=d.imuMac||'';
     $('st-ota-en').checked=!!d.otaEnabled; $('st-ota-user').value=d.otaUser||'';
     $('st-ap-off').checked=!!d.apOffWhenSta;
@@ -1042,7 +1052,7 @@ function saveSettings(){
   }
   $('st-save-btn').disabled=true; setMsg(TR('Saving...'),'info');
   var body=JSON.stringify({wifiSsid:ssid,wifiPass:pass,staSsid:staSsid,staPass:staPass,
-    bmsMac:mac,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,
+    bmsMac:mac,bmsType:parseInt($('st-bms-type').value,10)||0,solarKey:solar,orionKey:orion,ntpServer:ntpSrv,ntpTZ:ntpTZ,imuMac:imuMac,
     otaEnabled:otaEn,otaUser:otaUser,otaPass:otaPass,apOffWhenSta:apOff});
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body})
     .then(function(){ setMsg(TR('Saved! Rebooting...'),'ok'); waitReconnect(12); })

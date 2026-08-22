@@ -903,10 +903,11 @@ void DisplayUI::updateBattery() {
              on ? (etaFull ? C_GREEN : C_TEXT) : C_MUTED);
 
     // 4 stats (card B)
-    snprintf(buf, sizeof(buf), "%d%%", on ? (int)_bd.soh : 0);
-    drawStat(26, CT_Y + 134, 100, "SOH", on ? buf : "--", C_TEXT);
+    // 0 = the protocol does not report it (JBD has no SOH), so "--" rather than a scary 0%.
+    snprintf(buf, sizeof(buf), "%d%%", (int)_bd.soh);
+    drawStat(26, CT_Y + 134, 100, "SOH", (on && _bd.soh) ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%lu", (unsigned long)_bd.dischargesCount);
-    drawStat(140, CT_Y + 134, 100, "Cycles", on ? buf : "--", C_TEXT);
+    drawStat(140, CT_Y + 134, 100, "Cycles", (on && _bd.dischargesCount) ? buf : "--", C_TEXT);
     snprintf(buf, sizeof(buf), "%d C", on ? _bd.cellTemp : 0);
     drawStat(254, CT_Y + 134, 100, "Temp", on ? buf : "--", on ? (_bd.cellTemp > 45 ? C_RED : C_TEXT) : C_MUTED);
     snprintf(buf, sizeof(buf), "%d mV", delta);

@@ -13,6 +13,7 @@
 #include "Settings.h"
 #include "VictronBLE.h"
 #include "LitimeBMS.h"
+#include "JbdBMS.h"
 #include "WitmotionIMU.h"
 #include "DisplayUI.h"
 #include "DataLogger.h"
@@ -23,7 +24,17 @@
 WebServer       server(WEB_PORT);
 SettingsManager settings;
 VictronBLE      victron;
-LitimeBMS       bms;
+// One battery driver at a time: a second GATT link would starve the passive Victron scan, and
+// the protocol is a user setting. Built in setup() from Settings::getBmsType().
+BleBmsDriver*   bms = nullptr;
+static BleBmsDriver* makeBms(int type) {
+    static LitimeBMS litime;
+    static JbdBMS    jbd;
+    switch (type) {
+        case 1:  return &jbd;
+        default: return &litime;
+    }
+}
 WitmotionIMU    imu;
 DisplayUI       display;
 DataLogger      logger;
@@ -167,7 +178,7 @@ static void handleRoot() {
 }
 
 static void handleApiData() {
-    BmsData   b  = bms.getData();
+    BmsData   b  = bms->getData();
     SolarData s  = victron.getSolar();
     OrionData o  = victron.getOrion();
     ImuData   im = imu.getData();
@@ -240,6 +251,7 @@ static void handleApiData() {
     jsys["apIp"]  = WiFi.softAPIP().toString();
     jsys["staIp"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "";
     jsys["fw"]    = FW_VERSION;
+    jsys["bms"]   = bms ? bms->name() : "";     // which battery protocol is driving the card
     jsys["lang"]  = settings.getLang();
     jsys["ota"]   = settings.otaActive();
     jsys["log"]   = logger.stateName();
@@ -264,6 +276,7 @@ static void handleGetSettings() {
         return k.length() == 32 && k != "00000000000000000000000000000000";   // default = not set
     };
     doc["bmsMac"]      = settings.getBmsMac();
+    doc["bmsType"]     = settings.getBmsType();
     doc["solarKeySet"] = keyConfigured(settings.getSolarKey());
     doc["orionKeySet"] = keyConfigured(settings.getOrionKey());
     doc["wifiSsid"]    = settings.getWifiSsid();
@@ -289,6 +302,7 @@ static void handlePostSettings() {
     JsonDocument doc;
     if (deserializeJson(doc,server.arg("plain"))) { server.send(400,"application/json","{\"error\":\"invalid json\"}"); return; }
     if (doc["bmsMac"].is<const char*>()   && strlen(doc["bmsMac"])>0)    settings.setBmsMac(doc["bmsMac"].as<String>());
+    if (doc["bmsType"].is<int>())                                        settings.setBmsType(doc["bmsType"].as<int>());
     if (doc["solarKey"].is<const char*>() && strlen(doc["solarKey"])>0)  settings.setSolarKey(doc["solarKey"].as<String>());
     if (doc["orionKey"].is<const char*>() && strlen(doc["orionKey"])>0)  settings.setOrionKey(doc["orionKey"].as<String>());
     if (doc["wifiSsid"].is<const char*>() && strlen(doc["wifiSsid"])>0)  settings.setWifiSsid(doc["wifiSsid"].as<String>());
@@ -591,7 +605,7 @@ static void handleNotFound(){ server.send(404,"text/plain","Not found"); }
 // ─── BLE tasks ────────────────────────────────────────────────────────────────
 
 static void bmsTask(void*) {
-    for (;;) { bms.update(); vTaskDelay(pdMS_TO_TICKS(100)); }
+    for (;;) { bms->update(); vTaskDelay(pdMS_TO_TICKS(100)); }
 }
 
 static void imuTask(void*) {
@@ -605,7 +619,7 @@ static void imuTask(void*) {
 static void scanWatchdogTask(void*) {
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000));
-        if (bms.isConnecting() || imu.isConnecting()) continue;
+        if (bms->isConnecting() || imu.isConnecting()) continue;
         if (!NimBLEDevice::getScan()->isScanning()) {
             Serial.println("[BLE] Scan watchdog: restarting");
             victron.startScan();
@@ -631,7 +645,8 @@ void setup() {
     display.begin();
     settings.begin();
     display.setLanguage(settings.getLang());
-    Serial.printf("[Settings] BMS MAC: %s\n", settings.getBmsMac().c_str());
+    bms = makeBms(settings.getBmsType());
+    Serial.printf("[Settings] BMS: %s @ %s\n", bms->name(), settings.getBmsMac().c_str());
 
     wifiSetup();
 
@@ -639,7 +654,7 @@ void setup() {
     victron.begin(settings.getSolarKey().c_str(), settings.getOrionKey().c_str(),
                   VICTRON_SOLAR_MAC, VICTRON_ORION_MAC);
     victron.startScan();
-    bms.begin(settings.getBmsMac().c_str());
+    bms->begin(settings.getBmsMac().c_str());
     imu.begin(settings.getWitmotionMac().c_str());
     Serial.printf("[BLE] IMU target: %s\n", settings.getWitmotionMac().c_str());
 
@@ -724,7 +739,7 @@ void loop() {
                               settings.otaActive(), apPillMode());
     }
 
-    BmsData   b = bms.getData();
+    BmsData   b = bms->getData();
     SolarData s = victron.getSolar();
     OrionData o = victron.getOrion();
 

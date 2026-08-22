@@ -10,6 +10,30 @@ of the web dashboard.
 
 ---
 
+## 0.100 — a second battery protocol: JBD / Xiaoxiang
+- volthub spoke to exactly one family of batteries: `LitimeBMS` was a concrete class wired in by
+  name everywhere, so anyone with a different pack was locked out even though the UI, the derived
+  numbers and the CSV columns would have been identical.
+- **`BleBmsDriver`** (`BmsDriver.h/.cpp`) now owns everything that is not protocol — connect with a
+  3 s timeout, exponential backoff, subscribe, poll cadence, the ~90 s current EMA, the `portMUX`
+  snapshot, the single notify trampoline. A protocol supplies three UUIDs, `onPoll()`, `onNotify()`
+  and a name. `LitimeBMS` keeps its parser **byte for byte**; nothing about its behaviour changed.
+- **`JbdBMS`** is the new one: service `ff00`, notify `ff01`, write `ff02`, **big-endian** (LiTime is
+  little-endian — the easy mistake here), two requests alternated on successive polls because basic
+  info and cell voltages come separately, reassembly of answers split across notifications, and a
+  frame refused on a bad checksum, `status != 0`, a missing `0x77` or a short payload. Covers the
+  rebrands: Overkill Solar, ECO-WORTHY, Epoch, LIONTRON, Vatrer, Basen.
+- **⚠ Never run against a real JBD battery.** The decoders sit in `JbdProtocol.h` with no Arduino or
+  NimBLE dependency and `test/jbd_parse_test.cpp` exercises them on a PC (`g++ -std=c++17 -I src`),
+  which catches endianness, offsets and checksum rules — not whether a real BMS answers as documented.
+- Protocol chosen in **System → Configuration → Battery BMS** (NVS `bms_type`, default LiTime, so an
+  update changes nothing); it takes effect at the reboot `/api/settings` already performs. One driver
+  at a time, deliberately: a second GATT link would starve the passive Victron scan.
+- SOH and cycles are shown `--` instead of `0%`/`0` when the protocol does not report them, which is
+  JBD's case. `/api/data` exposes `sys.bms` with the active protocol name, and the boot banner logs it.
+- Frame layout re-implemented from [syssi/esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms)
+  (Apache-2.0), credited in the source and the README. No third-party code vendored.
+
 ## 0.99 — release notes carry every version since the previous tag
 - A release aggregates many versions: `FW_VERSION` is bumped on every commit while tags are rare,
   so v0.98 shipped 0.85→0.98 but its notes listed only 0.98, a screenshot swap. The workflow now

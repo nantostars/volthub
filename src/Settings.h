@@ -12,6 +12,9 @@ public:
     }
 
     String getBmsMac()        { return _prefs.getString("bms_mac",   LITIME_BMS_MAC);    }
+    // Battery protocol: 0 = LiTime (and its rebrands), 1 = JBD/Xiaoxiang. Changing it needs a
+    // reboot, which /api/settings does anyway — the driver is built once in setup().
+    int    getBmsType()       { return _prefs.getInt("bms_type", 0); }
     String getSolarKey()      { return _prefs.getString("solar_key", VICTRON_SOLAR_KEY); }
     String getOrionKey()      { return _prefs.getString("orion_key", VICTRON_ORION_KEY); }
     String getWifiSsid()      { return _prefs.getString("wifi_ssid", WIFI_SSID);         }
@@ -41,6 +44,7 @@ public:
     bool   otaActive()        { return getOtaEnabled() && getOtaUser().length() > 0 && getOtaPass().length() > 0; }
 
     void setBmsMac(const String& v)        { _prefs.putString("bms_mac",   v); }
+    void setBmsType(int v)                 { _prefs.putInt("bms_type", v); }
     void setSolarKey(const String& v)      { _prefs.putString("solar_key", v); }
     void setOrionKey(const String& v)      { _prefs.putString("orion_key", v); }
     void setWifiSsid(const String& v)      { _prefs.putString("wifi_ssid", v); }
