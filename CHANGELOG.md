@@ -10,6 +10,10 @@ of the web dashboard.
 
 ---
 
+## 0.98 — docs: log screenshot retaken on 0.97 (LOCAL)
+- `web-system-log.png` replaced with a capture from a device running 0.97, where the card is fully
+  in English — the previous one still showed the mixed-language rows that 0.97 fixed.
+
 ## 0.97 — web: the log card kept the language it was rendered in (LOCAL)
 - Visible in a screenshot taken with the UI in English: the *Data log* card still read *Stato ·
   Memoria · Campionamento · Archivio*. `applyLang()` re-translates `[data-i18n]` nodes, but the log
