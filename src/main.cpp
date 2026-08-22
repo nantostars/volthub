@@ -28,11 +28,11 @@ VictronBLE      victron;
 // the protocol is a user setting. Built in setup() from Settings::getBmsType().
 BleBmsDriver*   bms = nullptr;
 static BleBmsDriver* makeBms(int type) {
-    static LitimeBMS litime;
-    static JbdBMS    jbd;
+    // Only the selected driver is built — one BMS link is all the radio can afford, and an
+    // unused instance is one more thing that could claim the shared notify callback.
     switch (type) {
-        case 1:  return &jbd;
-        default: return &litime;
+        case 1:  return new JbdBMS();
+        default: return new LitimeBMS();
     }
 }
 WitmotionIMU    imu;

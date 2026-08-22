@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.101 — battery offline on 0.100: the wrong parser was receiving the frames
+- Symptom on hardware: Solar, DC-DC and IMU online, **Battery offline**, BLE 3. The link was fine —
+  no data ever reached the UI.
+- `BleBmsDriver` claimed the static notify trampoline (`_active = this`) in its **constructor**, and
+  `makeBms()` declared both drivers as function-local statics: both were constructed on the first
+  call, so the *second* one (`JbdBMS`) owned the callback. Every LiTime frame was handed to the JBD
+  parser, which correctly refused it — no `0xDD`, no frame. Nothing was ever published, so
+  `BmsData.valid` stayed false and the card read offline.
+- `_active` is now claimed in `begin()` and re-claimed on every `connect()`, and `makeBms()` builds
+  **only** the selected driver instead of both. The unused instance is gone, and with it the whole
+  class of bug where a driver nobody uses affects the one in service.
+- 0.100's refactor is otherwise unchanged; the LiTime parser was never involved.
+
 ## 0.100 — a second battery protocol: JBD / Xiaoxiang
 - volthub spoke to exactly one family of batteries: `LitimeBMS` was a concrete class wired in by
   name everywhere, so anyone with a different pack was locked out even though the UI, the derived

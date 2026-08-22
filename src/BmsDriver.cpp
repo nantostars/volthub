@@ -9,11 +9,14 @@ BleBmsDriver::BleBmsDriver()
       _lastQuery(0), _lastConnectAttempt(0), _connecting(false),
       _mux(portMUX_INITIALIZER_UNLOCKED) {
     memset(&_data, 0, sizeof(_data));
-    _active = this;
 }
 
+// The notify trampoline is static, so it needs one designated instance. Claiming it here rather
+// than in the constructor matters: constructing a second driver would otherwise steal the
+// callback from the one actually in use, and its frames would be handed to the wrong parser.
 void BleBmsDriver::begin(const char* macAddress) {
-    _addr = NimBLEAddress(macAddress);
+    _addr   = NimBLEAddress(macAddress);
+    _active = this;
 }
 
 bool BleBmsDriver::isConnected() const {
@@ -56,6 +59,7 @@ uint32_t BleBmsDriver::retryDelayMs() const {
 
 void BleBmsDriver::connect() {
     _connecting = true;
+    _active = this;          // whoever is connecting owns the notify callback
     Serial.printf("[BMS] Connecting to %s (%s)\n", _addr.toString().c_str(), name());
 
     if (_client == nullptr) {
