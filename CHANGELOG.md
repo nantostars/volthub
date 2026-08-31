@@ -10,6 +10,19 @@ of the web dashboard.
 
 ---
 
+## 0.103 — CYD: the display was on VSPI, the same bus as the microSD, and the touch died
+- First run of the SD logger on the CYD printed `addApbChangeCallback(): duplicate` next to a
+  successful mount. The cause: `platformio.ini` never defined `-DUSE_HSPI_PORT`, and TFT_eSPI on
+  ESP32 **defaults to VSPI** — the peripheral `SPIClass sdSpi(VSPI)` uses for the card. Display and
+  card were on one bus with two pin sets, contradicting the design note and this file, which both
+  claimed the display was on HSPI.
+- Outputs survived because the GPIO matrix can fan one signal out to several pins (SCK on 14 *and*
+  18, MOSI on 13 *and* 23) — which is why the card mounted and the screen kept drawing. An **input**
+  cannot: `MISO` moved to the card's GPIO 19, so the XPT2046 touch, which reads on GPIO 12 of the
+  display bus, stopped responding the moment logging mounted the card. Confirmed on hardware.
+- `-DUSE_HSPI_PORT` puts display and touch on HSPI. The pins do not change — 14/12/13 are HSPI's
+  native ones — and the microSD keeps VSPI to itself, which is what the docs described all along.
+
 ## 0.102 — an OTA update threw away the buffered log rows
 - Visible in the log around the 0.100→0.101 flashes: a row missing outright, and the sampling phase
   jumping. `handlePostSettings()` and the file-delete handler both call `logger.flush()` before

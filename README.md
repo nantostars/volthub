@@ -226,7 +226,7 @@ startup; the System card shows which one is in use and how much space is left.
 |---|---|---|
 | Layout | `/volthub/YYYY/MM/volthub_YYYYMMDD.csv`, one file a day | `/volthub_YYYYMMDD[_N].csv`, rolled every 40 KB |
 | History | 365 days (plus a 100 MB free-space floor) | ~17 h in the 128 KB partition |
-| Card wiring | Guition SDMMC 1‑bit (11/12/13) · CYD SPI on VSPI (18/19/23/5) | — |
+| Card wiring | Guition SDMMC 1‑bit (11/12/13) · CYD SPI on VSPI (18/19/23/5), display on HSPI | — |
 
 Format the card **FAT32** — exFAT is not supported by the ESP32 and will simply fail to mount, in
 which case the device quietly logs to internal flash instead (the System card tells you which).

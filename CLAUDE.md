@@ -14,10 +14,10 @@ ESP32 Arduino/PlatformIO project that monitors a camper energy system via BLE an
 |------|-------|
 | MCU | ESP32 dual-core 240 MHz |
 | Display | 3.5" 480×320, landscape (`setRotation(1)`) — panel is **ST7796**, driven with `ILI9488_DRIVER` (see note) |
-| Display SPI | MOSI=13, MISO=12, SCLK=14, CS=15, DC=2, BL=27 (active HIGH) |
+| Display SPI | **HSPI** (`-DUSE_HSPI_PORT`): MOSI=13, MISO=12, SCLK=14, CS=15, DC=2, BL=27 (active HIGH) |
 | Touch | XPT2046 resistive, SPI shared bus, CS=33, IRQ=36 |
 | Touch formula | `sx = 479 - map(ry, 320, 3860, 0, 479)` · `sy = map(rx, 480, 3860, 0, 319)` |
-| microSD | SPI on its **own** bus (VSPI): CLK=18, MOSI/CMD=23, MISO/DAT0=19, CS=5 — **not** shared with the display (HSPI 14/13/12/15) |
+| microSD | SPI on its **own** bus (VSPI): CLK=18, MOSI/CMD=23, MISO/DAT0=19, CS=5 — separate from the display **only because `-DUSE_HSPI_PORT` is set**, see below |
 | Free peripherals | RGB LED 4/17/16 · LDR (light sensor) 34 · audio amp 26 — unused by this firmware |
 | Flash | `min_spiffs.csv` (two OTA slots) |
 | Upload | 460800 baud · port e.g. `/dev/cu.usbserial-XXXX` (macOS; varies) |
@@ -28,6 +28,16 @@ display works, and it has been used this way since the beginning. TFT_eSPI does 
 switching would be a blind change on a board that is currently at v0.54 in the field, so leave it
 unless a real display anomaly shows up on the CYD (wrong colours, inverted, offset) — then try it
 with the hardware in hand. Pin reference: <https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248S035>
+
+**⚠ `-DUSE_HSPI_PORT` in `platformio.ini` is load-bearing.** Without it TFT_eSPI on ESP32 defaults
+to **VSPI** (`Processors/TFT_eSPI_ESP32.h`), which is the peripheral the microSD uses — so display,
+touch and card end up on one bus with two pin sets. Outputs survive, because the GPIO matrix can
+fan a signal out to several pins (SCK on 14 *and* 18, MOSI on 13 *and* 23); an **input** cannot, so
+`MISO` follows the card to GPIO 19 and the XPT2046 touch, which reads on GPIO 12, goes dead the
+moment logging mounts the card. Diagnosed on hardware in v0.103 — the flag had been missing since
+the beginning and only the arrival of the SD logger made it hurt. The tell in the serial log is
+`addApbChangeCallback(): duplicate func=… arg=…` next to a successful mount. This is also why the
+docs used to say the display was on HSPI: that was the intent, not the build.
 
 **Flash command:**
 ```bash
@@ -144,11 +154,11 @@ Off by default (`Settings::getLogEnabled`, NVS `log_en`). One row every `LOG_PER
 - **Changing the column set is a breaking change for files already on disk**: `rotateIfNeeded()` compares the existing file's first line with `CSV_HEADER` and falls back to `volthub_YYYYMMDD_<n>.csv` when they differ, so two schemas never end up in one file. Keep that check working when adding columns.
 - Statuses are numeric to keep rows ~80 B: battery `1/0/-1`, solar/DC-DC use the raw VE.Direct CS code. Missing readings are written as **empty fields**, never 0.
 
-**microSD (implemented 0.87→0.92, validated on the Guition, `docs/SDCARD-logging.md` has the design
-rationale):** the medium is chosen when logging starts — `mountSd()` first, `mountFlash()` otherwise
+**microSD (implemented 0.87→0.92, validated on the Guition and, from 0.103, on the CYD;
+`docs/SDCARD-logging.md` has the design rationale and the bus trap it uncovered):** the medium is chosen when logging starts — `mountSd()` first, `mountFlash()` otherwise
 — and both are reached through a single `fs::FS*`, since `LittleFS`, `SD_MMC` and `SD` share that
 base class. Guition = `SD_MMC` 1-bit on GPIO 11/12/13 (dedicated peripheral, no contention with the
-QSPI display); CYD = `SD` over **VSPI** 18/19/23/5, a different bus from TFT_eSPI's HSPI. **FAT32
+QSPI display); CYD = `SD` over **VSPI** 18/19/23/5, a different peripheral from the display's HSPI — but only because of the flag above. **FAT32
 only** — exFAT does not mount and the device silently falls back to flash. The card is mounted only
 while logging is enabled, and never probed periodically: `poll()` (every 2 s) only checks a card
 already in use via `totalBytes() == 0`, and `rescan()`/`eject()` are explicit user actions from the

@@ -56,7 +56,11 @@ From the board reference (<https://github.com/chacuavip10/CYD-3.5inch_ESP32-3248
 
 That is **VSPI**, while the display and the touch controller share **HSPI** (14/13/12, CS 15 and 33).
 So on the CYD as well the card does **not** contend with the display, and the "no periodic probing"
-caveat below turns out not to apply to either board. The two backends differ only in the driver
+caveat below turns out not to apply to either board.
+
+> **This paragraph was wrong in practice until v0.103** — see §12. The pins are right, the
+> conclusion was not: TFT_eSPI was building on VSPI, the card's peripheral, because
+> `-DUSE_HSPI_PORT` was never set. The separation the design leans on had to be *made* true. The two backends differ only in the driver
 (`SD_MMC` 1-bit on the Guition, `SD` over SPI on the CYD), which the `Backend` struct already
 absorbs — it holds an `fs::FS*` and does not care how the medium was mounted.
 
@@ -177,7 +181,43 @@ Details worth knowing that the plan did not anticipate:
 
 ### Still open
 
-1. **The CYD is untested.** The one real unknown is §9.1: `SPI.begin()` on VSPI (18/19/23/5)
-   alongside TFT_eSPI's HSPI instance. Code is in `mountSd()`, compiled, never run.
+1. ~~The CYD is untested~~ — **run on 31/08/2026, see §12.** It mounted, and it also uncovered the
+   bus assumption this note was built on.
 2. Whether the flash fallback's ~17 h is enough, or the buffer should grow so a pulled card costs
    fewer writes.
+
+---
+
+## 12. The CYD run — and the assumption it broke
+
+First execution on the CYD, 31/08/2026, firmware 0.102: the card mounted immediately
+(`[log] SD mounted (SPI) - 3769 MB`), created `/volthub/2026/08/volthub_20260831.csv`, and the
+display kept drawing. But the mount line came with an error:
+
+```
+[E][esp32-hal-cpu.c:110] addApbChangeCallback(): duplicate func=0x40104838 arg=0x3ffbddd0
+```
+
+`spiStartBus()` had been called twice for the same peripheral. §2 assumed the display sat on HSPI;
+it did not. `platformio.ini` never defined `-DUSE_HSPI_PORT`, and without it TFT_eSPI on ESP32
+defaults to **VSPI** — the bus this note assigned to the card. Two `SPIClass` objects, one
+peripheral, two pin sets.
+
+Why it looked fine anyway: the GPIO matrix routes one output signal to as many pins as you attach,
+so SCK drove 14 and 18, MOSI drove 13 and 23, and both the panel and the card were written
+correctly. An **input** has a single source, so `MISO` moved to the card's GPIO 19 — and the
+XPT2046 touch reads on GPIO 12 of the display bus. **The touch died the moment logging mounted the
+card**, and only then: with logging off, the CYD behaved normally. Verified by hand — touch dead
+with the card mounted on 0.102, alive again on 0.103.
+
+The fix is the flag. Pins 14/12/13 are HSPI's native ones, so nothing about the display wiring
+changes; the card keeps VSPI alone, which is what §2 claimed all along.
+
+Two lessons worth keeping:
+
+- **The Guition could never have caught this.** There the panel is QSPI and the card is SDMMC:
+  physically distinct controllers. The bug lived only on the board that had never been powered on,
+  which is the whole argument for testing both.
+- **"No bus contention" was a conclusion about pins, not about peripherals.** On the ESP32 the two
+  are decoupled by the GPIO matrix, so identical pin lists say nothing about which controller a
+  library picked. Check the library's default port, not the wiring diagram.
