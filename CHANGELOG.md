@@ -10,6 +10,17 @@ of the web dashboard.
 
 ---
 
+## 0.104 — battery offline while the IMU was unreachable: the two connects collided
+- Seen on the Guition: Solar and DC-DC fine, LiTime never coming up. The serial log showed
+  `[IMU] Connecting…` and `[BMS] Connecting…` interleaved, then both failing. NimBLE opens one
+  GATT connection at a time; BMS and IMU run in separate tasks with independent backoff timers, so
+  with the IMU switched off and retrying, their attempts overlapped, the second `connect()` failed
+  at once and each failure doubled both backoffs. Whenever the BMS got a turn alone it connected on
+  the first try (MTU 131, 105-byte frames every 2 s, parsed fine) — the battery side was never broken.
+- New `BleConnectGate` (`src/BleConnectGate.h`): whoever connects takes it for the whole
+  connect/discover/subscribe sequence; the other skips its turn and retries 100 ms later. A skipped
+  turn does not count as a failure, so it does not grow the backoff.
+
 ## 0.103 — CYD: the display was on VSPI, the same bus as the microSD, and the touch died
 - First run of the SD logger on the CYD printed `addApbChangeCallback(): duplicate` next to a
   successful mount. The cause: `platformio.ini` never defined `-DUSE_HSPI_PORT`, and TFT_eSPI on

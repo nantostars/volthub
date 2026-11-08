@@ -1,5 +1,6 @@
 #include "WitmotionIMU.h"
 #include "Config.h"
+#include "BleConnectGate.h"
 
 // WITMOTION uses base UUID 00805f9a34fb (non-standard, differs from BT SIG 9b).
 // The 9a variant must be listed first; 9b kept as fallback for other firmware.
@@ -54,6 +55,8 @@ void WitmotionIMU::update() {
     if (!_macOk) return;   // nothing to connect to: never disturb the BLE scan
     uint32_t now = millis();
     if (now - _lastAttempt < retryDelayMs()) return;
+    BleConnectGate gate;   // the BMS may be mid-connect: wait our turn (held until we return)
+    if (!gate) return;
     _lastAttempt = now;
     _connecting  = true;
     auto failedAttempt = [&]() { _connecting = false; if (_failCount < 8) _failCount++; };

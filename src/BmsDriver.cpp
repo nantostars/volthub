@@ -1,5 +1,6 @@
 #include "BmsDriver.h"
 #include "Config.h"
+#include "BleConnectGate.h"
 #include <string.h>
 
 BleBmsDriver* BleBmsDriver::_active = nullptr;
@@ -35,6 +36,8 @@ void BleBmsDriver::update() {
     if (!isConnected()) {
         uint32_t now = millis();
         if (!_connecting && (now - _lastConnectAttempt > retryDelayMs())) {
+            BleConnectGate gate;          // the IMU may be mid-connect: wait our turn
+            if (!gate) return;
             _lastConnectAttempt = now;
             connect();  // blocking — caller (bmsTask) runs this off the main loop
         }
